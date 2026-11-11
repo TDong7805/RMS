@@ -205,7 +205,7 @@ Có quản lý khác: người đó vào Tài khoản → Đặt lại mật kh�
 
 ## Chưa sẵn sàng cho chạy thật
 
-- Trang Bài viết, Thông báo, Dashboard và phần cấu hình / FAQ / lịch sử / thống kê của Chatbot AI vẫn dùng
+- Trang Thông báo, Dashboard và phần cấu hình / FAQ / lịch sử / thống kê của Chatbot AI vẫn dùng
   dữ liệu giả trong trình duyệt (mất khi tải lại trang). Sao lưu / phục hồi trong trang Cấu hình là giả lập.
 - Các phân hệ Thu ngân, Bếp, Kho, Khách hàng chưa xây dựng.
 - Chặn dò mật khẩu (sai 5 lần → chặn 5 phút) đếm trong bộ nhớ: đủ cho một máy chủ; chạy nhiều máy chủ thì mỗi máy đếm riêng.
