@@ -116,7 +116,7 @@ export const menuGroups: MenuGroup[] = [
       },
       {
         id: 'settings',
-        label: 'Setting',
+        label: 'Cấu hình hệ thống',
         icon: 'settings',
         path: '/cai-dat',
       },

@@ -1,3 +1,5 @@
+export * from './management';
+
 export type PeriodKey =
   | 'today'
   | 'yesterday'

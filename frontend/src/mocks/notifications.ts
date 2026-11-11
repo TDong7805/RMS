@@ -12,7 +12,7 @@ export const notificationSeed: AppNotification[] = [
     description: 'Chị Nguyễn Thu Hà đặt bàn 6 người lúc 19:30 hôm nay, khu vực sân vườn.',
     createdAt: minutesAgo(4),
     read: false,
-    href: '/dat-ban/lich-su',
+    href: '/dat-ban/lich-su?id=res-12',
   },
   {
     id: 'ntf-02',
@@ -30,7 +30,7 @@ export const notificationSeed: AppNotification[] = [
     description: 'Bàn VIP 02 – anh Trần Minh Quân, 4 khách, bắt đầu sau 30 phút.',
     createdAt: minutesAgo(52),
     read: false,
-    href: '/dat-ban/lich-su',
+    href: '/dat-ban/lich-su?id=res-15',
   },
   {
     id: 'ntf-04',
@@ -48,7 +48,7 @@ export const notificationSeed: AppNotification[] = [
     description: 'Anh Lê Hoàng Nam đặt bàn 2 người lúc 20:00, khu vực tầng 2.',
     createdAt: minutesAgo(180),
     read: false,
-    href: '/dat-ban/lich-su',
+    href: '/dat-ban/lich-su?id=res-14',
   },
   {
     id: 'ntf-06',
@@ -66,7 +66,7 @@ export const notificationSeed: AppNotification[] = [
     description: 'Bàn 08 – 4 khách lúc 18:15 đã xác nhận với khách qua điện thoại.',
     createdAt: minutesAgo(520),
     read: true,
-    href: '/dat-ban/lich-su',
+    href: '/dat-ban/lich-su?id=res-11',
   },
   {
     id: 'ntf-08',
@@ -93,7 +93,7 @@ export const notificationSeed: AppNotification[] = [
     description: 'Chị Phạm Diễm My đã huỷ bàn 12 (8 khách) dự kiến 19:00 tối nay.',
     createdAt: minutesAgo(1600),
     read: true,
-    href: '/dat-ban/lich-su',
+    href: '/dat-ban/lich-su?id=res-999',
   },
   {
     id: 'ntf-11',
@@ -111,7 +111,7 @@ export const notificationSeed: AppNotification[] = [
     description: 'Anh Võ Thành Công đặt tiệc sinh nhật 12 người lúc 18:30 Chủ nhật.',
     createdAt: minutesAgo(2900),
     read: true,
-    href: '/dat-ban/lich-su',
+    href: '/dat-ban/lich-su?id=res-19',
   },
 ];
 
@@ -156,7 +156,7 @@ export const pageSuggestions: PageSuggestion[] = [
   { id: 'chatbot', label: 'Quản lý Chatbot AI', context: 'Hệ thống', path: '/chatbot' },
   { id: 'notifications', label: 'Thông báo', context: 'Hệ thống', path: '/thong-bao' },
   { id: 'audit-log', label: 'Nhật ký', context: 'Hệ thống', path: '/nhat-ky' },
-  { id: 'settings', label: 'Setting', context: 'Hệ thống', path: '/cai-dat' },
+  { id: 'settings', label: 'Cấu hình hệ thống', context: 'Hệ thống', path: '/cai-dat' },
 ];
 
 /** [FAKE-DATA] Đường dẫn đã truy cập gần đây (mới nhất trước). */
