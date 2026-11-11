@@ -1,0 +1,133 @@
+:root {
+  /* ---------- Surfaces ---------- */
+  --bg-page: #f6f8f7;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f1f5f3;
+  --bg-hover: #eef4f1;
+
+  /* ---------- Text ---------- */
+  --text-primary: #0f1a14;
+  --text-secondary: #4b5a52;
+  --text-muted: #8a978f;
+
+  /* ---------- Lines ---------- */
+  --border: #e4ebe7;
+  --border-strong: #d3ded8;
+
+  /* ---------- Accent ---------- */
+  --accent: #0f7b5a;
+  --accent-hover: #0b6249;
+  --accent-soft: #e4f3ec;
+  --accent-contrast: #ffffff;
+
+  /* ---------- Status ---------- */
+  --warning: #d97706;
+  --warning-soft: #fef3e2;
+  --danger: #dc2626;
+  --danger-soft: #fde8e8;
+  --info: #2563eb;
+  --info-soft: #e6eefc;
+  --success: #0f7b5a;
+  --success-soft: #e4f3ec;
+
+  /* ---------- Chart ---------- */
+  --chart-line: #0f7b5a;
+  --chart-line-previous: #b3c0b9;
+  --chart-grid: #e9efeb;
+  --chart-bar: #cfe6dc;
+
+  /* ---------- Geometry ---------- */
+  --sidebar-w: 280px;
+  --sidebar-w-collapsed: 80px;
+  --topbar-h: 68px;
+  --radius-card: 24px;
+  --radius-item: 16px;
+  --radius-control: 12px;
+  --radius-pill: 999px;
+
+  /* ---------- Elevation ---------- */
+  --shadow-overlay: 0 12px 32px rgba(15, 26, 20, 0.12);
+  --shadow-soft: 0 1px 2px rgba(15, 26, 20, 0.04);
+
+  /* ---------- Fonts ---------- */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo,
+    monospace;
+
+  /* ---------- Radix / shadcn bridge (HSL triples) ---------- */
+  --background: 150 14% 97%;
+  --foreground: 150 30% 8%;
+  --card: 0 0% 100%;
+  --card-foreground: 150 30% 8%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 150 30% 8%;
+  --primary: 163 79% 27%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 150 18% 95%;
+  --secondary-foreground: 150 30% 12%;
+  --muted: 150 18% 95%;
+  --muted-foreground: 150 8% 44%;
+  --accent: 152 38% 92%;
+  --accent-foreground: 163 79% 20%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 150 14% 91%;
+  --ring: 163 79% 27%;
+  --radius: 12px;
+}
+
+[data-theme='dark'] {
+  --bg-page: #0c1411;
+  --bg-surface: #121c18;
+  --bg-subtle: #16211c;
+  --bg-hover: #1a2621;
+
+  --text-primary: #e8f0ec;
+  --text-secondary: #a7b8b0;
+  --text-muted: #74857d;
+
+  --border: #1f2d27;
+  --border-strong: #2b3d35;
+
+  --accent: #34d399;
+  --accent-hover: #4ade80;
+  --accent-soft: #12352a;
+  --accent-contrast: #06231a;
+
+  --warning: #fbbf24;
+  --warning-soft: #33260f;
+  --danger: #f87171;
+  --danger-soft: #3a1a1a;
+  --info: #60a5fa;
+  --info-soft: #132742;
+  --success: #34d399;
+  --success-soft: #12352a;
+
+  --chart-line: #34d399;
+  --chart-line-previous: #55705f;
+  --chart-grid: #1f2d27;
+  --chart-bar: #1d4034;
+
+  --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  --background: 156 24% 6%;
+  --foreground: 150 20% 93%;
+  --card: 156 21% 9%;
+  --card-foreground: 150 20% 93%;
+  --popover: 156 21% 9%;
+  --popover-foreground: 150 20% 93%;
+  --primary: 158 64% 52%;
+  --primary-foreground: 158 60% 8%;
+  --secondary: 156 16% 13%;
+  --secondary-foreground: 150 20% 93%;
+  --muted: 156 16% 13%;
+  --muted-foreground: 150 9% 63%;
+  --accent: 156 20% 15%;
+  --accent-foreground: 158 64% 65%;
+  --destructive: 0 72% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 156 16% 16%;
+  --ring: 158 64% 52%;
+}
