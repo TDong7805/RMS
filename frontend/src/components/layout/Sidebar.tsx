@@ -40,16 +40,6 @@ function Highlight({ text, keyword }: { text: string; keyword: string }): ReactN
   );
 }
 
-function collectExpanded(groups: MenuGroup[]): Record<string, boolean> {
-  const state: Record<string, boolean> = {};
-  groups.forEach((group) =>
-    group.items.forEach((item) => {
-      if (item.children?.length) state[item.id] = false;
-    }),
-  );
-  return state;
-}
-
 export function Sidebar({
   groups,
   unreadCount,
@@ -60,7 +50,7 @@ export function Sidebar({
 }: SidebarProps) {
   const location = useLocation();
   const [query, setQuery] = useState('');
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => collectExpanded(groups));
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const navRef = useRef<HTMLElement>(null);
 
   const activeParentId = useMemo(() => {
@@ -118,15 +108,12 @@ export function Sidebar({
   const isOpen = (itemId: string): boolean =>
     isFiltering ? matchingParents.has(itemId) : Boolean(expanded[itemId]);
 
+  // Không dựa vào danh sách khóa có sẵn trong state: lần đầu vào trang, menu còn đang tải
+  // (groups rỗng) nên state khởi tạo là {} — trước đây toggle duyệt khóa của {} và không mở được gì.
   const toggle = (itemId: string): void => {
-    setExpanded((prev) => {
-      if (allowMultiple) return { ...prev, [itemId]: !prev[itemId] };
-      const next: Record<string, boolean> = {};
-      Object.keys(prev).forEach((key) => {
-        next[key] = key === itemId ? !prev[itemId] : false;
-      });
-      return next;
-    });
+    setExpanded((prev) =>
+      allowMultiple ? { ...prev, [itemId]: !prev[itemId] } : { [itemId]: !prev[itemId] },
+    );
   };
 
   const badgeFor = (item: MenuItem): { count: number; variant: 'accent' | 'danger' } | null => {

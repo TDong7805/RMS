@@ -1,0 +1,6 @@
+target/
+.env.properties
+*.log
+.idea/
+*.iml
+!.env.properties.example

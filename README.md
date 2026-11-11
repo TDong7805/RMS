@@ -7,27 +7,26 @@
 ```
 RMS-main/
 ├── frontend/          Giao diện React + Vite + TypeScript (trang Quản lý nhà hàng)
-├── database/          CSDL MySQL 8.0 dùng chung cho mọi actor (xem database/README.md)
+├── backend/           Spring Boot API + backend/database (CSDL MySQL 8.0 dùng chung cho mọi actor)
 └── CodeUC_QLNH.docx   Đặc tả Use Case
 ```
 
-## Chạy frontend
+## Chạy dự án
 
-Yêu cầu Node.js 18+.
+Yêu cầu: Node.js 18+, JDK 17+, Maven 3.9+, MySQL 8.0.16+.
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+1. **CSDL + backend:** làm theo [backend/README.md](backend/README.md) (tạo `rms_db`, khai báo mật khẩu trong `backend/.env.properties`, chạy `mvn spring-boot:run` → cổng 8080).
+2. **Frontend:**
 
-Frontend hiện dùng dữ liệu mẫu trong bộ nhớ (`frontend/src/mocks`, `frontend/src/api`). Mỗi hàm API có ghi chú `[BACKEND-TODO]` chỉ rõ endpoint cần thay khi có backend.
+   ```bash
+   cd frontend
+   npm install
+   npm run dev      # http://localhost:3000 — request /api được chuyển sang backend
+   ```
 
-## Tạo cơ sở dữ liệu
-
-```powershell
-& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p --default-character-set=utf8mb4 -e "source database/rms_schema.sql"
-```
+Các trang Đặt bàn, Khu vực bàn, Nhật ký, Cấu hình hệ thống đã dùng dữ liệu thật từ MySQL.
+Các trang còn lại vẫn dùng dữ liệu mẫu trong bộ nhớ (`frontend/src/mocks`, `frontend/src/api` — hàm nào còn giả có ghi chú `[BACKEND-TODO]`).
+Tiến độ chi tiết: xem bảng trong [backend/README.md](backend/README.md).
 
 ## Chức năng Quản lý nhà hàng đã có giao diện
 

@@ -21,7 +21,7 @@
      - Bảng cấu hình một dòng (id = 1) cho thông tin nhà hàng, form đặt bàn,
        chatbot, cấu hình AI, lịch sao lưu.
 
-   Cách chạy:   mysql -u root -p < database/rms_schema.sql
+   Cách chạy:   mysql -u root -p < backend/database/rms_schema.sql
    CẢNH BÁO:    Script XÓA và tạo lại database `rms_db`. Đổi tên ở 3 dòng
                 dưới nếu máy bạn đã có database trùng tên.
    ===================================================================== */

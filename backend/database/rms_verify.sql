@@ -1,6 +1,6 @@
 /* =====================================================================
    KIỂM TRA NHANH SAU KHI CHẠY rms_schema.sql
-   Chạy:  mysql -u root -p --default-character-set=utf8mb4 < database/rms_verify.sql
+   Chạy:  mysql -u root -p --default-character-set=utf8mb4 < backend/database/rms_verify.sql
    Mọi thay đổi chạy trong procedure và được ROLLBACK → dữ liệu khởi tạo giữ nguyên.
    ===================================================================== */
 USE rms_db;

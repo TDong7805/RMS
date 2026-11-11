@@ -4,6 +4,7 @@
 |---|---|
 | `rms_schema.sql` | Toàn bộ CSDL chung cho 6 actor: 54 bảng, 5 trigger, 7 view và dữ liệu khởi tạo |
 | `rms_verify.sql` | 11 phép kiểm tra ràng buộc (tự ROLLBACK, không làm thay đổi dữ liệu) |
+| `rms_dev_seed.sql` | Dữ liệu mẫu để phát triển/demo: lịch đặt bàn (mô phỏng dữ liệu Khách hàng sẽ tạo). Chạy sau schema |
 
 ## Cách chạy
 
@@ -11,8 +12,9 @@ Yêu cầu MySQL **8.0.16 trở lên** (cần CHECK constraint). Mở PowerShell
 
 ```powershell
 $mysql = "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
-& $mysql -u root -p --default-character-set=utf8mb4 -e "source database/rms_schema.sql"
-& $mysql -u root -p --default-character-set=utf8mb4 -e "source database/rms_verify.sql"
+& $mysql -u root -p --default-character-set=utf8mb4 -e "source backend/database/rms_schema.sql"
+& $mysql -u root -p --default-character-set=utf8mb4 -e "source backend/database/rms_verify.sql"
+& $mysql -u root -p --default-character-set=utf8mb4 -e "source backend/database/rms_dev_seed.sql"
 ```
 
 > ⚠️ `rms_schema.sql` **xóa và tạo lại** database `rms_db`. Đổi tên ở đầu file nếu máy đã có database trùng tên.
