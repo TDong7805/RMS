@@ -168,7 +168,8 @@ export interface DishInput {
 
 /* ============================== Tài khoản ============================== */
 
-export type RoleKey = 'admin' | 'manager' | 'cashier' | 'kitchen' | 'warehouse' | 'waiter';
+/** Vai trò trong bảng roles. Quản trị viên đã gộp vào manager; waiter không đăng nhập (chỉ để xếp ca, tính lương). */
+export type RoleKey = 'manager' | 'cashier' | 'kitchen' | 'warehouse' | 'waiter';
 export type AccountStatus = 'active' | 'locked';
 
 export interface Account {
@@ -179,6 +180,8 @@ export interface Account {
   phone: string;
   role: RoleKey;
   status: AccountStatus;
+  /** true: chưa đổi mật khẩu do quản lý cấp (tài khoản mới hoặc vừa đặt lại mật khẩu). */
+  mustChangePassword: boolean;
   createdAt: string;
   lastLoginAt: string | null;
 }
@@ -195,8 +198,9 @@ export interface AccountInput {
   fullName: string;
   email: string;
   phone: string;
-  role: RoleKey;
-  /** Chỉ dùng khi tạo mới. */
+  /** '' = chưa chọn (form bắt buộc chọn). */
+  role: RoleKey | '';
+  /** Chỉ dùng khi tạo mới; bỏ trống với nhân viên phục vụ (không đăng nhập). */
   password?: string;
 }
 

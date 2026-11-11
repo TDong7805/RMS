@@ -1,4 +1,4 @@
-import type { Account, AuditLog, AuditModule, RoleKey } from '@/types';
+import type { Account, RoleKey } from '@/types';
 
 const now = Date.now();
 const daysAgo = (d: number, h = 9) => {
@@ -9,10 +9,12 @@ const daysAgo = (d: number, h = 9) => {
 
 type Row = [string, string, string, RoleKey, 'active' | 'locked', number, number | null];
 
-/** [FAKE-DATA] Tài khoản nhân sự của nhà hàng mẫu. usr-01 là quản lý đang đăng nhập. */
+/**
+ * [FAKE-DATA] Nhân viên giả — CHỈ còn dùng cho trang Ca làm việc (api/shifts.ts) cho tới khi Ca làm có backend.
+ * Trang Tài khoản đã dùng dữ liệu thật (GET /api/accounts).
+ */
 const rows: Row[] = [
   ['usr-01', 'tuan.nguyen', 'Nguyễn Anh Tuấn', 'manager', 'active', 420, 0],
-  ['usr-02', 'admin', 'Quản trị hệ thống', 'admin', 'active', 500, 1],
   ['usr-03', 'linh.tran', 'Trần Thùy Linh', 'cashier', 'active', 300, 0],
   ['usr-04', 'khoa.le', 'Lê Đăng Khoa', 'cashier', 'active', 210, 1],
   ['usr-05', 'hung.pham', 'Phạm Quốc Hùng', 'kitchen', 'active', 390, 0],
@@ -39,44 +41,5 @@ export const accountSeed: Account[] = rows.map(([id, username, fullName, role, s
   status,
   createdAt: daysAgo(created),
   lastLoginAt: login === null ? null : daysAgo(login, 8 + (Number(id.slice(4)) % 10)),
+  mustChangePassword: false,
 }));
-
-const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
-
-type LogRow = [number, string, AuditModule, string, string];
-
-/** [FAKE-DATA] Nhật ký hoạt động mẫu (mới nhất trước). */
-const logRows: LogRow[] = [
-  [3, 'usr-01', 'auth', 'Đăng nhập', 'Đăng nhập thành công từ trình duyệt Chrome'],
-  [35, 'usr-03', 'auth', 'Đăng nhập', 'Đăng nhập ca sáng tại quầy thu ngân'],
-  [70, 'usr-01', 'reservation', 'Cập nhật đặt bàn', 'DB-1108: đổi số khách từ 4 thành 6'],
-  [140, 'usr-01', 'dish', 'Đổi trạng thái món', 'Bò lúc lắc khoai tây: Đang bán → Ngừng bán'],
-  [190, 'usr-08', 'auth', 'Đăng nhập', 'Đăng nhập trang quản lý kho'],
-  [260, 'usr-01', 'shift', 'Phân công ca', 'Phân công Hoàng Gia Nam vào Ca tối ngày hôm nay'],
-  [420, 'usr-02', 'chatbot', 'Cập nhật cấu hình', 'Đổi câu chào mừng của trợ lý ảo'],
-  [600, 'usr-01', 'post', 'Xuất bản bài viết', 'Ưu đãi cuối tuần – giảm 15% set lẩu'],
-  [900, 'usr-01', 'account', 'Khóa tài khoản', 'Khóa tài khoản an.truong (nghỉ việc)'],
-  [1300, 'usr-01', 'table', 'Cập nhật sơ đồ bàn', 'Di chuyển bàn T05 trong khu Tầng 1'],
-  [1700, 'usr-01', 'settings', 'Sao lưu dữ liệu', 'Tạo bản sao lưu thủ công'],
-  [2300, 'usr-01', 'dish', 'Thêm món ăn', 'Thêm món Gỏi cuốn tôm thịt (35.000 ₫)'],
-  [3100, 'usr-02', 'account', 'Tạo tài khoản', 'Tạo tài khoản binh.vu – Nhân viên phục vụ'],
-  [4200, 'usr-01', 'reservation', 'Cập nhật đặt bàn', 'DB-1097: chuyển sang bàn VIP 02'],
-  [5200, 'usr-01', 'settings', 'Cập nhật giờ hoạt động', 'Chủ nhật mở cửa từ 09:00 đến 22:30'],
-  [6800, 'usr-01', 'chatbot', 'Thêm FAQ', 'Nhà hàng có chỗ đậu xe ô tô không?'],
-  [8000, 'usr-01', 'shift', 'Thêm ca làm việc', 'Thêm Ca gãy (10:00 – 14:00)'],
-  [9100, 'usr-15', 'auth', 'Đăng nhập thất bại', 'Sai mật khẩu 5 lần liên tiếp'],
-];
-
-export const auditSeed: AuditLog[] = logRows.map(([m, userId, module, action, detail], i) => {
-  const user = accountSeed.find((a) => a.id === userId)!;
-  return {
-    id: `log-${i + 1}`,
-    at: minutesAgo(m),
-    actor: user.fullName,
-    actorUsername: user.username,
-    module,
-    action,
-    detail,
-    ip: `192.168.1.${20 + (i % 30)}`,
-  };
-});

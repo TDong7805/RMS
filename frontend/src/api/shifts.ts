@@ -1,8 +1,21 @@
 import { BusinessError, TIME_RE, ValidationError, collapseSpaces, delay, fromDateKey, timeToMinutes, toDateKey, uid } from '@/lib/mock';
 import { formatDate } from '@/lib/format';
 import { logActivity } from './audit';
-import { getEmployees } from './accounts';
-import type { Shift, ShiftAssignment, ShiftInput } from '@/types';
+import { accountSeed } from '@/mocks/accounts';
+import type { Employee, Shift, ShiftAssignment, ShiftInput } from '@/types';
+
+/**
+ * Nhân viên có thể được phân ca (đang hoạt động).
+ * [BACKEND-TODO] Khi làm backend Ca làm: GET /api/employees lấy từ bảng users (cùng nguồn với trang Tài khoản).
+ * Tạm thời dùng nhân viên giả để khớp với lịch phân ca giả bên dưới (mã usr-xx).
+ */
+export async function getEmployees(): Promise<Employee[]> {
+  await delay(180);
+  return accountSeed
+    .filter((a) => a.status === 'active')
+    .map((a) => ({ id: a.id, fullName: a.fullName, role: a.role }))
+    .sort((a, b) => a.role.localeCompare(b.role) || a.fullName.localeCompare(b.fullName, 'vi'));
+}
 
 /** [FAKE-DATA] Ca làm việc mẫu. */
 let shifts: Shift[] = [

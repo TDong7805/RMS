@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { getAccounts, getEmployees } from '@/api/accounts';
+import { getAccounts } from '@/api/accounts';
 import { getAuditActors, getAuditLogs } from '@/api/audit';
 import {
   getChatbotConfig,
@@ -19,7 +19,7 @@ import {
   getReservations,
 } from '@/api/reservations';
 import { getBackups, getOpeningHours, getRestaurantInfo } from '@/api/settings';
-import { getAssignments, getShifts } from '@/api/shifts';
+import { getAssignments, getEmployees, getShifts } from '@/api/shifts';
 import { getAreas, getTables } from '@/api/tables';
 import type {
   AccountFilter,

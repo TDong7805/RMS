@@ -9,26 +9,35 @@ import { BlockError } from '@/components/common/EmptyState';
 import { Field, TextInput } from '@/components/common/Form';
 import { PageHeader } from '@/components/common/PageParts';
 import { Skeleton } from '@/components/common/Skeleton';
-import { CURRENT_USER_ID, createAccount, getAccount, updateAccount } from '@/api/accounts';
+import { canLogin, createAccount, getAccount, updateAccount } from '@/api/accounts';
 import { qk } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
+import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/cn';
 import { ROLES, ROLE_KEYS } from '@/lib/labels';
 import type { AccountInput, RoleKey } from '@/types';
 
-const EMPTY: AccountInput = { username: '', fullName: '', email: '', phone: '', role: 'waiter', password: '' };
+// Vai trò để trống: bắt quản lý chọn rõ ràng (UC "Phân vai trò" là bắt buộc).
+const EMPTY: AccountInput = { username: '', fullName: '', email: '', phone: '', role: '', password: '' };
 
+/** 8 chữ + 2 số, bỏ ký tự dễ nhầm (0/O, 1/l/I); dùng crypto thay Math.random để khó đoán. */
 function randomPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
-  let s = '';
-  for (let i = 0; i < 6; i += 1) s += chars[Math.floor(Math.random() * chars.length)];
-  return `${s}${Math.floor(Math.random() * 900 + 100)}`;
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const pick = (set: string) => set[crypto.getRandomValues(new Uint32Array(1))[0] % set.length];
+  const chars = [...Array.from({ length: 8 }, () => pick(letters)), pick(digits), pick(digits)];
+  for (let i = chars.length - 1; i > 0; i -= 1) {
+    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
 }
 
 export function AccountFormPage() {
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { data: me } = useAuth();
   const [form, setForm] = useState<AccountInput>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPw, setShowPw] = useState(false);
@@ -47,7 +56,12 @@ export function AccountFormPage() {
 
   const mutation = useApiMutation((input: AccountInput) => (id ? updateAccount(id, input) : createAccount(input)), {
     invalidate: [qk.accounts, qk.employees],
-    success: (a) => (isEdit ? `Đã cập nhật tài khoản ${a.username}` : `Đã tạo tài khoản ${a.username} – ${ROLES[a.role].label}`),
+    success: (a) =>
+      isEdit
+        ? `Đã cập nhật tài khoản ${a.username}`
+        : canLogin(a.role)
+          ? `Đã tạo tài khoản ${a.username} – ${ROLES[a.role].label}. Gửi tên đăng nhập và mật khẩu khởi tạo cho nhân viên.`
+          : `Đã thêm nhân viên phục vụ ${a.fullName}`,
     onFieldErrors: setErrors,
     onSuccess: () => navigate('/tai-khoan'),
   });
@@ -63,13 +77,18 @@ export function AccountFormPage() {
     if (!form.username.trim()) local.username = 'Vui lòng nhập tên đăng nhập';
     if (!form.fullName.trim()) local.fullName = 'Vui lòng nhập họ tên';
     if (!form.email.trim()) local.email = 'Vui lòng nhập email';
+    if (!form.role) local.role = 'Vui lòng phân vai trò cho tài khoản';
     if (Object.keys(local).length) return setErrors(local);
-    mutation.mutate(form);
+    // Phục vụ không đăng nhập: không gửi mật khẩu.
+    mutation.mutate(needsPassword ? form : { ...form, password: '' });
   };
 
   const title = isEdit ? 'Cập nhật tài khoản' : 'Tạo tài khoản';
-  const isSelf = id === CURRENT_USER_ID;
-  const isAdminAccount = accountQuery.data?.role === 'admin';
+  const isSelf = Boolean(id) && id === me?.id;
+  const needsPassword = !isEdit && (form.role === '' || canLogin(form.role));
+  const originalRole = accountQuery.data?.role;
+  // Phục vụ → vai trò đăng nhập được: tài khoản chưa có mật khẩu dùng được, cần "Đặt lại mật khẩu" sau khi lưu.
+  const becomesLoginRole = isEdit && originalRole === 'waiter' && form.role !== '' && canLogin(form.role);
 
   return (
     <AppShell meta={{ label: isEdit ? 'Cập nhật tài khoản' : 'Thêm tài khoản', parent: 'Quản lý tài khoản' }}>
@@ -84,15 +103,19 @@ export function AccountFormPage() {
           <BlockError message="Tài khoản không tồn tại hoặc đã bị xóa" onRetry={() => void accountQuery.refetch()} />
         ) : isEdit && accountQuery.isLoading ? (
           <Card padded><div className="grid gap-4 sm:grid-cols-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div></Card>
-        ) : isAdminAccount ? (
-          <BlockError message="Không có quyền sửa tài khoản Quản trị viên" onRetry={() => navigate('/tai-khoan')} />
         ) : (
           <form onSubmit={submit} noValidate className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <Card padded>
               <CardHeader title="Thông tin tài khoản" />
               <div className="mt-4 grid gap-4">
-                <Field label="Tên đăng nhập" htmlFor="u-username" required error={errors.username} hint="4–30 ký tự: chữ thường không dấu, số, dấu chấm, gạch dưới">
-                  <TextInput id="u-username" value={form.username} autoComplete="off" invalid={Boolean(errors.username)} onChange={(e) => set('username', e.target.value.toLowerCase())} placeholder="vd: lan.nguyen" />
+                <Field
+                  label="Tên đăng nhập"
+                  htmlFor="u-username"
+                  required
+                  error={errors.username}
+                  hint={isSelf ? 'Không thể tự đổi tên đăng nhập của chính mình' : '4–30 ký tự: chữ thường không dấu, số, dấu chấm, gạch dưới'}
+                >
+                  <TextInput id="u-username" value={form.username} autoComplete="off" disabled={isSelf} invalid={Boolean(errors.username)} onChange={(e) => set('username', e.target.value.toLowerCase())} placeholder="vd: lan.nguyen" />
                 </Field>
                 <Field label="Họ tên" htmlFor="u-name" required error={errors.fullName}>
                   <TextInput id="u-name" value={form.fullName} invalid={Boolean(errors.fullName)} onChange={(e) => set('fullName', e.target.value)} />
@@ -105,7 +128,7 @@ export function AccountFormPage() {
                     <TextInput id="u-phone" inputMode="tel" value={form.phone} invalid={Boolean(errors.phone)} onChange={(e) => set('phone', e.target.value)} />
                   </Field>
                 </div>
-                {!isEdit ? (
+                {needsPassword ? (
                   <Field label="Mật khẩu khởi tạo" htmlFor="u-pw" required error={errors.password} hint="Người dùng sẽ được yêu cầu đổi mật khẩu khi đăng nhập lần đầu">
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -119,6 +142,10 @@ export function AccountFormPage() {
                       </Button>
                     </div>
                   </Field>
+                ) : !isEdit ? (
+                  <p className="rounded-item bg-[var(--bg-subtle)] px-3.5 py-2.5 text-[13px] text-[var(--text-secondary)]">
+                    Nhân viên phục vụ không đăng nhập hệ thống nên không cần mật khẩu. Tài khoản này dùng để xếp ca và tính lương.
+                  </p>
                 ) : null}
               </div>
             </Card>
@@ -127,7 +154,7 @@ export function AccountFormPage() {
               <CardHeader title="Phân vai trò" icon={<ShieldCheck size={17} />} description="Mỗi vai trò chỉ được truy cập chức năng phù hợp nhiệm vụ." />
               {errors.role ? <p className="mt-2 text-[12px] font-medium text-[var(--danger)]">{errors.role}</p> : null}
               <div role="radiogroup" aria-label="Vai trò" className="mt-4 grid gap-2">
-                {ROLE_KEYS.filter((r) => r !== 'admin').map((r: RoleKey) => {
+                {ROLE_KEYS.map((r: RoleKey) => {
                   const selected = form.role === r;
                   return (
                     <button
@@ -154,6 +181,11 @@ export function AccountFormPage() {
                 })}
               </div>
               {isSelf ? <p className="mt-2 text-[12px] text-[var(--text-muted)]">Bạn không thể tự thay đổi vai trò của chính mình.</p> : null}
+              {becomesLoginRole ? (
+                <p className="mt-2 rounded-item bg-[var(--warning-soft)] px-3 py-2 text-[12.5px] text-[var(--text-primary)]">
+                  Nhân viên phục vụ chưa có mật khẩu đăng nhập. Sau khi lưu, chọn <b>Đặt lại mật khẩu</b> ở danh sách để cấp mật khẩu.
+                </p>
+              ) : null}
               <div className="mt-5 flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => navigate('/tai-khoan')} disabled={mutation.isPending}>Hủy</Button>
                 <Button type="submit" loading={mutation.isPending} leadingIcon={<Save size={15} />}>{isEdit ? 'Lưu thay đổi' : 'Tạo tài khoản'}</Button>

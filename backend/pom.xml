@@ -35,6 +35,25 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
+    <!-- Phiên đăng nhập lưu trong MySQL: khởi động lại / chạy nhiều máy chủ không làm mất phiên. -->
+    <dependency>
+      <groupId>org.springframework.session</groupId>
+      <artifactId>spring-session-jdbc</artifactId>
+    </dependency>
+    <!-- Flyway: tự tạo / nâng cấp CSDL từ các file src/main/resources/db/migration/V*.sql khi khởi động. -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-mysql</artifactId>
+    </dependency>
+    <!-- Chỉ mở /actuator/health (máy chủ / Docker dùng để kiểm tra ứng dụng còn sống, kết nối CSDL ổn). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
     <dependency>
       <groupId>com.mysql</groupId>
       <artifactId>mysql-connector-j</artifactId>
@@ -48,6 +67,8 @@
   </dependencies>
 
   <build>
+    <!-- Tên cố định để lệnh chạy không đổi theo phiên bản: java -jar target/rms.jar -->
+    <finalName>rms</finalName>
     <plugins>
       <plugin>
         <groupId>org.springframework.boot</groupId>
@@ -55,4 +76,63 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!--
+      Đóng gói frontend vào cùng file jar để triển khai chỉ cần một file (xem TRIEN_KHAI.md):
+        cd frontend && npm ci && npm run build
+        cd ../backend && mvn -Pbundle package
+      Profile này chép frontend/dist vào classpath:/static (com.rms.common.FrontendConfig phục vụ).
+      Khi phát triển không dùng profile này: frontend chạy riêng bằng npm run dev.
+    -->
+    <profile>
+      <id>bundle</id>
+      <build>
+        <plugins>
+          <!-- Dừng build nếu chưa build frontend (tránh ra file jar không có giao diện). Thông báo không dấu
+               vì console Windows của Maven hiển thị sai tiếng Việt. -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>kiem-tra-frontend</id>
+                <phase>validate</phase>
+                <goals><goal>run</goal></goals>
+                <configuration>
+                  <target>
+                    <fail message="Chua co frontend/dist/index.html. Chay truoc: cd frontend ; npm ci ; npm run build">
+                      <condition>
+                        <not><available file="${project.basedir}/../frontend/dist/index.html"/></not>
+                      </condition>
+                    </fail>
+                  </target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-resources-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>chep-frontend</id>
+                <phase>process-resources</phase>
+                <goals><goal>copy-resources</goal></goals>
+                <configuration>
+                  <outputDirectory>${project.build.outputDirectory}/static</outputDirectory>
+                  <resources>
+                    <resource>
+                      <directory>${project.basedir}/../frontend/dist</directory>
+                      <filtering>false</filtering>
+                    </resource>
+                  </resources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

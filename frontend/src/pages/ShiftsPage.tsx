@@ -246,7 +246,7 @@ function ScheduleBoard() {
           <span className="ml-2 font-mono text-[13px] font-semibold">{formatDayMonth(days[0])} – {formatDayMonth(days[6])}/{days[6].getFullYear()}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <SelectInput aria-label="Lọc theo vai trò" value={role} onChange={(e) => setRole(e.target.value as RoleKey | '')} placeholder="Tất cả bộ phận" options={ROLE_KEYS.filter((r) => r !== 'admin').map((r) => ({ value: r, label: ROLES[r].label }))} className="w-[190px]" />
+          <SelectInput aria-label="Lọc theo vai trò" value={role} onChange={(e) => setRole(e.target.value as RoleKey | '')} placeholder="Tất cả bộ phận" options={ROLE_KEYS.map((r) => ({ value: r, label: ROLES[r].label }))} className="w-[190px]" />
           <Button size="sm" leadingIcon={<UserPlus size={15} />} onClick={() => setAssign({ employeeId: '', date: from < todayKey ? todayKey : from })}>
             Phân công
           </Button>

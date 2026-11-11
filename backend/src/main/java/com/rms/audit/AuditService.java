@@ -41,12 +41,15 @@ public class AuditService {
         return s.length() <= max ? s : s.substring(0, max - 1) + "…";
     }
 
+    /**
+     * IP người thao tác. Không tự đọc header X-Forwarded-For (ai cũng giả được): khi chạy sau reverse proxy,
+     * Tomcat đã thay getRemoteAddr() bằng IP thật do proxy tin cậy gửi (server.forward-headers-strategy=native).
+     */
     private static String clientIp() {
         RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
         if (attrs instanceof ServletRequestAttributes sra) {
             HttpServletRequest req = sra.getRequest();
-            String forwarded = req.getHeader("X-Forwarded-For");
-            String ip = forwarded != null && !forwarded.isBlank() ? forwarded.split(",")[0].trim() : req.getRemoteAddr();
+            String ip = req.getRemoteAddr();
             return ip != null && ip.length() > 45 ? ip.substring(0, 45) : ip;
         }
         return null;

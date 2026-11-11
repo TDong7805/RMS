@@ -68,12 +68,11 @@ export const ALLERGENS = [
 ];
 
 export const ROLES: Record<RoleKey, { label: string; description: string }> = {
-  admin: { label: 'Quản trị viên', description: 'Tài khoản chung, cấu hình AI, cập nhật hệ thống' },
-  manager: { label: 'Quản lý nhà hàng', description: 'Toàn bộ nghiệp vụ quản lý vận hành' },
+  manager: { label: 'Quản lý nhà hàng', description: 'Toàn bộ nghiệp vụ quản lý, gồm tài khoản, cấu hình AI và hệ thống' },
   cashier: { label: 'Thu ngân', description: 'Tra cứu đơn, lập hóa đơn, nhận yêu cầu khách' },
   kitchen: { label: 'Nhân viên bếp', description: 'Xem đơn, kiểm tra nguyên liệu, xác nhận món' },
   warehouse: { label: 'Quản lý kho', description: 'Nhập kho, xuất kho, kiểm tra tồn kho' },
-  waiter: { label: 'Nhân viên phục vụ', description: 'Hỗ trợ khách tại bàn theo yêu cầu được chuyển' },
+  waiter: { label: 'Nhân viên phục vụ', description: 'Chỉ để xếp ca và tính lương — không đăng nhập hệ thống' },
 };
 
 export const ROLE_KEYS = Object.keys(ROLES) as RoleKey[];
