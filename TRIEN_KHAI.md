@@ -66,6 +66,7 @@ RMS_BOOTSTRAP_EMAIL=quanly@ten-nha-hang.vn
 | `PORT` | không (mặc định `8080`) | Cổng của `rms.jar` |
 | `COOKIE_SECURE` | không (mặc định `true`) | Chỉ đặt `false` khi chạy thử trong mạng nội bộ không có HTTPS |
 | `RMS_UPLOAD_DIR` | nên đặt (mặc định thư mục `uploads` nơi chạy jar) | Thư mục lưu ảnh món ăn... Đặt đường dẫn cố định, ví dụ `/var/lib/rms/uploads`, và sao lưu cùng CSDL |
+| `RMS_BACKUP_DIR` | nên đặt (mặc định thư mục `backups` nơi chạy jar) | Thư mục chứa bản sao lưu `.zip` của chức năng Sao lưu & Phục hồi, ví dụ `/var/lib/rms/backups` |
 | `RMS_BOOTSTRAP_USERNAME`, `_PASSWORD`, `_EMAIL` | lần đầu | Tài khoản quản lý đầu tiên (mật khẩu 8–64 ký tự, có chữ và số) |
 | `RMS_CORS_ALLOWED_ORIGINS` | không | Chỉ khi giao diện đặt ở tên miền khác API (mặc định không cần) |
 
@@ -149,15 +150,27 @@ server {
 
 ## 6. Cập nhật phiên bản mới
 
-1. Sao lưu CSDL (mục 7).
+1. Bấm **Sao lưu ngay** trong trang Cấu hình hệ thống (hoặc sao lưu bằng cron, mục 7).
 2. Đóng gói `rms.jar` mới (mục 1), chép đè lên máy chủ.
 3. `sudo systemctl restart rms`. Flyway tự chạy các file thay đổi CSDL mới (`V3__...`, `V4__...`).
    Phiên đăng nhập lưu trong MySQL nên người đang dùng không bị đăng xuất.
 
 ## 7. Sao lưu và phục hồi
 
-> Chức năng "Sao lưu / phục hồi" trong trang Cấu hình hệ thống **hiện vẫn là giả lập**. Khi chạy thật phải sao lưu
-> bằng công cụ của MySQL như dưới đây.
+### Trong hệ thống (trang Cấu hình hệ thống → Sao lưu & Phục hồi)
+
+- **Tự động theo lịch** (hằng ngày / hằng tuần, giờ chạy, số bản giữ lại) và **Sao lưu ngay**. Mỗi bản là một file
+  `.zip` trong `RMS_BACKUP_DIR`, gồm toàn bộ dữ liệu + ảnh tải lên. Chỉ tự xóa bản *tự động* cũ; bản tạo tay giữ nguyên.
+- **Phục hồi** chạy an toàn: kiểm tra file trước; tự tạo bản `…-truoc-phuc-hoi.zip` của dữ liệu hiện tại; ghi lại dữ liệu
+  trong một giao dịch (lỗi → dữ liệu giữ nguyên); không ghi đè nhật ký hoạt động. Phục hồi nhầm thì phục hồi lại bản
+  `truoc-phuc-hoi`.
+- Không phục hồi được bản tạo từ phiên bản CSDL **mới hơn** hệ thống đang chạy (cập nhật hệ thống trước).
+- File sao lưu chứa dữ liệu khách hàng và mật khẩu đã băm của nhân viên: chỉ quản lý tải được; cất giữ cẩn thận.
+
+Bản sao lưu trong hệ thống nằm **cùng máy chủ** — hỏng ổ đĩa là mất cả hai. Vì vậy vẫn cần **chép ra máy khác**
+(chép thư mục `RMS_BACKUP_DIR` hằng ngày, hoặc dùng thêm cron dưới đây).
+
+### Thêm một lớp bằng công cụ của MySQL (khuyên dùng khi chạy thật)
 
 Sao lưu hằng ngày (cron, giữ 30 bản), mật khẩu đặt trong `~/.my.cnf` của người chạy cron:
 
@@ -208,8 +221,10 @@ Có quản lý khác: người đó vào Tài khoản → Đặt lại mật kh�
 Danh sách đầy đủ, kèm cách thay: [DU_LIEU_GIA.md](DU_LIEU_GIA.md).
 
 - Trang Thông báo, Dashboard và phần lịch sử hội thoại / thống kê của Chatbot AI vẫn dùng
-  dữ liệu giả trong trình duyệt (mất khi tải lại trang). Sao lưu / phục hồi trong trang Cấu hình là giả lập.
+  dữ liệu giả trong trình duyệt (mất khi tải lại trang).
 - Các phân hệ Thu ngân, Bếp, Kho, Khách hàng chưa xây dựng.
+- Tự động sao lưu chạy trong tiến trình backend: chạy nhiều máy chủ cùng lúc thì mỗi máy đều sao lưu (nên bật lịch
+  trên một máy hoặc dùng cron).
 - Chặn dò mật khẩu (sai 5 lần → chặn 5 phút) đếm trong bộ nhớ: đủ cho một máy chủ; chạy nhiều máy chủ thì mỗi máy đếm riêng.
 - Ảnh lưu trên ổ đĩa máy chủ: chạy nhiều máy chủ cùng lúc thì cần chuyển sang S3/R2 (viết thêm một lớp
   `StorageService`, xem `com.rms.storage`).

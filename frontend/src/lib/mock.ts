@@ -102,7 +102,11 @@ export function collapseSpaces(input: string): string {
 
 /** Tải một chuỗi thành file về máy (dùng cho xuất CSV, tải bản sao lưu). */
 export function downloadText(filename: string, content: string, mime = 'text/plain'): void {
-  const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+  downloadBlob(filename, new Blob([content], { type: `${mime};charset=utf-8` }));
+}
+
+/** Lưu một Blob (vd. file sao lưu .zip tải từ máy chủ) xuống máy người dùng. */
+export function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

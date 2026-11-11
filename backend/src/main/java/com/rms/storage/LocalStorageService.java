@@ -68,6 +68,43 @@ public class LocalStorageService implements StorageService, WebMvcConfigurer {
         return key == null ? null : URL_PREFIX + key;
     }
 
+    @Override
+    public java.util.List<String> keys() {
+        try (var files = Files.walk(root)) {
+            return files.filter(Files::isRegularFile)
+                .map(f -> root.relativize(f).toString().replace('\\', '/'))
+                .filter(k -> SAFE_KEY.matcher(k).matches())
+                .sorted()
+                .toList();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Không đọc được thư mục lưu file " + root, e);
+        }
+    }
+
+    @Override
+    public byte[] read(String key) {
+        if (key == null || !SAFE_KEY.matcher(key).matches()) return null;
+        try {
+            Path p = resolve(key);
+            return Files.isRegularFile(p) ? Files.readAllBytes(p) : null;
+        } catch (IOException e) {
+            throw new UncheckedIOException("Không đọc được file " + key, e);
+        }
+    }
+
+    @Override
+    public boolean write(String key, byte[] content) {
+        if (key == null || !SAFE_KEY.matcher(key).matches()) return false;
+        Path target = resolve(key);
+        try {
+            Files.createDirectories(target.getParent());
+            Files.write(target, content);
+            return true;
+        } catch (IOException e) {
+            throw new UncheckedIOException("Không ghi được file " + key, e);
+        }
+    }
+
     private Path resolve(String key) {
         Path p = root.resolve(key).normalize();
         if (!p.startsWith(root)) throw new IllegalArgumentException("Khóa file không hợp lệ: " + key);

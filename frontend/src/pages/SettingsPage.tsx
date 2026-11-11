@@ -25,7 +25,7 @@ import { useApiMutation } from '@/hooks/use-api-mutation';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
 import { WEEKDAYS, formatDateTime } from '@/lib/labels';
-import { downloadText } from '@/lib/mock';
+import { downloadBlob } from '@/lib/mock';
 import type { BackupFile, BackupFrequency, BackupSchedule, OpeningDay, RestaurantInfo } from '@/types';
 
 type Tab = 'info' | 'backup' | 'logs';
@@ -241,10 +241,14 @@ function BackupSection() {
     success: (f) => `Đã tạo bản sao lưu ${f.name}`,
   });
   const confirmMutation = useApiMutation(
-    (c: { kind: 'restore' | 'delete'; file: BackupFile }) => (c.kind === 'restore' ? restoreBackup(c.file.id) : deleteBackup(c.file.id)),
+    async (c: { kind: 'restore' | 'delete'; file: BackupFile }) => (c.kind === 'restore' ? restoreBackup(c.file.id) : deleteBackup(c.file.id)),
     {
-      invalidate: [[...qk.settings, 'backups']],
-      success: (_r, c) => (c.kind === 'restore' ? `Đã phục hồi hệ thống từ ${c.file.name}` : `Đã xóa ${c.file.name}`),
+      // Phục hồi thay toàn bộ dữ liệu → làm mới mọi dữ liệu đang hiển thị (khóa rỗng = mọi truy vấn).
+      invalidate: [[]],
+      success: (r, c) =>
+        c.kind === 'restore' && r
+          ? `Đã phục hồi từ ${c.file.name}. Dữ liệu ngay trước đó được lưu ở ${r.safetyBackup.name}.`
+          : `Đã xóa ${c.file.name}`,
       onSuccess: () => setConfirm(null),
     },
   );
@@ -252,8 +256,8 @@ function BackupSection() {
   const download = async (file: BackupFile) => {
     setDownloading(file.id);
     try {
-      const { name, content } = await downloadBackup(file.id);
-      downloadText(name, content, 'application/json');
+      const blob = await downloadBackup(file.id);
+      downloadBlob(file.name, blob);
     } catch {
       toast.error('Không tải được bản sao lưu');
     } finally {
@@ -347,7 +351,7 @@ function BackupSection() {
         title={confirm?.kind === 'restore' ? 'Phục hồi dữ liệu?' : 'Xóa bản sao lưu?'}
         description={
           confirm?.kind === 'restore'
-            ? `Toàn bộ dữ liệu hiện tại sẽ được thay bằng bản sao lưu ${confirm.file.name} (${formatDateTime(confirm.file.createdAt)}). Các thay đổi sau thời điểm này sẽ mất. Nên tạo một bản sao lưu mới trước khi phục hồi.`
+            ? `Toàn bộ dữ liệu hiện tại sẽ được thay bằng bản sao lưu ${confirm.file.name} (${formatDateTime(confirm.file.createdAt)}); các thay đổi sau thời điểm đó sẽ mất. Hệ thống tự tạo một bản sao lưu dữ liệu hiện tại trước khi phục hồi để có thể quay lại. Nhật ký hoạt động được giữ nguyên.`
             : `File ${confirm?.file.name} sẽ bị xóa vĩnh viễn để giải phóng bộ nhớ.`
         }
         confirmLabel={confirm?.kind === 'restore' ? 'Phục hồi' : 'Xóa'}

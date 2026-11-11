@@ -19,4 +19,13 @@ public interface StorageService {
 
     /** Khóa → địa chỉ xem file (đường dẫn tương đối hoặc URL CDN). null → null. */
     String url(String key);
+
+    /** Mọi khóa đang lưu — dùng khi sao lưu (com.rms.backup) để đóng gói cả ảnh cùng dữ liệu. */
+    java.util.List<String> keys();
+
+    /** Đọc nội dung theo khóa; không có thì null. */
+    byte[] read(String key);
+
+    /** Ghi lại đúng khóa cũ (khi phục hồi bản sao lưu). Khóa sai định dạng thì bỏ qua, trả false. */
+    boolean write(String key, byte[] content);
 }

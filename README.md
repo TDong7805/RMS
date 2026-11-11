@@ -31,7 +31,7 @@ Yêu cầu: Node.js 18+, JDK 17+, Maven 3.9+, MySQL 8.0.16+.
    `thao.bui` (Kho), mật khẩu chung `Rms@2026`. Không có trang đăng ký — quản lý cấp tài khoản.
 
 Các trang Đặt bàn, Khu vực bàn, Món ăn, Ca làm việc, Bài viết, Tài khoản, Nhật ký, Cấu hình hệ thống và Chatbot AI (cấu hình, thực đơn, FAQ) đã dùng dữ liệu thật từ MySQL.
-Những chỗ còn dữ liệu giả (Dashboard, Thông báo, lịch sử / thống kê Chatbot, Sao lưu) và dữ liệu mẫu mô phỏng actor chưa làm: xem **[DU_LIEU_GIA.md](DU_LIEU_GIA.md)**.
+Sao lưu & phục hồi đã chạy thật. Những chỗ còn dữ liệu giả (Dashboard, Thông báo, lịch sử / thống kê Chatbot) và dữ liệu mẫu mô phỏng actor chưa làm: xem **[DU_LIEU_GIA.md](DU_LIEU_GIA.md)**.
 Tiến độ chi tiết: xem bảng trong [backend/README.md](backend/README.md).
 
 ## Chức năng Quản lý nhà hàng đã có giao diện

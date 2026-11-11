@@ -54,6 +54,7 @@ src/main/java/com/rms/
 ├── shift/         Ca làm việc, phân công ca (kiểm tra trùng lịch kể cả ca qua đêm), danh sách nhân viên cho lịch
 ├── chatbot/       Chatbot AI: cấu hình trợ lý, FAQ, câu hỏi chưa giải đáp, thực đơn cho AI, combo gợi ý
 ├── storage/       Lưu ảnh tải lên: StorageService (thư mục máy chủ, sau này S3/R2), kiểm tra & xử lý ảnh
+├── backup/        Sao lưu & phục hồi thật (file .zip: dữ liệu + ảnh), tự động theo lịch, phục hồi an toàn
 ├── audit/         Nhật ký hoạt động (AuditService.log được mọi service gọi sau khi lưu)
 ├── settings/      Thông tin nhà hàng, giờ hoạt động, lịch sao lưu
 ├── table/         Khu vực, bàn, sơ đồ bàn
@@ -114,6 +115,7 @@ Hiện mọi API khác dưới `/api/**` chỉ dành cho Quản lý nhà hàng.
 | Chức năng | Trạng thái |
 |---|---|
 | Cấu hình hệ thống: thông tin nhà hàng, giờ hoạt động, lịch sao lưu | ✅ |
+| Sao lưu & phục hồi thật: sao lưu ngay / tự động theo lịch, tải về, phục hồi an toàn, xóa | ✅ |
 | Khu vực & sơ đồ bàn | ✅ |
 | Quản lý đặt bàn, cấu hình form đặt bàn | ✅ |
 | Nhật ký hoạt động | ✅ |
@@ -125,7 +127,7 @@ Hiện mọi API khác dưới `/api/**` chỉ dành cho Quản lý nhà hàng.
 | Chatbot AI — lịch sử hội thoại, thống kê | ⏳ còn dữ liệu giả, chờ phân hệ Khách hàng (xem [DU_LIEU_GIA.md](../DU_LIEU_GIA.md)) |
 | Quản lý ca làm việc: thêm, sửa, xóa ca; phân công / hủy phân công, chặn trùng lịch | ✅ |
 | Quản lý bài viết: thêm, sửa (ảnh bìa), xuất bản / ẩn, xóa, tìm kiếm | ✅ |
-| Thông báo, Dashboard, Sao lưu / phục hồi thật | ⏳ còn dữ liệu giả (xem [DU_LIEU_GIA.md](../DU_LIEU_GIA.md)) |
+| Thông báo, Dashboard | ⏳ còn dữ liệu giả (xem [DU_LIEU_GIA.md](../DU_LIEU_GIA.md)) |
 | Sẵn sàng triển khai: Flyway, phiên lưu trong MySQL, profile dev/prod, đóng gói một file jar, tài khoản quản lý đầu tiên | ✅ (xem [TRIEN_KHAI.md](../TRIEN_KHAI.md)) |
 
 ## Dữ liệu của actor khác
