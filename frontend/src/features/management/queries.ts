@@ -72,7 +72,8 @@ export const useAllergens = () => useQuery({ queryKey: ['allergens'], queryFn: g
 /* ---------------- Tài khoản & ca làm */
 export const useAccounts = (f: AccountFilter) =>
   useQuery({ queryKey: [...qk.accounts, 'list', f], queryFn: () => getAccounts(f), placeholderData: keepPreviousData });
-export const useEmployees = () => useQuery({ queryKey: qk.employees, queryFn: getEmployees });
+export const useEmployees = (from: string, to: string) =>
+  useQuery({ queryKey: [...qk.employees, from, to], queryFn: () => getEmployees(from, to), placeholderData: keepPreviousData });
 export const useShifts = () => useQuery({ queryKey: qk.shifts, queryFn: getShifts });
 export const useAssignments = (from: string, to: string) =>
   useQuery({ queryKey: [...qk.assignments, from, to], queryFn: () => getAssignments(from, to), placeholderData: keepPreviousData });

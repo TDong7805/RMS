@@ -235,6 +235,8 @@ export interface Employee {
   id: string;
   fullName: string;
   role: RoleKey;
+  /** active: được phân công mới; locked / deleted (đã nghỉ): chỉ còn hiện ở những tuần từng có ca. */
+  status: 'active' | 'locked' | 'deleted';
 }
 
 /* ============================== Bài viết ============================== */

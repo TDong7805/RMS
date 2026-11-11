@@ -11,6 +11,7 @@ import com.rms.common.Rules;
 import com.rms.common.Times;
 import com.rms.common.ValidationException;
 import com.rms.common.Vi;
+import com.rms.shift.ShiftService;
 import java.security.SecureRandom;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -31,7 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
  *  - Không thao tác khóa / đặt lại mật khẩu / xóa / đổi vai trò / đổi tên đăng nhập trên chính mình
  *    (luôn còn ít nhất người đang thao tác là quản lý, không tự khóa mình ra ngoài).
  *  - Nhân viên phục vụ (waiter) không đăng nhập: không cần mật khẩu.
- *  - Xóa là xóa mềm (deleted_at) để giữ lịch sử ca làm, hóa đơn, nhật ký; tên đăng nhập và email được giải phóng.
+ *  - Xóa là xóa mềm (deleted_at) để giữ lịch sử ca làm, hóa đơn, nhật ký; tên đăng nhập và email được giải phóng;
+ *    các ca làm việc từ hôm nay trở đi của người đó bị hủy.
  *  - Khóa / xóa / đổi vai trò / đặt lại mật khẩu có hiệu lực ngay: phiên đang mở của người đó bị hủy ở thao tác kế tiếp
  *    (com.rms.auth.ActiveUserFilter).
  */
@@ -58,8 +60,11 @@ public class AccountService {
     private final AuditService audit;
     private final CurrentUserService currentUser;
     private final SecureRandom random = new SecureRandom();
+    private final ShiftService shifts;
 
-    public AccountService(JdbcClient jdbc, PasswordEncoder encoder, AuditService audit, CurrentUserService currentUser) {
+    public AccountService(JdbcClient jdbc, PasswordEncoder encoder, AuditService audit, CurrentUserService currentUser,
+                          ShiftService shifts) {
+        this.shifts = shifts;
         this.jdbc = jdbc;
         this.encoder = encoder;
         this.audit = audit;
@@ -205,7 +210,10 @@ public class AccountService {
                 """)
             .params(30 - suffix.length(), suffix, 150 - suffix.length(), suffix, id)
             .update();
-        audit.log("account", "Xóa tài khoản", "Xóa tài khoản " + current.username() + " – " + current.fullName(), "users", id);
+        // Nhân viên nghỉ việc: hủy các ca từ hôm nay trở đi; lịch sử các ngày đã qua giữ nguyên.
+        int removed = shifts.removeFutureAssignments(id);
+        audit.log("account", "Xóa tài khoản", "Xóa tài khoản " + current.username() + " – " + current.fullName()
+            + (removed > 0 ? " (hủy " + removed + " ca làm việc từ hôm nay)" : ""), "users", id);
     }
 
     // ------------------------------------------------------------------

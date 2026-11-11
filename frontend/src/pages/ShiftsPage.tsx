@@ -217,7 +217,7 @@ function ScheduleBoard() {
   const to = toDateKey(days[6]);
   const todayKey = toDateKey(new Date());
 
-  const employeesQuery = useEmployees();
+  const employeesQuery = useEmployees(from, to);
   const shiftsQuery = useShifts();
   const assignmentsQuery = useAssignments(from, to);
   const shifts = shiftsQuery.data ?? [];
@@ -279,7 +279,14 @@ function ScheduleBoard() {
                 <tr key={emp.id}>
                   <td className="sticky left-0 z-10 border-b border-r border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2">
                     <p className="truncate font-semibold">{emp.fullName}</p>
-                    <p className="text-[11.5px] text-[var(--text-muted)]">{ROLES[emp.role].label}</p>
+                    <p className="text-[11.5px] text-[var(--text-muted)]">
+                      {ROLES[emp.role].label}
+                      {emp.status !== 'active' ? (
+                        <span className="ml-1.5 rounded-full bg-[var(--bg-subtle)] px-1.5 py-px text-[10.5px] font-semibold text-[var(--text-secondary)]">
+                          {emp.status === 'locked' ? 'Đã khóa' : 'Đã nghỉ'}
+                        </span>
+                      ) : null}
+                    </p>
                   </td>
                   {days.map((d) => {
                     const key = toDateKey(d);
@@ -302,7 +309,7 @@ function ScheduleBoard() {
                               </span>
                             );
                           })}
-                          {!past ? (
+                          {!past && emp.status === 'active' ? (
                             <button
                               type="button"
                               aria-label={`Phân công ${emp.fullName} ngày ${formatDayMonth(d)}`}
@@ -334,7 +341,7 @@ function ScheduleBoard() {
       <AssignModal
         state={assign}
         days={days}
-        employees={employeesQuery.data ?? []}
+        employees={(employeesQuery.data ?? []).filter((e) => e.status === 'active')}
         shifts={shifts}
         onClose={() => setAssign(null)}
       />
@@ -387,7 +394,7 @@ function AssignModal({
       onOpenChange={(o) => !o && onClose()}
       size="md"
       title="Phân công ca làm việc"
-      description="Hệ thống sẽ cảnh báo nếu nhân viên bị trùng lịch với ca khác trong cùng ngày."
+      description="Hệ thống chặn nếu nhân viên bị trùng giờ với ca khác (kể cả ca qua đêm của hôm trước)."
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Hủy</Button>

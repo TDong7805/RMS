@@ -50,6 +50,7 @@ src/main/java/com/rms/
 │                  FrontendConfig: phục vụ giao diện đã build khi đóng gói một file jar
 ├── account/       Quản lý tài khoản nhân viên
 ├── dish/          Món ăn, danh mục món, dị nguyên
+├── shift/         Ca làm việc, phân công ca (kiểm tra trùng lịch kể cả ca qua đêm), danh sách nhân viên cho lịch
 ├── chatbot/       Chatbot AI: thực đơn cho AI (thẻ, bật gợi ý, đồng bộ), combo gợi ý
 ├── storage/       Lưu ảnh tải lên: StorageService (thư mục máy chủ, sau này S3/R2), kiểm tra & xử lý ảnh
 ├── audit/         Nhật ký hoạt động (AuditService.log được mọi service gọi sau khi lưu)
@@ -121,7 +122,8 @@ Hiện mọi API khác dưới `/api/**` chỉ dành cho Quản lý nhà hàng.
 | Quản lý món ăn: danh sách, tìm/lọc, thêm, sửa (kèm ảnh), đổi trạng thái bán, xóa; danh mục | ✅ |
 | Chatbot AI — thực đơn cho AI (thẻ, bật gợi ý, đồng bộ) và combo gợi ý | ✅ |
 | Chatbot AI — cấu hình, FAQ, lịch sử hội thoại, thống kê | ⏳ frontend còn dữ liệu giả |
-| Ca làm việc, Bài viết, Thông báo, Dashboard | ⏳ frontend còn dữ liệu giả |
+| Quản lý ca làm việc: thêm, sửa, xóa ca; phân công / hủy phân công, chặn trùng lịch | ✅ |
+| Bài viết, Thông báo, Dashboard | ⏳ frontend còn dữ liệu giả |
 | Sẵn sàng triển khai: Flyway, phiên lưu trong MySQL, profile dev/prod, đóng gói một file jar, tài khoản quản lý đầu tiên | ✅ (xem [TRIEN_KHAI.md](../TRIEN_KHAI.md)) |
 
 ## Dữ liệu của actor khác
