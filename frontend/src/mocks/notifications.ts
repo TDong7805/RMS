@@ -1,4 +1,4 @@
-import type { AppNotification, CurrentUser, PageSuggestion } from '@/types';
+import type { AppNotification, PageSuggestion } from '@/types';
 
 const now = Date.now();
 const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
@@ -115,17 +115,7 @@ export const notificationSeed: AppNotification[] = [
   },
 ];
 
-/** [FAKE-DATA] Tài khoản quản lý đang đăng nhập. */
-export const currentUserSeed: CurrentUser = {
-  id: 'usr-01',
-  name: 'Nguyễn Anh Tuấn',
-  role: 'Quản lý nhà hàng',
-  email: 'tuan.nguyen@greenlotus.vn',
-  initials: 'AT',
-  restaurant: 'Green Lotus – Quận 1',
-};
-
-/** [FAKE-DATA] Gợi ý trang cho ô tìm kiếm / chuyển trang nhanh. */
+/** Danh sách trang cho ô tìm kiếm / chuyển trang nhanh (cấu hình giao diện, không phải dữ liệu nghiệp vụ). */
 export const pageSuggestions: PageSuggestion[] = [
   { id: 'dashboard', label: 'Dashboard', context: 'Tổng quan', path: '/' },
   {

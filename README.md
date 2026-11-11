@@ -9,6 +9,7 @@ RMS-main/
 ├── frontend/          Giao diện React + Vite + TypeScript (trang Quản lý nhà hàng)
 ├── backend/           Spring Boot API; CSDL MySQL 8.0 dùng chung cho mọi actor (Flyway tự tạo, xem backend/database)
 ├── TRIEN_KHAI.md      Hướng dẫn đóng gói và đưa lên máy chủ thật
+├── DU_LIEU_GIA.md     Những chỗ còn dữ liệu giả / dữ liệu mẫu và cách thay
 └── CodeUC_QLNH.docx   Đặc tả Use Case
 ```
 
@@ -29,8 +30,8 @@ Yêu cầu: Node.js 18+, JDK 17+, Maven 3.9+, MySQL 8.0.16+.
 3. **Đăng nhập:** tài khoản mẫu `tuan.nguyen` (Quản lý), `linh.tran` (Thu ngân), `hung.pham` (Bếp),
    `thao.bui` (Kho), mật khẩu chung `Rms@2026`. Không có trang đăng ký — quản lý cấp tài khoản.
 
-Các trang Đặt bàn, Khu vực bàn, Món ăn, Ca làm việc, Bài viết, Tài khoản, Nhật ký, Cấu hình hệ thống và tab Thực đơn AI của Chatbot đã dùng dữ liệu thật từ MySQL.
-Các trang còn lại vẫn dùng dữ liệu mẫu trong bộ nhớ (`frontend/src/mocks`, `frontend/src/api` — hàm nào còn giả có ghi chú `[BACKEND-TODO]`).
+Các trang Đặt bàn, Khu vực bàn, Món ăn, Ca làm việc, Bài viết, Tài khoản, Nhật ký, Cấu hình hệ thống và Chatbot AI (cấu hình, thực đơn, FAQ) đã dùng dữ liệu thật từ MySQL.
+Những chỗ còn dữ liệu giả (Dashboard, Thông báo, lịch sử / thống kê Chatbot, Sao lưu) và dữ liệu mẫu mô phỏng actor chưa làm: xem **[DU_LIEU_GIA.md](DU_LIEU_GIA.md)**.
 Tiến độ chi tiết: xem bảng trong [backend/README.md](backend/README.md).
 
 ## Chức năng Quản lý nhà hàng đã có giao diện
