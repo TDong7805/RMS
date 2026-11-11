@@ -1,6 +1,6 @@
 # RMS — Hệ thống quản lý và vận hành nhà hàng
 
-Đề tài nhóm 2. Website hỗ trợ vận hành nhà hàng cho 6 actor: Quản trị viên, Khách hàng, Quản lý nhà hàng, Thu ngân, Nhân viên bếp, Quản lý kho. Đặc tả Use Case: `CodeUC_QLNH.docx`.
+Đề tài nhóm 2. 6 actor: Quản trị viên, Khách hàng, Quản lý nhà hàng, Thu ngân, Nhân viên bếp, Quản lý kho. Đặc tả Use Case: `CodeUC_QLNH.docx`.
 
 ## Cấu trúc thư mục
 
