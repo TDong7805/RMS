@@ -9,8 +9,7 @@ import { ChipSelect, Field, SearchInput, TextArea, TextInput, Toggle, ToggleRow 
 import { ConfirmDialog, Modal } from '@/components/common/Modal';
 import { DataTable, TableSkeleton, Td, Th } from '@/components/common/PageParts';
 import { deleteCombo, saveCombo, syncChatbotMenu, updateDishAi } from '@/api/chatbot';
-import { AI_TAG_OPTIONS } from '@/mocks/dishes';
-import { qk, useCategories, useChatbotMenu, useCombos } from '@/features/management/queries';
+import { qk, useAiTags, useCategories, useChatbotMenu, useCombos } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { formatCurrency } from '@/lib/format';
 import { formatDateTime } from '@/lib/labels';
@@ -36,7 +35,7 @@ export function ChatbotMenuTab() {
     success: (r) => `Đồng bộ xong: ${r.enabled}/${r.total} món được AI sử dụng`,
   });
   const aiMutation = useApiMutation((v: { id: string; aiEnabled?: boolean; aiTags?: string[] }) => updateDishAi(v.id, v), {
-    invalidate: [[...qk.chatbot, 'menu']],
+    invalidate: [[...qk.chatbot, 'menu'], qk.dishes],
   });
   const deleteComboMutation = useApiMutation((c: Combo) => deleteCombo(c.id), {
     invalidate: [[...qk.chatbot, 'combos']],
@@ -171,6 +170,7 @@ export function ChatbotMenuTab() {
 }
 
 function TagEditor({ dish, onSave }: { dish: Dish; onSave: (tags: string[]) => void }) {
+  const { data: tagOptions = [] } = useAiTags();
   const [open, setOpen] = useState(false);
   const [tags, setTags] = useState(dish.aiTags);
   useEffect(() => {
@@ -189,7 +189,7 @@ function TagEditor({ dish, onSave }: { dish: Dish; onSave: (tags: string[]) => v
         <Popover.Portal>
           <Popover.Content align="start" sideOffset={6} className="z-[80] w-[320px] rounded-item border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-overlay">
             <p className="mb-2 text-[13px] font-semibold">Thẻ phân loại – {dish.name}</p>
-            <ChipSelect ariaLabel="Chọn thẻ" options={AI_TAG_OPTIONS} value={tags} onChange={setTags} />
+            <ChipSelect ariaLabel="Chọn thẻ" options={tagOptions} value={tags} onChange={setTags} />
             <div className="mt-3 flex justify-end gap-1.5">
               <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Hủy</Button>
               <Button size="sm" onClick={() => { onSave(tags); setOpen(false); }}>Lưu thẻ</Button>

@@ -55,18 +55,6 @@ export const DISH_STATUS: Record<DishStatus, Meta> = {
 
 export const SPICY_LEVELS = ['Không cay', 'Cay nhẹ', 'Cay vừa', 'Rất cay'];
 
-export const ALLERGENS = [
-  'Đậu phộng',
-  'Hải sản có vỏ',
-  'Cá',
-  'Sữa',
-  'Trứng',
-  'Gluten (lúa mì)',
-  'Đậu nành',
-  'Mè (vừng)',
-  'Hạt cây (hạnh nhân, óc chó…)',
-];
-
 export const ROLES: Record<RoleKey, { label: string; description: string }> = {
   manager: { label: 'Quản lý nhà hàng', description: 'Toàn bộ nghiệp vụ quản lý, gồm tài khoản, cấu hình AI và hệ thống' },
   cashier: { label: 'Thu ngân', description: 'Tra cứu đơn, lập hóa đơn, nhận yêu cầu khách' },

@@ -24,6 +24,11 @@ export default defineConfig({
           proxy.on('proxyReq', (proxyReq) => proxyReq.removeHeader('origin'));
         },
       },
+      // Ảnh tải lên (ảnh món ăn...) do backend lưu và phục vụ.
+      '/uploads': {
+        target: `http://localhost:${process.env.BACKEND_PORT || '8080'}`,
+        changeOrigin: true,
+      },
     },
   },
   build: {

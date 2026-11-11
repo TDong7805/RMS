@@ -49,6 +49,9 @@ src/main/java/com/rms/
 ├── common/        Dùng chung: xử lý lỗi, phân trang, chuỗi tiếng Việt, thời gian, người dùng hiện tại,
 │                  FrontendConfig: phục vụ giao diện đã build khi đóng gói một file jar
 ├── account/       Quản lý tài khoản nhân viên
+├── dish/          Món ăn, danh mục món, dị nguyên
+├── chatbot/       Chatbot AI: thực đơn cho AI (thẻ, bật gợi ý, đồng bộ), combo gợi ý
+├── storage/       Lưu ảnh tải lên: StorageService (thư mục máy chủ, sau này S3/R2), kiểm tra & xử lý ảnh
 ├── audit/         Nhật ký hoạt động (AuditService.log được mọi service gọi sau khi lưu)
 ├── settings/      Thông tin nhà hàng, giờ hoạt động, lịch sao lưu
 ├── table/         Khu vực, bàn, sơ đồ bàn
@@ -80,6 +83,7 @@ Cách đóng gói và đưa lên máy chủ: [TRIEN_KHAI.md](../TRIEN_KHAI.md).
 |---|---|
 | Lỗi dữ liệu theo trường | HTTP 422 `{"message": "...", "fields": {"phone": "..."}}` → form hiện lỗi dưới từng ô |
 | Lỗi nghiệp vụ | 404 / 409 / 400 `{"message": "..."}` → frontend hiện toast |
+| Ảnh trong form | Gửi trong JSON dạng data URL (`data:image/jpeg;base64,...`, tối đa 2 MB); giữ nguyên địa chỉ ảnh cũ = không đổi ảnh; `null` = bỏ ảnh. API trả địa chỉ `/uploads/...`. Dùng `ImageStore.apply(...)` cho chức năng mới có ảnh |
 | Id | Chuỗi số (`"12"`), dù trong CSDL là `BIGINT` |
 | Thời gian | ISO-8601 UTC (`2026-11-11T12:30:00Z`); CSDL lưu giờ Việt Nam (+07:00) |
 | Danh sách có phân trang | `{"items": [...], "total", "page", "pageCount"}` |
@@ -114,7 +118,10 @@ Hiện mọi API khác dưới `/api/**` chỉ dành cho Quản lý nhà hàng.
 | Nhật ký hoạt động | ✅ |
 | Đăng nhập, đổi mật khẩu, phân quyền 4 vai trò nhân viên | ✅ |
 | Quản lý tài khoản: tạo, sửa, khóa/mở khóa, đặt lại mật khẩu, xóa (mềm) | ✅ |
-| Món ăn, Ca làm việc, Bài viết, Chatbot AI, Thông báo, Dashboard | ⏳ frontend còn dữ liệu giả |
+| Quản lý món ăn: danh sách, tìm/lọc, thêm, sửa (kèm ảnh), đổi trạng thái bán, xóa; danh mục | ✅ |
+| Chatbot AI — thực đơn cho AI (thẻ, bật gợi ý, đồng bộ) và combo gợi ý | ✅ |
+| Chatbot AI — cấu hình, FAQ, lịch sử hội thoại, thống kê | ⏳ frontend còn dữ liệu giả |
+| Ca làm việc, Bài viết, Thông báo, Dashboard | ⏳ frontend còn dữ liệu giả |
 | Sẵn sàng triển khai: Flyway, phiên lưu trong MySQL, profile dev/prod, đóng gói một file jar, tài khoản quản lý đầu tiên | ✅ (xem [TRIEN_KHAI.md](../TRIEN_KHAI.md)) |
 
 ## Dữ liệu của actor khác

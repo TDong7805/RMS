@@ -10,7 +10,9 @@ Flyway xem bảng `flyway_schema_history` và tự chạy những file SQL chưa
 |---|---|---|
 | `src/main/resources/db/migration/V1__khoi_tao.sql` | 54 bảng, 5 trigger, 7 view + **dữ liệu nền** (vai trò, quyền, cấu hình mặc định, dị nguyên, loại thông báo). Không có tài khoản | Mọi môi trường |
 | `src/main/resources/db/migration/V2__phien_dang_nhap.sql` | Bảng `SPRING_SESSION` lưu phiên đăng nhập | Mọi môi trường |
+| `src/main/resources/db/migration/V3__mon_an.sql` | Dữ liệu nền cho Món ăn (thẻ AI "Theo mùa"); ghi chú cột ảnh lưu khóa ảnh | Mọi môi trường |
 | `src/main/resources/db/dev/V1_1__du_lieu_mau.sql` | **Dữ liệu mẫu**: tài khoản (mật khẩu `Rms@2026`), khu vực & bàn, món, kho, ca, FAQ, lịch đặt bàn | Chỉ profile `dev` |
+| `src/main/resources/db/dev/V3_1__mon_an_mau.sql` | Thêm món (đủ 25 món), danh mục đang tắt, combo, vài đơn hàng đã hoàn tất (để thử "món đã bán không xóa được") | Chỉ profile `dev` |
 | `backend/database/rms_verify.sql` | 11 phép kiểm tra ràng buộc, tự ROLLBACK | Chạy tay khi cần, trên CSDL phát triển |
 
 Profile `dev` là mặc định khi chạy `mvn spring-boot:run`, IntelliJ hoặc `dev.bat`. Khi chạy thật (`prod`), thư mục

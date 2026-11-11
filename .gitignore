@@ -2,6 +2,8 @@
 node_modules
 dist
 backend/target/
+# Ảnh người dùng tải lên khi chạy backend (com.rms.storage.LocalStorageService)
+uploads/
 *.log
 
 # Mật khẩu, khóa: KHÔNG commit (gồm backend/.env.properties chứa mật khẩu MySQL)

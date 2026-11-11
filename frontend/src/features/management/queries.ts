@@ -5,12 +5,13 @@ import {
   getChatbotConfig,
   getChatbotMenu,
   getChatbotStats,
+  getAiTags,
   getCombos,
   getConversations,
   getFaqs,
   getUnansweredQuestions,
 } from '@/api/chatbot';
-import { getCategories, getDish, getDishes } from '@/api/dishes';
+import { getAllergens, getCategories, getDish, getDishes } from '@/api/dishes';
 import { getPost, getPosts } from '@/api/posts';
 import {
   getReservation,
@@ -65,6 +66,8 @@ export const useDishes = (f: DishFilter) =>
 export const useDish = (id: string | undefined) =>
   useQuery({ queryKey: [...qk.dishes, 'detail', id], queryFn: () => getDish(id!), enabled: Boolean(id), retry: false });
 export const useCategories = () => useQuery({ queryKey: qk.categories, queryFn: getCategories });
+/** Danh sách dị nguyên ít khi đổi → giữ 5 phút. */
+export const useAllergens = () => useQuery({ queryKey: ['allergens'], queryFn: getAllergens, staleTime: 300_000 });
 
 /* ---------------- Tài khoản & ca làm */
 export const useAccounts = (f: AccountFilter) =>
@@ -84,6 +87,7 @@ export const usePost = (id: string | undefined) =>
 export const useChatbotConfig = () => useQuery({ queryKey: [...qk.chatbot, 'config'], queryFn: getChatbotConfig });
 export const useChatbotMenu = () => useQuery({ queryKey: [...qk.chatbot, 'menu'], queryFn: getChatbotMenu });
 export const useCombos = () => useQuery({ queryKey: [...qk.chatbot, 'combos'], queryFn: getCombos });
+export const useAiTags = () => useQuery({ queryKey: [...qk.chatbot, 'ai-tags'], queryFn: getAiTags, staleTime: 300_000 });
 export const useFaqs = () => useQuery({ queryKey: [...qk.chatbot, 'faqs'], queryFn: getFaqs });
 export const useUnanswered = () => useQuery({ queryKey: [...qk.chatbot, 'unanswered'], queryFn: getUnansweredQuestions });
 export const useConversations = (f: ConversationFilter) =>

@@ -1,6 +1,5 @@
 import type {
   ChatbotConfig,
-  Combo,
   Conversation,
   ConversationStatus,
   Faq,
@@ -29,12 +28,6 @@ export const chatbotConfigSeed: ChatbotConfig = {
     'Thông tin dị nguyên dựa trên dữ liệu nhà hàng khai báo và có thể chưa phản ánh nguy cơ nhiễm chéo. Vui lòng xác nhận trực tiếp với nhân viên trước khi gọi món.',
   updatedAt: minutesAgo(420),
 };
-
-export const comboSeed: Combo[] = [
-  { id: 'cb-1', name: 'Combo gia đình 4 người', dishIds: ['dish-1', 'dish-7', 'dish-9', 'dish-17', 'dish-18'], note: 'Gợi ý khi khách đi nhóm 3–5 người, có trẻ nhỏ', active: true },
-  { id: 'cb-2', name: 'Bữa trưa văn phòng', dishIds: ['dish-15', 'dish-21'], note: 'Gợi ý cho khách đi 1–2 người vào giờ trưa', active: true },
-  { id: 'cb-3', name: 'Tiệc chay thanh đạm', dishIds: ['dish-5', 'dish-13', 'dish-18', 'dish-22'], note: 'Gợi ý khi khách hỏi món chay', active: true },
-];
 
 export const faqCategorySeed: FaqCategory[] = [
   { id: 'fc-1', name: 'Giờ mở cửa & địa chỉ' },
@@ -98,14 +91,14 @@ export const conversationSeed: Conversation[] = convRows.map(([m, status, pairs,
   };
 });
 
-/** Số lần món được nhắc đến trong hội thoại (mock cho thống kê "món được hỏi nhiều"). */
+/** [FAKE-DATA] Số lần món được nhắc đến trong hội thoại (thống kê "món được hỏi nhiều"), theo tên món. */
 export const dishMentionSeed: Record<string, number> = {
-  'dish-12': 48,
-  'dish-8': 41,
-  'dish-1': 37,
-  'dish-13': 30,
-  'dish-10': 26,
-  'dish-6': 21,
-  'dish-7': 17,
-  'dish-21': 12,
+  'Lẩu Thái hải sản': 48,
+  'Gà nướng mật ong': 41,
+  'Gỏi cuốn tôm thịt': 37,
+  'Lẩu nấm chay': 30,
+  'Tôm sú rang muối ớt': 26,
+  'Bò lúc lắc khoai tây': 21,
+  'Cá kho tộ': 17,
+  'Trà sen vàng': 12,
 };

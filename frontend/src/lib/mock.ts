@@ -113,16 +113,6 @@ export function downloadText(filename: string, content: string, mime = 'text/pla
   URL.revokeObjectURL(url);
 }
 
-/** Đọc file ảnh thành data URL để xem trước (mock cho việc upload). */
-export function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('Không đọc được file'));
-    reader.readAsDataURL(file);
-  });
-}
-
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 

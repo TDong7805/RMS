@@ -65,6 +65,7 @@ RMS_BOOTSTRAP_EMAIL=quanly@ten-nha-hang.vn
 | `DB_SSL_MODE` | không (mặc định `DISABLED`) | Đặt `REQUIRED` khi MySQL nằm ở máy khác |
 | `PORT` | không (mặc định `8080`) | Cổng của `rms.jar` |
 | `COOKIE_SECURE` | không (mặc định `true`) | Chỉ đặt `false` khi chạy thử trong mạng nội bộ không có HTTPS |
+| `RMS_UPLOAD_DIR` | nên đặt (mặc định thư mục `uploads` nơi chạy jar) | Thư mục lưu ảnh món ăn... Đặt đường dẫn cố định, ví dụ `/var/lib/rms/uploads`, và sao lưu cùng CSDL |
 | `RMS_BOOTSTRAP_USERNAME`, `_PASSWORD`, `_EMAIL` | lần đầu | Tài khoản quản lý đầu tiên (mật khẩu 8–64 ký tự, có chữ và số) |
 | `RMS_CORS_ALLOWED_ORIGINS` | không | Chỉ khi giao diện đặt ở tên miền khác API (mặc định không cần) |
 
@@ -165,6 +166,13 @@ Sao lưu hằng ngày (cron, giữ 30 bản), mật khẩu đặt trong `~/.my.c
 0 2 * * * rms mysqldump --single-transaction --routines --triggers rms_db | gzip > /var/backups/rms/rms_$(date +\%F).sql.gz && find /var/backups/rms -name '*.sql.gz' -mtime +30 -delete
 ```
 
+Sao lưu cả **thư mục ảnh** (`RMS_UPLOAD_DIR`) — CSDL chỉ lưu tên file ảnh:
+
+```bash
+# /etc/cron.d/rms-backup-uploads — 2 giờ 30 mỗi ngày
+30 2 * * * rms tar -czf /var/backups/rms/uploads_$(date +\%F).tar.gz -C /var/lib/rms uploads && find /var/backups/rms -name 'uploads_*.tar.gz' -mtime +30 -delete
+```
+
 Chép bản sao lưu ra **máy khác** (ổ cứng ngoài, dịch vụ lưu trữ) — hỏng máy chủ thì vẫn còn dữ liệu.
 Thỉnh thoảng thử phục hồi vào một CSDL trống để chắc bản sao lưu dùng được:
 
@@ -197,8 +205,10 @@ Có quản lý khác: người đó vào Tài khoản → Đặt lại mật kh�
 
 ## Chưa sẵn sàng cho chạy thật
 
-- Trang Món ăn, Ca làm việc, Bài viết, Chatbot AI, Thông báo, Dashboard vẫn dùng dữ liệu giả trong trình duyệt
-  (mất khi tải lại trang). Sao lưu / phục hồi trong trang Cấu hình là giả lập.
+- Trang Ca làm việc, Bài viết, Thông báo, Dashboard và phần cấu hình / FAQ / lịch sử / thống kê của Chatbot AI vẫn dùng
+  dữ liệu giả trong trình duyệt (mất khi tải lại trang). Sao lưu / phục hồi trong trang Cấu hình là giả lập.
 - Các phân hệ Thu ngân, Bếp, Kho, Khách hàng chưa xây dựng.
 - Chặn dò mật khẩu (sai 5 lần → chặn 5 phút) đếm trong bộ nhớ: đủ cho một máy chủ; chạy nhiều máy chủ thì mỗi máy đếm riêng.
+- Ảnh lưu trên ổ đĩa máy chủ: chạy nhiều máy chủ cùng lúc thì cần chuyển sang S3/R2 (viết thêm một lớp
+  `StorageService`, xem `com.rms.storage`).
 - Chưa có Docker. Thêm `Dockerfile` khi đã chọn nơi triển khai (máy chủ riêng hay dịch vụ cloud).
