@@ -282,10 +282,11 @@ export function buildTopDishesResponse(period: PeriodKey): TopDishesResponse {
       ...d,
       share: max > 0 ? (d.quantity / max) * 100 : 0,
     })),
+    // Cùng thang với món bán chạy: % so với món bán chạy nhất trong kỳ.
     slow: slowDishes.map((d, i) => ({
       id: `dish-slow-${period}-${i}`,
       ...d,
-      share: 0,
+      share: max > 0 ? (d.quantity / max) * 100 : 0,
     })),
     hasData: best.length > 0,
   };

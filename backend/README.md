@@ -15,6 +15,12 @@ $mysql = "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
 & $mysql -u root -p --default-character-set=utf8mb4 -e "source backend/database/rms_dev_seed.sql"  # dữ liệu mẫu để demo
 ```
 
+**Đã tạo `rms_db` từ trước (bản chưa có đăng nhập)?** Không cần tạo lại, chỉ chạy file nâng cấp:
+
+```powershell
+& $mysql -u root -p --default-character-set=utf8mb4 -e "source backend/database/migrations/001_dang_nhap.sql"
+```
+
 **2. Khai báo kết nối:** sao chép `backend/.env.properties.example` thành `backend/.env.properties` rồi điền mật khẩu MySQL.
 File này đã được `.gitignore` bỏ qua — không commit mật khẩu.
 
@@ -31,6 +37,16 @@ Hoặc mở thư mục `backend` bằng IntelliJ IDEA và chạy lớp `com.rms.
 **4. Chạy frontend** (cửa sổ khác): `cd frontend; npm run dev` → http://localhost:3000.
 Vite tự chuyển mọi request `/api/...` sang backend cổng 8080 (đổi bằng biến `BACKEND_PORT`).
 
+**5. Đăng nhập** bằng một trong các tài khoản mẫu, mật khẩu chung **`Rms@2026`** (chỉ dùng khi phát triển):
+
+| Tài khoản | Vai trò | Vào trang |
+|---|---|---|
+| `tuan.nguyen` | Quản lý nhà hàng | `/` — toàn bộ trang quản lý |
+| `linh.tran` | Thu ngân | `/thu-ngan` |
+| `hung.pham` | Nhân viên bếp | `/bep` |
+| `thao.bui` | Quản lý kho | `/kho` |
+| `nam.hoang` | Nhân viên phục vụ | không đăng nhập được (chỉ để xếp ca, tính lương) |
+
 > Mạng chặn IPv6 khiến Maven báo `Connect timed out` khi tải thư viện lần đầu? Chạy
 > `$env:MAVEN_OPTS="-Djava.net.preferIPv4Stack=true"` rồi chạy lại lệnh mvn.
 
@@ -38,6 +54,7 @@ Vite tự chuyển mọi request `/api/...` sang backend cổng 8080 (đổi b�
 
 ```
 src/main/java/com/rms/
+├── auth/          Đăng nhập, đổi mật khẩu, phân quyền theo vai trò (Spring Security, session cookie)
 ├── common/        Dùng chung: xử lý lỗi, phân trang, chuỗi tiếng Việt, thời gian, người dùng hiện tại
 ├── audit/         Nhật ký hoạt động (AuditService.log được mọi service gọi sau khi lưu)
 ├── settings/      Thông tin nhà hàng, giờ hoạt động, lịch sao lưu
@@ -58,8 +75,22 @@ Mỗi phân hệ gồm `XxxController` (định nghĩa endpoint) và `XxxService
 | Danh sách có phân trang | `{"items": [...], "total", "page", "pageCount"}` |
 | Nhật ký | Service tự ghi trong cùng transaction — lưu lỗi thì không có dòng nhật ký |
 
-**Chưa có đăng nhập:** mọi thao tác được ghi dưới tài khoản `rms.dev-user` (mặc định `tuan.nguyen`).
-Khi làm JWT chỉ cần sửa `CurrentUserService.get()`.
+## Đăng nhập & phân quyền
+
+- **Không có đăng ký.** Quản lý cấp tài khoản; tài khoản mới (hoặc vừa được đặt lại mật khẩu) có
+  `must_change_password = 1` → sau khi đăng nhập chỉ gọi được `/api/auth/**` cho tới khi đổi mật khẩu.
+- **Phiên đăng nhập** là cookie `RMS_SESSION` (HttpOnly, SameSite=Lax), trình duyệt tự gửi kèm.
+  Hết sau 2 giờ không thao tác; chọn "Ghi nhớ đăng nhập" thì giữ 7 ngày. Khởi động lại backend thì phải đăng nhập lại.
+- **API:** `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/change-password`, `POST /api/auth/logout`.
+- **Mã lỗi:** 401 = chưa đăng nhập / hết phiên / sai mật khẩu; 403 = không đủ quyền (hoặc phải đổi mật khẩu);
+  429 = sai mật khẩu 5 lần liên tiếp, bị chặn 5 phút.
+- **Khóa tài khoản có hiệu lực ngay:** mỗi request kiểm tra lại trạng thái trong CSDL (`ActiveUserFilter`).
+- **Vai trò nào vào được đâu** khai báo ở `auth/StaffAreas.java` (backend) và `src/routes.tsx` (frontend).
+- **Người đang thao tác** lấy bằng `CurrentUserService.get()` — `AuditService` dùng hàm này để ghi nhật ký đúng người.
+
+**Thêm API cho phân hệ mới** (vd. Thu ngân): đặt đường dẫn `/api/cashier/...` và thêm
+`.requestMatchers("/api/cashier/**").hasRole("CASHIER")` vào `SecurityConfig` **trước** dòng `/api/**`.
+Hiện mọi API khác dưới `/api/**` chỉ dành cho Quản lý nhà hàng.
 
 ## Tiến độ nối backend (actor Quản lý nhà hàng)
 
@@ -70,6 +101,7 @@ Khi làm JWT chỉ cần sửa `CurrentUserService.get()`.
 | Khu vực & sơ đồ bàn | ✅ |
 | Quản lý đặt bàn, cấu hình form đặt bàn | ✅ |
 | Nhật ký hoạt động | ✅ |
+| Đăng nhập, đổi mật khẩu, phân quyền 4 vai trò nhân viên | ✅ |
 | Món ăn, Ca làm việc, Tài khoản, Bài viết, Chatbot AI, Thông báo, Dashboard | ⏳ frontend còn dữ liệu giả |
 
 ## Dữ liệu của actor khác

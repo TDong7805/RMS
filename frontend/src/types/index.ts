@@ -67,7 +67,7 @@ export interface DishRank {
   category: string;
   quantity: number;
   revenue: number;
-  /** Tỷ trọng số lượng so với món bán chạy nhất, dùng cho thanh tiến độ. */
+  /** Tỷ trọng số lượng so với món bán chạy nhất trong kỳ (0–100), dùng cho thanh tiến độ ở cả tab Bán chạy và Bán chậm. */
   share: number;
 }
 

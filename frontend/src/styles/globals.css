@@ -94,6 +94,23 @@
   }
 }
 
+/* Mảng gradient bên phải trang đăng nhập: các vệt màu mềm theo màu chính, tự đổi theo giao diện sáng/tối. */
+.rm-auth-hero {
+  background:
+    radial-gradient(60% 55% at 78% 22%, rgba(52, 211, 153, 0.45) 0%, transparent 70%),
+    radial-gradient(55% 60% at 18% 82%, rgba(15, 123, 90, 0.38) 0%, transparent 70%),
+    radial-gradient(45% 40% at 62% 70%, rgba(253, 230, 138, 0.55) 0%, transparent 70%),
+    linear-gradient(135deg, #e4f3ec 0%, #f1f8f4 45%, #dff1e8 100%);
+}
+
+[data-theme='dark'] .rm-auth-hero {
+  background:
+    radial-gradient(60% 55% at 78% 22%, rgba(52, 211, 153, 0.22) 0%, transparent 70%),
+    radial-gradient(55% 60% at 18% 82%, rgba(15, 123, 90, 0.4) 0%, transparent 70%),
+    radial-gradient(45% 40% at 62% 70%, rgba(251, 191, 36, 0.1) 0%, transparent 70%),
+    linear-gradient(135deg, #0f1f19 0%, #0c1411 50%, #10231b 100%);
+}
+
 @keyframes rm-fade-in {
   from {
     opacity: 0;

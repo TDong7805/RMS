@@ -3,10 +3,11 @@
    Hệ quản trị : MySQL 8.0.16+ (cần CHECK constraint)
    Bảng mã     : utf8mb4 / utf8mb4_unicode_ci (hỗ trợ đầy đủ tiếng Việt, emoji)
 
-   Phạm vi: đủ cho 6 Actor theo UC Diagram tổng thể
-     1. Quản trị viên      2. Khách hàng        3. Quản lý nhà hàng
-     4. Thu ngân           5. Nhân viên bếp     6. Quản lý kho
-   (+ Nhân viên phục vụ nhận yêu cầu do Thu ngân chuyển tiếp)
+   Phạm vi: 5 Actor theo UC Diagram tổng thể (nhóm đã gộp Quản trị viên vào Quản lý nhà hàng)
+     1. Quản lý nhà hàng   2. Thu ngân          3. Nhân viên bếp
+     4. Quản lý kho        5. Khách hàng (không đăng nhập trang quản lý)
+   (+ Nhân viên phục vụ: chỉ là nhân viên để xếp ca/tính lương, nhận yêu cầu do Thu ngân
+      chuyển tiếp ngoài đời; KHÔNG đăng nhập hệ thống)
 
    Nguyên tắc thiết kế để mở rộng không lỗi:
      - Phân quyền bằng dữ liệu (roles / permissions / role_permissions):
@@ -34,12 +35,12 @@ SET NAMES utf8mb4;
 SET time_zone = '+07:00';
 
 /* =====================================================================
-   PHẦN 1. PHÂN QUYỀN & TÀI KHOẢN  (Quản trị viên, Quản lý nhà hàng)
+   PHẦN 1. PHÂN QUYỀN & TÀI KHOẢN  (Quản lý nhà hàng)
    ===================================================================== */
 
 CREATE TABLE roles (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  code          VARCHAR(30)  NOT NULL,              -- admin, manager, cashier, ...
+  code          VARCHAR(30)  NOT NULL,              -- manager, cashier, kitchen, ...
   name          VARCHAR(100) NOT NULL,
   description   VARCHAR(255) NULL,
   is_system     TINYINT(1)   NOT NULL DEFAULT 1,    -- vai trò gốc, không cho xóa trên giao diện
@@ -100,7 +101,7 @@ CREATE TABLE customers (
 ) ENGINE=InnoDB COMMENT='Actor Khách hàng — tách khỏi users vì không đăng nhập trang quản lý.';
 
 /* =====================================================================
-   PHẦN 2. CẤU HÌNH HỆ THỐNG  (UC Cấu hình hệ thống, Quản trị viên)
+   PHẦN 2. CẤU HÌNH HỆ THỐNG  (UC Cấu hình hệ thống, Quản lý nhà hàng)
    ===================================================================== */
 
 CREATE TABLE restaurant_info (
@@ -673,7 +674,7 @@ CREATE TABLE posts (
 ) ENGINE=InnoDB;
 
 /* =====================================================================
-   PHẦN 11. CHATBOT AI  (Quản trị viên: cấu hình AI; Quản lý nhà hàng: quản lý chatbot;
+   PHẦN 11. CHATBOT AI  (Quản lý nhà hàng: cấu hình AI & quản lý chatbot;
                          Khách hàng: hỏi AI tư vấn)
    ===================================================================== */
 
@@ -691,7 +692,7 @@ CREATE TABLE ai_model_config (
   CONSTRAINT chk_aimc_single CHECK (id = 1),
   CONSTRAINT chk_aimc_temp CHECK (temperature BETWEEN 0 AND 1),
   CONSTRAINT fk_aimc_user FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB COMMENT='Cấu hình mô hình AI — thuộc quyền Quản trị viên.';
+) ENGINE=InnoDB COMMENT='Cấu hình mô hình AI — thuộc quyền Quản lý nhà hàng.';
 
 CREATE TABLE chatbot_config (
   id                  TINYINT UNSIGNED NOT NULL DEFAULT 1 PRIMARY KEY,
@@ -989,17 +990,19 @@ WHERE oi.status IN ('pending','cooking');
 
 /* =====================================================================
    PHẦN 15. DỮ LIỆU KHỞI TẠO
-   Mật khẩu mẫu: chuỗi băm dưới đây là PLACEHOLDER — backend phải tạo hash thật
-   (bcrypt) và must_change_password = 1 buộc đổi mật khẩu khi đăng nhập lần đầu.
+   Tài khoản mẫu (CHỈ DÙNG KHI PHÁT TRIỂN): mật khẩu chung "Rms@2026" (đã băm bcrypt).
+   must_change_password = 0 để nhóm đăng nhập ngay; tài khoản do quản lý tạo trên giao diện
+   sẽ có must_change_password = 1 → buộc đổi mật khẩu ở lần đăng nhập đầu.
+   Vai trò được đăng nhập do backend quy định (com.rms.auth.StaffAreas): manager, cashier,
+   kitchen, warehouse.
    ===================================================================== */
 
 INSERT INTO roles (code, name, description) VALUES
- ('admin',     'Quản trị viên',     'Cập nhật thông tin tài khoản chung, cấu hình AI, cập nhật hệ thống'),
- ('manager',   'Quản lý nhà hàng',  'Món ăn, sơ đồ bàn, đặt bàn, nhân viên, bài viết, chatbot, thống kê'),
+ ('manager',   'Quản lý nhà hàng',  'Toàn bộ nghiệp vụ quản lý, gồm cả tài khoản, cấu hình AI và cấu hình hệ thống'),
  ('cashier',   'Thu ngân',          'Tra cứu đơn, lập hóa đơn, tính lương, nhận yêu cầu khách'),
  ('kitchen',   'Nhân viên bếp',     'Xem đơn, kiểm tra nguyên liệu, xác nhận hoàn thành món'),
  ('warehouse', 'Quản lý kho',       'Nhập kho, xuất kho, kiểm tra tồn kho'),
- ('waiter',    'Nhân viên phục vụ', 'Hỗ trợ khách tại bàn theo yêu cầu được chuyển tiếp');
+ ('waiter',    'Nhân viên phục vụ', 'Chỉ để xếp ca và tính lương; không đăng nhập hệ thống');
 
 INSERT INTO permissions (code, module, name) VALUES
  ('account.manage',      'account',     'Quản lý tài khoản'),
@@ -1029,22 +1032,21 @@ INSERT INTO permissions (code, module, name) VALUES
 -- Gán quyền theo vai trò (dùng code, không phụ thuộc id)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON
-  (r.code = 'admin'     AND p.code IN ('account.manage','settings.manage','audit.view','ai.config','notification.view'))
-  OR (r.code = 'manager'   AND p.code IN ('account.manage','settings.manage','audit.view','chatbot.manage','dashboard.view',
+  (r.code = 'manager'      AND p.code IN ('account.manage','settings.manage','audit.view','ai.config','chatbot.manage','dashboard.view',
                                           'notification.view','reservation.manage','table.manage','dish.manage','shift.manage',
                                           'post.manage','inventory.adjust','inventory.view'))
   OR (r.code = 'cashier'   AND p.code IN ('order.view','invoice.manage','service_request.handle','payroll.manage','notification.view'))
   OR (r.code = 'kitchen'   AND p.code IN ('kitchen.process','order.view','inventory.view'))
-  OR (r.code = 'warehouse' AND p.code IN ('inventory.view','inventory.import','inventory.export','purchase.manage','notification.view'))
-  OR (r.code = 'waiter'    AND p.code IN ('service_request.serve','notification.view'));
+  OR (r.code = 'warehouse' AND p.code IN ('inventory.view','inventory.import','inventory.export','purchase.manage','notification.view'));
+-- waiter không có quyền nào: không đăng nhập hệ thống.
 
-INSERT INTO users (username, password_hash, full_name, email, phone, role_id, hourly_rate) VALUES
- ('admin',       '$2b$10$REPLACE.WITH.REAL.BCRYPT.HASH.000000000000000000000', 'Quản trị hệ thống', 'admin@greenlotus.vn',       '0901000001', (SELECT id FROM roles WHERE code='admin'),     0),
- ('tuan.nguyen', '$2b$10$REPLACE.WITH.REAL.BCRYPT.HASH.000000000000000000000', 'Nguyễn Anh Tuấn',   'tuan.nguyen@greenlotus.vn', '0901000002', (SELECT id FROM roles WHERE code='manager'),   0),
- ('linh.tran',   '$2b$10$REPLACE.WITH.REAL.BCRYPT.HASH.000000000000000000000', 'Trần Thùy Linh',    'linh.tran@greenlotus.vn',   '0901000003', (SELECT id FROM roles WHERE code='cashier'),   30000),
- ('hung.pham',   '$2b$10$REPLACE.WITH.REAL.BCRYPT.HASH.000000000000000000000', 'Phạm Quốc Hùng',    'hung.pham@greenlotus.vn',   '0901000004', (SELECT id FROM roles WHERE code='kitchen'),   35000),
- ('thao.bui',    '$2b$10$REPLACE.WITH.REAL.BCRYPT.HASH.000000000000000000000', 'Bùi Phương Thảo',   'thao.bui@greenlotus.vn',    '0901000005', (SELECT id FROM roles WHERE code='warehouse'), 32000),
- ('nam.hoang',   '$2b$10$REPLACE.WITH.REAL.BCRYPT.HASH.000000000000000000000', 'Hoàng Gia Nam',     'nam.hoang@greenlotus.vn',   '0901000006', (SELECT id FROM roles WHERE code='waiter'),    25000);
+-- Mật khẩu mẫu "Rms@2026" (bcrypt). nam.hoang (phục vụ) có mật khẩu nhưng vẫn bị chặn đăng nhập theo vai trò.
+INSERT INTO users (username, password_hash, must_change_password, full_name, email, phone, role_id, hourly_rate) VALUES
+ ('tuan.nguyen', '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Nguyễn Anh Tuấn',   'tuan.nguyen@greenlotus.vn', '0901000002', (SELECT id FROM roles WHERE code='manager'),   0),
+ ('linh.tran',   '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Trần Thùy Linh',    'linh.tran@greenlotus.vn',   '0901000003', (SELECT id FROM roles WHERE code='cashier'),   30000),
+ ('hung.pham',   '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Phạm Quốc Hùng',    'hung.pham@greenlotus.vn',   '0901000004', (SELECT id FROM roles WHERE code='kitchen'),   35000),
+ ('thao.bui',    '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Bùi Phương Thảo',   'thao.bui@greenlotus.vn',    '0901000005', (SELECT id FROM roles WHERE code='warehouse'), 32000),
+ ('nam.hoang',   '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Hoàng Gia Nam',     'nam.hoang@greenlotus.vn',   '0901000006', (SELECT id FROM roles WHERE code='waiter'),    25000);
 
 INSERT INTO restaurant_info (id, name, legal_name, tax_code, phone, email, address, website) VALUES
  (1, 'Green Lotus', 'Công ty TNHH Ẩm thực Green Lotus', '0315678912', '02838221234',

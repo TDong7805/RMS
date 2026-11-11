@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { BrowserRouter } from 'react-router-dom';
 import { useEffect } from 'react';
 import { initTheme } from '@/lib/ui-store';
+import { SessionWatcher } from '@/components/auth/RequireAuth';
 import { AppRoutes } from './routes';
 
 const queryClient = new QueryClient({
@@ -25,6 +26,7 @@ const App = () => {
       <TooltipProvider delayDuration={150}>
         <Toaster position="top-right" richColors closeButton />
         <BrowserRouter>
+          <SessionWatcher />
           <AppRoutes />
         </BrowserRouter>
       </TooltipProvider>

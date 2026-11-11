@@ -25,9 +25,13 @@ export class ValidationError extends Error {
 
 /** Lỗi nghiệp vụ chung (không gắn với trường cụ thể), ví dụ "Không thể xóa ca làm việc này". */
 export class BusinessError extends Error {
-  constructor(message: string) {
+  /** Mã HTTP khi lỗi đến từ backend (vd. 401, 403, 409); không có với lỗi của dữ liệu giả. */
+  status?: number;
+
+  constructor(message: string, status?: number) {
     super(message);
     this.name = 'BusinessError';
+    this.status = status;
   }
 }
 

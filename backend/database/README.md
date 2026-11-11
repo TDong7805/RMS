@@ -25,8 +25,8 @@ Lệnh thứ hai phải in ra toàn bộ `PASS`.
 
 | Nhóm | Bảng chính | Actor |
 |---|---|---|
-| Phân quyền | `roles`, `permissions`, `role_permissions`, `users`, `customers` | Quản trị viên, Quản lý |
-| Cấu hình | `restaurant_info`, `opening_hours`, `reservation_form_config`, `system_settings`, `backup_*`, `audit_logs` | Quản trị viên, Quản lý |
+| Phân quyền | `roles`, `permissions`, `role_permissions`, `users`, `customers` | Quản lý |
+| Cấu hình | `restaurant_info`, `opening_hours`, `reservation_form_config`, `system_settings`, `backup_*`, `audit_logs` | Quản lý |
 | Bàn & đặt bàn | `areas`, `dining_tables`, `reservations` | Khách hàng, Quản lý |
 | Thực đơn | `dish_categories`, `dishes`, `allergens`, `ai_tags`, `dish_ingredients` | Quản lý, Khách hàng |
 | Kho | `ingredients`, `suppliers`, `purchase_orders`, `stock_transactions`, `supplier_payments` | Quản lý kho, Bếp, Quản lý |
@@ -34,7 +34,7 @@ Lệnh thứ hai phải in ra toàn bộ `PASS`.
 | Thu ngân | `invoices`, `payments`, `payroll_periods`, `payrolls` | Thu ngân |
 | Nhân sự | `shifts`, `shift_assignments`, `attendances` | Quản lý, Thu ngân |
 | Nội dung | `posts` | Quản lý |
-| Chatbot AI | `ai_model_config`, `chatbot_config`, `faqs`, `combos`, `chat_*`, `unanswered_questions` | Quản trị viên, Quản lý, Khách hàng |
+| Chatbot AI | `ai_model_config`, `chatbot_config`, `faqs`, `combos`, `chat_*`, `unanswered_questions` | Quản lý, Khách hàng |
 | Thông báo | `notification_types`, `notifications`, `notification_recipients` | Tất cả |
 
 ## Quy ước khi chỉnh sửa (để cả nhóm không lỗi khi ghép)

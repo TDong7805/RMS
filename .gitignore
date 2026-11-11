@@ -1,8 +1,18 @@
+# Thư viện, file build, log
 node_modules
 dist
+backend/target/
+*.log
+
+# Mật khẩu, khóa: KHÔNG commit (gồm backend/.env.properties chứa mật khẩu MySQL)
 .env
 .env.*
+# ...nhưng vẫn commit các file mẫu để người khác sao chép
 !.env.example
-*.log
+!.env.properties.example
+
+# Cấu hình riêng của IDE
 .vscode/*
 !.vscode/extensions.json
+.idea/
+*.iml

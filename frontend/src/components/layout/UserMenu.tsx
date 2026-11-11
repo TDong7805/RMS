@@ -1,35 +1,20 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { ChevronDown, LogOut, Settings, UserRound } from 'lucide-react';
+import { ChevronDown, KeyRound, LogOut, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { getCurrentUser, signOut } from '@/api/user';
+import { initialsOf, useAuth, useLogout } from '@/lib/auth';
 
 const itemClass =
   'flex min-h-[38px] cursor-pointer select-none items-center gap-2.5 rounded-[8px] px-2.5 text-[13.5px] text-[var(--text-secondary)] outline-none transition-colors data-[highlighted]:bg-[var(--bg-subtle)] data-[highlighted]:text-[var(--text-primary)]';
 
+/** Avatar + menu tài khoản của người đang đăng nhập (dùng ở trang quản lý và khu vực Thu ngân/Bếp/Kho). */
 export function UserMenu() {
   const navigate = useNavigate();
-  const { data: user } = useQuery({
-    queryKey: ['user', 'current'],
-    queryFn: getCurrentUser,
-    staleTime: 5 * 60_000,
-  });
+  const { data: user } = useAuth();
+  const logout = useLogout();
 
-  const logout = useMutation({
-    mutationFn: signOut,
-    onSuccess: () => {
-      toast.success('Đã đăng xuất khỏi phiên quản lý.');
-      navigate('/');
-    },
-    onError: () => {
-      toast.error('Không thể đăng xuất, vui lòng thử lại.');
-    },
-  });
-
-  const initials = user?.initials ?? 'AT';
-  const name = user?.name ?? 'Đang tải…';
-  const role = user?.role ?? 'Quản lý nhà hàng';
+  const name = user?.fullName ?? 'Đang tải…';
+  const role = user?.roleLabel ?? '';
+  const initials = user ? initialsOf(user.fullName) : '';
 
   return (
     <DropdownMenu.Root>
@@ -73,29 +58,32 @@ export function UserMenu() {
           <div className="px-2.5 py-2">
             <p className="truncate text-[13.5px] font-semibold text-[var(--text-primary)]">{name}</p>
             <p className="truncate text-[12px] text-[var(--text-muted)]">{user?.email ?? ''}</p>
-            {user?.restaurant ? (
-              <p className="mt-1 truncate text-[11.5px] text-[var(--text-muted)]">{user.restaurant}</p>
-            ) : null}
+            <p className="mt-1 truncate text-[11.5px] text-[var(--text-muted)]">
+              {user ? `@${user.username} · ${role}` : ''}
+            </p>
           </div>
           <DropdownMenu.Separator className="my-1 h-px bg-[var(--border)]" />
-          <DropdownMenu.Item className={itemClass} onSelect={() => navigate('/tai-khoan')}>
-            <UserRound size={16} strokeWidth={1.75} aria-hidden />
-            Hồ sơ
+          <DropdownMenu.Item className={itemClass} onSelect={() => navigate('/doi-mat-khau')}>
+            <KeyRound size={16} strokeWidth={1.75} aria-hidden />
+            Đổi mật khẩu
           </DropdownMenu.Item>
-          <DropdownMenu.Item className={itemClass} onSelect={() => navigate('/cai-dat')}>
-            <Settings size={16} strokeWidth={1.75} aria-hidden />
-            Cài đặt
-          </DropdownMenu.Item>
+          {user?.role === 'manager' ? (
+            <DropdownMenu.Item className={itemClass} onSelect={() => navigate('/cai-dat')}>
+              <Settings size={16} strokeWidth={1.75} aria-hidden />
+              Cài đặt
+            </DropdownMenu.Item>
+          ) : null}
           <DropdownMenu.Separator className="my-1 h-px bg-[var(--border)]" />
           <DropdownMenu.Item
             className="flex min-h-[38px] cursor-pointer select-none items-center gap-2.5 rounded-[8px] px-2.5 text-[13.5px] text-[var(--danger)] outline-none transition-colors data-[highlighted]:bg-[var(--danger-soft)]"
+            disabled={logout.isPending}
             onSelect={(event) => {
               event.preventDefault();
               logout.mutate();
             }}
           >
             <LogOut size={16} strokeWidth={1.75} aria-hidden />
-            Đăng xuất
+            {logout.isPending ? 'Đang đăng xuất…' : 'Đăng xuất'}
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

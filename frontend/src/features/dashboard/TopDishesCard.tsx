@@ -65,25 +65,41 @@ function DishRow({ dish, index, mode }: DishRowProps) {
         </div>
       </div>
 
-      {mode === 'best' ? (
-        <div className="mt-1.5 flex min-w-0 items-center gap-2 pl-[34px]">
-          <div
-            className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--bg-subtle)]"
-            role="presentation"
-          >
+      {/* % = số phần bán so với món bán chạy nhất trong kỳ (cả hai tab cùng thang để so sánh được). */}
+      <div className="mt-1.5 flex min-w-0 items-center gap-2 pl-[34px]">
+        <div
+          className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--bg-subtle)]"
+          role="presentation"
+        >
+          {mode === 'slow' && dish.quantity === 0 ? null : (
             <div
               className={cn(
                 'h-full rounded-full',
-                index === 0 ? 'bg-[var(--accent)]' : 'bg-[var(--chart-bar)]',
+                mode === 'slow'
+                  ? 'bg-[var(--warning)] opacity-70'
+                  : index === 0
+                    ? 'bg-[var(--accent)]'
+                    : 'bg-[var(--chart-bar)]',
               )}
               style={{ width: `${Math.max(4, dish.share)}%` }}
             />
-          </div>
-          <span className="w-9 shrink-0 text-right font-mono text-[10.5px] tabular-nums text-[var(--text-muted)]">
-            {Math.round(dish.share)}%
-          </span>
+          )}
         </div>
-      ) : null}
+        {mode === 'slow' && dish.quantity === 0 ? (
+          <span className="shrink-0 whitespace-nowrap text-right text-[10.5px] font-semibold text-[var(--danger)] opacity-80">
+            Chưa bán
+          </span>
+        ) : (
+          <span
+            className={cn(
+              'w-9 shrink-0 text-right font-mono text-[10.5px] tabular-nums',
+              mode === 'slow' ? 'text-[var(--warning)]' : 'text-[var(--text-muted)]',
+            )}
+          >
+            {dish.share > 0 && dish.share < 1 ? '<1' : Math.round(dish.share)}%
+          </span>
+        )}
+      </div>
     </li>
   );
 }
@@ -156,7 +172,8 @@ export function TopDishesCard({ period, onPeriodChange }: TopDishesCardProps) {
             <p className="mt-3 flex items-start gap-1.5 rounded-[10px] bg-[var(--warning-soft)] px-2.5 py-2 text-[11.5px] leading-4 text-[var(--warning)]">
               <TrendingDown size={13} strokeWidth={2} aria-hidden className="mt-0.5 shrink-0" />
               <span className="min-w-0">
-                Tính trên các món đang bán, gồm cả món chưa bán được phần nào trong kỳ.
+                Tính trên các món đang bán, gồm cả món chưa bán được phần nào trong kỳ. % là số phần bán
+                so với món bán chạy nhất.
               </span>
             </p>
           ) : null}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import * as Popover from '@radix-ui/react-popover';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { ChevronRight, Search, X } from 'lucide-react';
@@ -13,6 +13,7 @@ export interface SidebarProps {
   groups: MenuGroup[];
   unreadCount: number;
   collapsed: boolean;
+  /** Mở được nhiều mục cha cùng lúc (mặc định). false: mở mục này thì tự đóng mục khác. */
   allowMultiple?: boolean;
   /** Gọi sau khi người dùng chọn một trang (dùng để đóng drawer trên mobile). */
   onNavigate?: () => void;
@@ -40,11 +41,25 @@ function Highlight({ text, keyword }: { text: string; keyword: string }): ReactN
   );
 }
 
+/**
+ * Mục con đang được chọn của một mục cha: khớp chính xác, nếu không thì lấy đường dẫn tiền tố dài nhất.
+ * Vd. /mon-an/them → "Thêm món ăn" (không tô cả "Danh sách món ăn"); /mon-an/5/sua → "Danh sách món ăn".
+ */
+function findActiveChild(children: MenuSubItem[] | undefined, pathname: string): MenuSubItem | null {
+  let best: MenuSubItem | null = null;
+  for (const child of children ?? []) {
+    if (pathname === child.path || pathname.startsWith(child.path + '/')) {
+      if (!best || child.path.length > best.path.length) best = child;
+    }
+  }
+  return best;
+}
+
 export function Sidebar({
   groups,
   unreadCount,
   collapsed,
-  allowMultiple = false,
+  allowMultiple = true,
   onNavigate,
   showFilter = true,
 }: SidebarProps) {
@@ -56,7 +71,7 @@ export function Sidebar({
   const activeParentId = useMemo(() => {
     for (const group of groups) {
       for (const item of group.items) {
-        if (item.children?.some((child) => child.path === location.pathname)) return item.id;
+        if (findActiveChild(item.children, location.pathname)) return item.id;
       }
     }
     return null;
@@ -138,33 +153,37 @@ export function Sidebar({
     next?.focus();
   };
 
-  const renderSubItem = (sub: MenuSubItem, parentId: string): ReactNode => (
-    <li key={sub.id}>
-      <NavLink
-        to={sub.path}
-        onClick={onNavigate}
-        className={({ isActive }) =>
-          cn(
+  // Dùng Link + tự tính trạng thái chọn (findActiveChild) thay cho NavLink: NavLink coi /mon-an là đang chọn
+  // cả khi ở /mon-an/them nên tô xanh cả hai mục con.
+  const renderSubItem = (sub: MenuSubItem, parentId: string, siblings: MenuSubItem[]): ReactNode => {
+    const isActive = findActiveChild(siblings, location.pathname)?.id === sub.id;
+    return (
+      <li key={sub.id}>
+        <Link
+          to={sub.path}
+          onClick={onNavigate}
+          aria-current={isActive ? 'page' : undefined}
+          className={cn(
             'group relative flex min-h-[36px] items-center rounded-[10px] px-3 py-2 text-[14px] leading-5 transition-colors duration-150',
             'before:absolute before:-left-[13px] before:top-1/2 before:h-[calc(100%-10px)] before:w-[3px] before:-translate-y-1/2 before:rounded-full before:transition-colors',
             isActive
               ? 'bg-[var(--accent-soft)] font-semibold text-[var(--accent)] before:bg-[var(--accent)]'
               : 'text-[var(--text-secondary)] before:bg-transparent hover:bg-[var(--bg-subtle)] hover:text-[var(--accent)]',
-          )
-        }
-        aria-label={sub.label}
-        data-parent={parentId}
-      >
-        <Highlight text={sub.label} keyword={query} />
-      </NavLink>
-    </li>
-  );
+          )}
+          aria-label={sub.label}
+          data-parent={parentId}
+        >
+          <Highlight text={sub.label} keyword={query} />
+        </Link>
+      </li>
+    );
+  };
 
   const renderItem = (item: MenuItem): ReactNode => {
     const Icon = getMenuIcon(item.icon);
     const hasChildren = Boolean(item.children?.length);
     const open = hasChildren && isOpen(item.id);
-    const containsActive = item.children?.some((child) => child.path === location.pathname);
+    const containsActive = Boolean(findActiveChild(item.children, location.pathname));
     const badge = badgeFor(item);
 
     if (collapsed) {
@@ -196,7 +215,7 @@ export function Sidebar({
                   <p className="px-2 pb-1.5 text-[13px] font-semibold text-[var(--text-primary)]">
                     {item.label}
                   </p>
-                  <ul className="space-y-0.5">{item.children?.map((sub) => renderSubItem(sub, item.id))}</ul>
+                  <ul className="space-y-0.5">{item.children?.map((sub) => renderSubItem(sub, item.id, item.children ?? []))}</ul>
                 </Popover.Content>
               </Popover.Portal>
             </Popover.Root>
@@ -321,7 +340,7 @@ export function Sidebar({
         >
           <div className="overflow-hidden">
             <ul className="relative ml-5 mt-1 space-y-0.5 border-l border-[var(--border)] pl-3">
-              {item.children?.map((sub) => renderSubItem(sub, item.id))}
+              {item.children?.map((sub) => renderSubItem(sub, item.id, item.children ?? []))}
             </ul>
           </div>
         </div>

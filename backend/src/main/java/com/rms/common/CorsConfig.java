@@ -17,7 +17,9 @@ public class CorsConfig {
                 registry.addMapping("/api/**")
                     .allowedOrigins(origins)
                     .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                    .allowedHeaders("*");
+                    .allowedHeaders("*")
+                    // Cho phép gửi cookie phiên khi frontend chạy khác cổng mà không qua proxy của Vite.
+                    .allowCredentials(true);
             }
         };
     }

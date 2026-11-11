@@ -1,6 +1,6 @@
 # RMS — Hệ thống quản lý và vận hành nhà hàng
 
-Đề tài nhóm 2. 6 actor: Quản trị viên, Khách hàng, Quản lý nhà hàng, Thu ngân, Nhân viên bếp, Quản lý kho. Đặc tả Use Case: `CodeUC_QLNH.docx`.
+Đề tài nhóm 2. 5 actor: Quản lý nhà hàng (gộp cả Quản trị viên), Thu ngân, Nhân viên bếp, Quản lý kho, Khách hàng. Đặc tả Use Case: `CodeUC_QLNH.docx`.
 
 ## Cấu trúc thư mục
 
@@ -23,6 +23,9 @@ Yêu cầu: Node.js 18+, JDK 17+, Maven 3.9+, MySQL 8.0.16+.
    npm install
    npm run dev      # http://localhost:3000 — request /api được chuyển sang backend
    ```
+
+3. **Đăng nhập:** tài khoản mẫu `tuan.nguyen` (Quản lý), `linh.tran` (Thu ngân), `hung.pham` (Bếp),
+   `thao.bui` (Kho), mật khẩu chung `Rms@2026`. Không có trang đăng ký — quản lý cấp tài khoản.
 
 Các trang Đặt bàn, Khu vực bàn, Nhật ký, Cấu hình hệ thống đã dùng dữ liệu thật từ MySQL.
 Các trang còn lại vẫn dùng dữ liệu mẫu trong bộ nhớ (`frontend/src/mocks`, `frontend/src/api` — hàm nào còn giả có ghi chú `[BACKEND-TODO]`).
