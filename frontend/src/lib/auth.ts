@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getMe, logout, type AuthUser, type StaffRole } from '@/api/auth';
+import { MANAGER_HOME } from '@/lib/paths';
 
 /** Khóa cache của người đang đăng nhập. null = chưa đăng nhập. */
 export const AUTH_KEY = ['auth', 'me'] as const;
@@ -34,7 +35,7 @@ export function useLogout() {
   });
 }
 
-/** Tiền tố đường dẫn của các khu vực không phải Quản lý nhà hàng. */
+/** Tiền tố đường dẫn của các khu vực Thu ngân / Bếp / Kho (Quản lý: MANAGER_HOME = /quan-ly). */
 const AREA_PREFIXES: Record<Exclude<StaffRole, 'manager'>, string> = {
   cashier: '/thu-ngan',
   kitchen: '/bep',
@@ -50,8 +51,7 @@ function startsWithSegment(path: string, prefix: string): boolean {
 /** Vai trò có được vào đường dẫn này không (dùng để quyết định có quay lại trang "next" sau đăng nhập). */
 export function canAccessPath(role: StaffRole, path: string): boolean {
   if (PUBLIC_PATHS.some((p) => startsWithSegment(path, p))) return false;
-  const areas = Object.values(AREA_PREFIXES);
-  if (role === 'manager') return !areas.some((p) => startsWithSegment(path, p));
+  if (role === 'manager') return startsWithSegment(path, MANAGER_HOME);
   return startsWithSegment(path, AREA_PREFIXES[role]);
 }
 

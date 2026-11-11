@@ -159,7 +159,7 @@ export function NotificationMenu() {
             <Button
               variant="ghost"
               className="w-full justify-center text-[13px] text-[var(--accent)] hover:!bg-[var(--accent-soft)]"
-              onClick={() => navigate('/thong-bao')}
+              onClick={() => navigate('/quan-ly/thong-bao')}
             >
               Xem tất cả thông báo
             </Button>

@@ -68,7 +68,7 @@ export function UserMenu() {
             Đổi mật khẩu
           </DropdownMenu.Item>
           {user?.role === 'manager' ? (
-            <DropdownMenu.Item className={itemClass} onSelect={() => navigate('/cai-dat')}>
+            <DropdownMenu.Item className={itemClass} onSelect={() => navigate('/quan-ly/cai-dat')}>
               <Settings size={16} strokeWidth={1.75} aria-hidden />
               Cài đặt
             </DropdownMenu.Item>

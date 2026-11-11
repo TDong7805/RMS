@@ -31,7 +31,7 @@ Vite tự chuyển mọi request `/api/...` sang backend cổng 8080 (đổi b�
 
 | Tài khoản | Vai trò | Vào trang |
 |---|---|---|
-| `tuan.nguyen` | Quản lý nhà hàng | `/` — toàn bộ trang quản lý |
+| `tuan.nguyen` | Quản lý nhà hàng | `/quan-ly` — toàn bộ trang quản lý |
 | `linh.tran` | Thu ngân | `/thu-ngan` |
 | `hung.pham` | Nhân viên bếp | `/bep` |
 | `thao.bui` | Quản lý kho | `/kho` |
@@ -104,6 +104,8 @@ Cách đóng gói và đưa lên máy chủ: [TRIEN_KHAI.md](../TRIEN_KHAI.md).
   429 = sai mật khẩu 5 lần liên tiếp, bị chặn 5 phút.
 - **Khóa tài khoản có hiệu lực ngay:** mỗi request kiểm tra lại trạng thái trong CSDL (`ActiveUserFilter`).
 - **Vai trò nào vào được đâu** khai báo ở `auth/StaffAreas.java` (backend) và `src/routes.tsx` (frontend).
+- **Đường dẫn:** trang quản lý nằm dưới `/quan-ly/...` (`src/lib/paths.ts`); `/`, `/thuc-don`, `/tin-tuc`, `/dat-ban`
+  để dành cho website khách hàng. Đường dẫn cũ (`/mon-an`, `/cai-dat`…) tự chuyển sang `/quan-ly/...`.
 - **Người đang thao tác** lấy bằng `CurrentUserService.get()` — `AuditService` dùng hàm này để ghi nhật ký đúng người.
 
 **Thêm API cho phân hệ mới** (vd. Thu ngân): đặt đường dẫn `/api/cashier/...` và thêm

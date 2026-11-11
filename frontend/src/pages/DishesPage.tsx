@@ -63,7 +63,7 @@ export function DishesPage() {
               <Button variant="outline" size="sm" leadingIcon={<FolderCog size={15} />} onClick={() => setCategoryOpen(true)}>
                 Danh mục
               </Button>
-              <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => navigate('/mon-an/them')}>
+              <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => navigate('/quan-ly/mon-an/them')}>
                 Thêm món
               </Button>
             </>
@@ -142,7 +142,7 @@ export function DishesPage() {
                       <Td className="text-right">
                         <div className="inline-flex gap-0.5">
                           <Button size="sm" variant="ghost" aria-label={`Xem ${d.name}`} onClick={() => setDetail(d)}><Eye size={14} /></Button>
-                          <Button size="sm" variant="ghost" aria-label={`Sửa ${d.name}`} onClick={() => navigate(`/mon-an/${d.id}/sua`)}><Pencil size={14} /></Button>
+                          <Button size="sm" variant="ghost" aria-label={`Sửa ${d.name}`} onClick={() => navigate(`/quan-ly/mon-an/${d.id}/sua`)}><Pencil size={14} /></Button>
                           <Button size="sm" variant="ghost" aria-label={`Xóa ${d.name}`} onClick={() => setDeleteTarget(d)}><Trash2 size={14} /></Button>
                         </div>
                       </Td>
@@ -161,7 +161,7 @@ export function DishesPage() {
         categoryName={detail ? categoryName.get(detail.categoryId) ?? '' : ''}
         open={Boolean(detail)}
         onOpenChange={(o) => !o && setDetail(null)}
-        onEdit={(d) => navigate(`/mon-an/${d.id}/sua`)}
+        onEdit={(d) => navigate(`/quan-ly/mon-an/${d.id}/sua`)}
       />
       <CategoryModal open={categoryOpen} onOpenChange={setCategoryOpen} />
       <ConfirmDialog

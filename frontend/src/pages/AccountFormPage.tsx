@@ -63,7 +63,7 @@ export function AccountFormPage() {
           ? `Đã tạo tài khoản ${a.username} – ${ROLES[a.role].label}. Gửi tên đăng nhập và mật khẩu khởi tạo cho nhân viên.`
           : `Đã thêm nhân viên phục vụ ${a.fullName}`,
     onFieldErrors: setErrors,
-    onSuccess: () => navigate('/tai-khoan'),
+    onSuccess: () => navigate('/quan-ly/tai-khoan'),
   });
 
   const set = <K extends keyof AccountInput>(key: K, value: AccountInput[K]) => {
@@ -96,7 +96,7 @@ export function AccountFormPage() {
         <PageHeader
           title={title}
           description={isEdit ? 'Cập nhật thông tin cơ bản và vai trò của tài khoản.' : 'Cấp tài khoản mới cho nhân viên và phân vai trò truy cập.'}
-          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/tai-khoan')}>Về danh sách</Button>}
+          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/quan-ly/tai-khoan')}>Về danh sách</Button>}
         />
 
         {isEdit && accountQuery.isError ? (
@@ -187,7 +187,7 @@ export function AccountFormPage() {
                 </p>
               ) : null}
               <div className="mt-5 flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => navigate('/tai-khoan')} disabled={mutation.isPending}>Hủy</Button>
+                <Button variant="ghost" onClick={() => navigate('/quan-ly/tai-khoan')} disabled={mutation.isPending}>Hủy</Button>
                 <Button type="submit" loading={mutation.isPending} leadingIcon={<Save size={15} />}>{isEdit ? 'Lưu thay đổi' : 'Tạo tài khoản'}</Button>
               </div>
             </Card>

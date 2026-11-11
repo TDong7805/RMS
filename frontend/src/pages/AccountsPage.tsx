@@ -86,7 +86,7 @@ export function AccountsPage() {
           title="Danh sách tài khoản"
           description="Quản lý tài khoản nhân viên, phân vai trò và quyền truy cập hệ thống."
           actions={
-            <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => navigate('/tai-khoan/them')}>
+            <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => navigate('/quan-ly/tai-khoan/them')}>
               Tạo tài khoản
             </Button>
           }
@@ -181,7 +181,7 @@ export function AccountsPage() {
                             </Dropdown.Trigger>
                             <Dropdown.Portal>
                               <Dropdown.Content align="end" sideOffset={4} className="z-[80] min-w-[200px] rounded-item border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-overlay">
-                                <MenuItem icon={<Pencil size={14} />} onSelect={() => navigate(`/tai-khoan/${a.id}/sua`)}>
+                                <MenuItem icon={<Pencil size={14} />} onSelect={() => navigate(`/quan-ly/tai-khoan/${a.id}/sua`)}>
                                   Sửa thông tin
                                 </MenuItem>
                                 {a.status === 'active' ? (

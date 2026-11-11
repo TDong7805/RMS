@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
+import { MANAGER_HOME } from '@/lib/paths';
 
 export interface BreadcrumbProps {
   /** Tên trang hiện tại, lấy từ route + dữ liệu menu. */
@@ -14,7 +15,7 @@ export function Breadcrumb({ current, parent }: BreadcrumbProps) {
       <ol className="flex min-w-0 items-center gap-1.5 text-[13px]">
         <li className="flex shrink-0 items-center">
           <Link
-            to="/"
+            to={MANAGER_HOME}
             className="inline-flex items-center gap-1.5 rounded-[6px] px-1 py-0.5 text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]"
           >
             <Home size={13} strokeWidth={1.9} aria-hidden />

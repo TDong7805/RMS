@@ -12,7 +12,7 @@ export const notificationSeed: AppNotification[] = [
     description: 'Chị Nguyễn Thu Hà đặt bàn 6 người lúc 19:30 hôm nay, khu vực sân vườn.',
     createdAt: minutesAgo(4),
     read: false,
-    href: '/dat-ban/lich-su?id=13',
+    href: '/quan-ly/dat-ban/lich-su?id=13',
   },
   {
     id: 'ntf-02',
@@ -30,7 +30,7 @@ export const notificationSeed: AppNotification[] = [
     description: 'Bàn VIP01 – anh Lê Hoàng Nam, 8 khách, 19:00 hôm nay.',
     createdAt: minutesAgo(52),
     read: false,
-    href: '/dat-ban/lich-su?id=15',
+    href: '/quan-ly/dat-ban/lich-su?id=15',
   },
   {
     id: 'ntf-04',
@@ -48,7 +48,7 @@ export const notificationSeed: AppNotification[] = [
     description: 'Anh Trần Minh Quân đặt bàn 2 người lúc 20:00, khu vực tầng 1.',
     createdAt: minutesAgo(180),
     read: false,
-    href: '/dat-ban/lich-su?id=14',
+    href: '/quan-ly/dat-ban/lich-su?id=14',
   },
   {
     id: 'ntf-06',
@@ -66,7 +66,7 @@ export const notificationSeed: AppNotification[] = [
     description: 'Bàn SV01 – 4 khách lúc 12:00 đã xác nhận với khách qua điện thoại.',
     createdAt: minutesAgo(520),
     read: true,
-    href: '/dat-ban/lich-su?id=11',
+    href: '/quan-ly/dat-ban/lich-su?id=11',
   },
   {
     id: 'ntf-08',
@@ -93,7 +93,7 @@ export const notificationSeed: AppNotification[] = [
     description: 'Chị Phạm Diễm My đã huỷ bàn 12 (8 khách) dự kiến 19:00 tối nay.',
     createdAt: minutesAgo(1600),
     read: true,
-    href: '/dat-ban/lich-su?id=999',
+    href: '/quan-ly/dat-ban/lich-su?id=999',
   },
   {
     id: 'ntf-11',
@@ -111,48 +111,48 @@ export const notificationSeed: AppNotification[] = [
     description: 'Chị Huỳnh Gia Hân đặt tiệc công ty 12 người lúc 18:30, 2 ngày nữa.',
     createdAt: minutesAgo(2900),
     read: true,
-    href: '/dat-ban/lich-su?id=19',
+    href: '/quan-ly/dat-ban/lich-su?id=19',
   },
 ];
 
 /** Danh sách trang cho ô tìm kiếm / chuyển trang nhanh (cấu hình giao diện, không phải dữ liệu nghiệp vụ). */
 export const pageSuggestions: PageSuggestion[] = [
-  { id: 'dashboard', label: 'Dashboard', context: 'Tổng quan', path: '/' },
+  { id: 'dashboard', label: 'Dashboard', context: 'Tổng quan', path: '/quan-ly' },
   {
     id: 'reservation-history',
     label: 'Danh sách lịch sử đặt',
     context: 'Quản lý đặt bàn',
-    path: '/dat-ban/lich-su',
+    path: '/quan-ly/dat-ban/lich-su',
   },
   {
     id: 'reservation-update',
     label: 'Cập nhật form đặt bàn',
     context: 'Quản lý đặt bàn',
-    path: '/dat-ban/cap-nhat',
+    path: '/quan-ly/dat-ban/cap-nhat',
   },
-  { id: 'table-list', label: 'Danh sách bàn', context: 'Quản lý khu vực bàn', path: '/khu-vuc-ban' },
-  { id: 'dish-list', label: 'Danh sách món ăn', context: 'Quản lý món ăn', path: '/mon-an' },
-  { id: 'dish-create', label: 'Thêm món ăn', context: 'Quản lý món ăn', path: '/mon-an/them' },
+  { id: 'table-list', label: 'Danh sách bàn', context: 'Quản lý khu vực bàn', path: '/quan-ly/khu-vuc-ban' },
+  { id: 'dish-list', label: 'Danh sách món ăn', context: 'Quản lý món ăn', path: '/quan-ly/mon-an' },
+  { id: 'dish-create', label: 'Thêm món ăn', context: 'Quản lý món ăn', path: '/quan-ly/mon-an/them' },
   {
     id: 'staff-shifts',
     label: 'Quản lý ca làm',
     context: 'Quản lý nhân viên',
-    path: '/nhan-vien/ca-lam',
+    path: '/quan-ly/nhan-vien/ca-lam',
   },
-  { id: 'post-list', label: 'Danh sách tin đăng', context: 'Quản lý bài viết', path: '/bai-viet' },
-  { id: 'post-create', label: 'Thêm bài viết', context: 'Quản lý bài viết', path: '/bai-viet/them' },
-  { id: 'account-list', label: 'Danh sách tài khoản', context: 'Quản lý tài khoản', path: '/tai-khoan' },
-  { id: 'account-create', label: 'Thêm tài khoản', context: 'Quản lý tài khoản', path: '/tai-khoan/them' },
-  { id: 'chatbot', label: 'Quản lý Chatbot AI', context: 'Hệ thống', path: '/chatbot' },
-  { id: 'notifications', label: 'Thông báo', context: 'Hệ thống', path: '/thong-bao' },
-  { id: 'audit-log', label: 'Nhật ký', context: 'Hệ thống', path: '/nhat-ky' },
-  { id: 'settings', label: 'Cấu hình hệ thống', context: 'Hệ thống', path: '/cai-dat' },
+  { id: 'post-list', label: 'Danh sách tin đăng', context: 'Quản lý bài viết', path: '/quan-ly/bai-viet' },
+  { id: 'post-create', label: 'Thêm bài viết', context: 'Quản lý bài viết', path: '/quan-ly/bai-viet/them' },
+  { id: 'account-list', label: 'Danh sách tài khoản', context: 'Quản lý tài khoản', path: '/quan-ly/tai-khoan' },
+  { id: 'account-create', label: 'Thêm tài khoản', context: 'Quản lý tài khoản', path: '/quan-ly/tai-khoan/them' },
+  { id: 'chatbot', label: 'Quản lý Chatbot AI', context: 'Hệ thống', path: '/quan-ly/chatbot' },
+  { id: 'notifications', label: 'Thông báo', context: 'Hệ thống', path: '/quan-ly/thong-bao' },
+  { id: 'audit-log', label: 'Nhật ký', context: 'Hệ thống', path: '/quan-ly/nhat-ky' },
+  { id: 'settings', label: 'Cấu hình hệ thống', context: 'Hệ thống', path: '/quan-ly/cai-dat' },
 ];
 
 /** [FAKE-DATA] Đường dẫn đã truy cập gần đây (mới nhất trước). */
 export const recentPagePaths: string[] = [
-  '/dat-ban/lich-su',
-  '/mon-an',
-  '/thong-bao',
-  '/khu-vuc-ban',
+  '/quan-ly/dat-ban/lich-su',
+  '/quan-ly/mon-an',
+  '/quan-ly/thong-bao',
+  '/quan-ly/khu-vuc-ban',
 ];

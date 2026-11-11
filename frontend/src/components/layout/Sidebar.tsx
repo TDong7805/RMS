@@ -8,6 +8,7 @@ import { getMenuIcon } from '@/lib/icons';
 import { matchesKeyword, splitHighlight } from '@/lib/normalize';
 import { formatBadgeCount, Badge } from '@/components/common/Badge';
 import type { MenuGroup, MenuItem, MenuSubItem } from '@/types';
+import { MANAGER_HOME } from '@/lib/paths';
 
 export interface SidebarProps {
   groups: MenuGroup[];
@@ -228,8 +229,8 @@ export function Sidebar({
           <Tooltip.Root>
             <Tooltip.Trigger asChild>
               <NavLink
-                to={item.path ?? '/'}
-                end={item.path === '/'}
+                to={item.path ?? MANAGER_HOME}
+                end={item.path === MANAGER_HOME}
                 onClick={onNavigate}
                 aria-label={item.label}
                 className={({ isActive }) =>
@@ -269,8 +270,8 @@ export function Sidebar({
       return (
         <li key={item.id}>
           <NavLink
-            to={item.path ?? '/'}
-            end={item.path === '/'}
+            to={item.path ?? MANAGER_HOME}
+            end={item.path === MANAGER_HOME}
             onClick={onNavigate}
             className={({ isActive }) =>
               cn(

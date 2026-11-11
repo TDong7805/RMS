@@ -76,7 +76,7 @@ export function DishFormPage() {
     invalidate: [qk.dishes, qk.categories, qk.chatbot],
     success: (d) => (isEdit ? `Đã cập nhật món ${d.name}` : `Đã thêm món ${d.name} (${d.code})`),
     onFieldErrors: setErrors,
-    onSuccess: () => navigate('/mon-an'),
+    onSuccess: () => navigate('/quan-ly/mon-an'),
   });
 
   const set = <K extends keyof DishInput>(key: K, value: DishInput[K]) => {
@@ -114,7 +114,7 @@ export function DishFormPage() {
               : 'Mã món do hệ thống tự phát sinh sau khi lưu.'
           }
           actions={
-            <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/mon-an')}>
+            <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/quan-ly/mon-an')}>
               Về danh sách
             </Button>
           }
@@ -207,7 +207,7 @@ export function DishFormPage() {
                 <Button type="submit" loading={mutation.isPending} leadingIcon={<Save size={15} />} className="flex-1 lg:flex-none">
                   {isEdit ? 'Lưu thay đổi' : 'Thêm món'}
                 </Button>
-                <Button variant="ghost" onClick={() => navigate('/mon-an')} disabled={mutation.isPending} className="flex-1 lg:flex-none">
+                <Button variant="ghost" onClick={() => navigate('/quan-ly/mon-an')} disabled={mutation.isPending} className="flex-1 lg:flex-none">
                   Hủy
                 </Button>
               </div>

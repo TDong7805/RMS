@@ -41,7 +41,7 @@ export function PostFormPage() {
     invalidate: [qk.posts],
     success: (p) => (isEdit ? `Đã cập nhật “${p.title}”` : `Đã tạo bài viết “${p.title}” (${POST_STATUS[p.status].label})`),
     onFieldErrors: setErrors,
-    onSuccess: () => navigate('/bai-viet'),
+    onSuccess: () => navigate('/quan-ly/bai-viet'),
   });
 
   const set = <K extends keyof PostInput>(k: K, v: PostInput[K]) => {
@@ -68,7 +68,7 @@ export function PostFormPage() {
         <PageHeader
           title={title}
           description={isEdit && postQuery.data ? `Tác giả ${postQuery.data.author} · cập nhật ${formatDateTime(postQuery.data.updatedAt)}` : 'Soạn tin tức, ưu đãi hoặc sự kiện cho website nhà hàng.'}
-          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/bai-viet')}>Về danh sách</Button>}
+          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/quan-ly/bai-viet')}>Về danh sách</Button>}
         />
 
         {isEdit && postQuery.isError ? (
@@ -128,7 +128,7 @@ export function PostFormPage() {
                     <SelectInput id="p-cat" value={form.category} onChange={(e) => set('category', e.target.value as PostCategory)} options={(Object.keys(POST_CATEGORY) as PostCategory[]).map((c) => ({ value: c, label: POST_CATEGORY[c] }))} />
                   </Field>
                   <div className="flex gap-2 pt-1">
-                    <Button variant="ghost" className="flex-1" onClick={() => navigate('/bai-viet')} disabled={mutation.isPending}>Hủy</Button>
+                    <Button variant="ghost" className="flex-1" onClick={() => navigate('/quan-ly/bai-viet')} disabled={mutation.isPending}>Hủy</Button>
                     <Button type="submit" className="flex-1" loading={mutation.isPending} leadingIcon={<Save size={15} />}>Lưu</Button>
                   </div>
                 </div>

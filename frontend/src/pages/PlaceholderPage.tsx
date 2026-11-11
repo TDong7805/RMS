@@ -3,6 +3,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { useNavigate } from 'react-router-dom';
+import { MANAGER_HOME } from '@/lib/paths';
 
 export interface PlaceholderPageProps {
   title: string;
@@ -42,7 +43,7 @@ export function PlaceholderPage({ title, parent, description }: PlaceholderPageP
                 bổ sung khi hoàn thiện phần nghiệp vụ.
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+            <Button variant="outline" size="sm" onClick={() => navigate(MANAGER_HOME)}>
               Về Dashboard
             </Button>
           </div>

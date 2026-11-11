@@ -60,7 +60,7 @@ export function SettingsPage() {
         {tab === 'logs' ? (
           <Card padded>
             <CardHeader title="Nhật ký hoạt động" icon={<ScrollText size={17} />} description="Tra cứu lịch sử thao tác theo thời gian, tài khoản và hành động." />
-            <Link to="/nhat-ky" className="mt-4 inline-flex h-10 items-center rounded-control bg-[var(--accent)] px-4 text-[14px] font-semibold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]">
+            <Link to="/quan-ly/nhat-ky" className="mt-4 inline-flex h-10 items-center rounded-control bg-[var(--accent)] px-4 text-[14px] font-semibold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]">
               Mở trang Nhật ký
             </Link>
           </Card>

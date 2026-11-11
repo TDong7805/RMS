@@ -13,6 +13,7 @@ Flyway xem bảng `flyway_schema_history` và tự chạy những file SQL chưa
 | `src/main/resources/db/migration/V3__mon_an.sql` | Dữ liệu nền cho Món ăn (thẻ AI "Theo mùa"); ghi chú cột ảnh lưu khóa ảnh | Mọi môi trường |
 | `src/main/resources/db/migration/V4__chatbot.sql` | Danh mục FAQ thành dữ liệu nền | Mọi môi trường |
 | `src/main/resources/db/migration/V5__trigger_kho_cho_phuc_hoi.sql` | Trigger sổ kho bỏ qua khi đang phục hồi bản sao lưu (`@rms_restore = 1`) | Mọi môi trường |
+| `src/main/resources/db/migration/V6__duong_dan_quan_ly.sql` | Đường dẫn trang mở từ thông báo chuyển sang `/quan-ly/...` | Mọi môi trường |
 | `src/main/resources/db/dev/V1_1__du_lieu_mau.sql` | **Dữ liệu mẫu**: tài khoản (mật khẩu `Rms@2026`), khu vực & bàn, món, kho, ca, FAQ, lịch đặt bàn | Chỉ profile `dev` |
 | `src/main/resources/db/dev/V4_1__chatbot_mau.sql` | Thêm FAQ + câu hỏi khách hay hỏi mà bot chưa trả lời được (mô phỏng phân hệ Khách hàng) | Chỉ profile `dev` |
 | `src/main/resources/db/dev/V3_3__bai_viet_mau.sql` | 7 bài viết mẫu (có nháp, đã ẩn), chưa có ảnh bìa | Chỉ profile `dev` |
