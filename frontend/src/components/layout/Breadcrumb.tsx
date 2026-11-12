@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
-import { MANAGER_HOME } from '@/lib/paths';
+import { AREA_HOME, areaFromPath } from '@/lib/areas';
 
 export interface BreadcrumbProps {
   /** Tên trang hiện tại, lấy từ route + dữ liệu menu. */
@@ -10,12 +10,15 @@ export interface BreadcrumbProps {
 }
 
 export function Breadcrumb({ current, parent }: BreadcrumbProps) {
+  /** "Trang chủ" là Dashboard của khu đang xem (Quản lý: /quan-ly, Kho: /kho). */
+  const home = AREA_HOME[areaFromPath(useLocation().pathname)];
+
   return (
     <nav aria-label="Breadcrumb" className="min-w-0">
       <ol className="flex min-w-0 items-center gap-1.5 text-[13px]">
         <li className="flex shrink-0 items-center">
           <Link
-            to={MANAGER_HOME}
+            to={home}
             className="inline-flex items-center gap-1.5 rounded-[6px] px-1 py-0.5 text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]"
           >
             <Home size={13} strokeWidth={1.9} aria-hidden />

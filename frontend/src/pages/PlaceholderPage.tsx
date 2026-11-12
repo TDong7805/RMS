@@ -2,8 +2,8 @@ import { Construction } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
-import { useNavigate } from 'react-router-dom';
-import { MANAGER_HOME } from '@/lib/paths';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { AREA_HOME, areaFromPath } from '@/lib/areas';
 
 export interface PlaceholderPageProps {
   title: string;
@@ -13,6 +13,7 @@ export interface PlaceholderPageProps {
 
 export function PlaceholderPage({ title, parent, description }: PlaceholderPageProps) {
   const navigate = useNavigate();
+  const home = AREA_HOME[areaFromPath(useLocation().pathname)];
 
   return (
     <AppShell meta={{ label: title, parent }}>
@@ -43,7 +44,7 @@ export function PlaceholderPage({ title, parent, description }: PlaceholderPageP
                 bổ sung khi hoàn thiện phần nghiệp vụ.
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate(MANAGER_HOME)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(home)}>
               Về Dashboard
             </Button>
           </div>

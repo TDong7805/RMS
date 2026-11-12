@@ -80,9 +80,15 @@ export interface ConfirmDialogProps {
   title: string;
   description?: ReactNode;
   confirmLabel?: string;
+  /** Chữ trên nút đóng hộp. Mặc định "Hủy"; dùng "Đóng" khi thao tác chính cũng là hủy (hủy phiếu…). */
+  cancelLabel?: string;
   tone?: 'danger' | 'primary';
   loading?: boolean;
+  /** Nút xác nhận bị khóa (vd. chưa chọn lý do). */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
+  /** Nội dung thêm dưới phần mô tả (vd. ô lý do). */
+  children?: ReactNode;
 }
 
 export function ConfirmDialog({
@@ -91,9 +97,12 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = 'Xác nhận',
+  cancelLabel = 'Hủy',
   tone = 'danger',
   loading,
+  confirmDisabled,
   onConfirm,
+  children,
 }: ConfirmDialogProps) {
   return (
     <Modal
@@ -113,16 +122,21 @@ export function ConfirmDialog({
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>
-            Hủy
+            {cancelLabel}
           </Button>
-          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>
+          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={loading} disabled={confirmDisabled}>
             {confirmLabel}
           </Button>
         </>
       }
     >
-      {description ? (
-        <div className="text-[14px] leading-6 text-[var(--text-secondary)]">{description}</div>
+      {description || children ? (
+        <>
+          {description ? (
+            <div className="text-[14px] leading-6 text-[var(--text-secondary)]">{description}</div>
+          ) : null}
+          {children ? <div className={description ? 'mt-3' : ''}>{children}</div> : null}
+        </>
       ) : null}
     </Modal>
   );

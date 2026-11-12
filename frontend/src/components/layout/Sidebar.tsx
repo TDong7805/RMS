@@ -8,7 +8,7 @@ import { getMenuIcon } from '@/lib/icons';
 import { matchesKeyword, splitHighlight } from '@/lib/normalize';
 import { formatBadgeCount, Badge } from '@/components/common/Badge';
 import type { MenuGroup, MenuItem, MenuSubItem } from '@/types';
-import { MANAGER_HOME } from '@/lib/paths';
+import { AREA_HOME, areaFromPath } from '@/lib/areas';
 
 export interface SidebarProps {
   groups: MenuGroup[];
@@ -65,6 +65,8 @@ export function Sidebar({
   showFilter = true,
 }: SidebarProps) {
   const location = useLocation();
+  /** Trang Dashboard của khu đang xem (/quan-ly hoặc /kho): chỉ tô khi đúng đường dẫn đó. */
+  const home = AREA_HOME[areaFromPath(location.pathname)];
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const navRef = useRef<HTMLElement>(null);
@@ -229,8 +231,8 @@ export function Sidebar({
           <Tooltip.Root>
             <Tooltip.Trigger asChild>
               <NavLink
-                to={item.path ?? MANAGER_HOME}
-                end={item.path === MANAGER_HOME}
+                to={item.path ?? home}
+                end={item.path === home}
                 onClick={onNavigate}
                 aria-label={item.label}
                 className={({ isActive }) =>
@@ -270,8 +272,8 @@ export function Sidebar({
       return (
         <li key={item.id}>
           <NavLink
-            to={item.path ?? MANAGER_HOME}
-            end={item.path === MANAGER_HOME}
+            to={item.path ?? home}
+            end={item.path === home}
             onClick={onNavigate}
             className={({ isActive }) =>
               cn(

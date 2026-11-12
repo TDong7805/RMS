@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import * as Popover from '@radix-ui/react-popover';
 import { useQuery } from '@tanstack/react-query';
 import { CornerDownLeft, History, Loader2, Search, X } from 'lucide-react';
 import { getRecentPages, rememberPage, searchPages } from '@/api/search';
+import { areaFromPath } from '@/lib/areas';
 import { cn } from '@/lib/cn';
 import { matchesKeyword, splitHighlight } from '@/lib/normalize';
 import type { PageSuggestion } from '@/types';
@@ -37,6 +38,7 @@ function Highlight({ text, keyword }: { text: string; keyword: string }) {
 
 export function SearchBox({ currentPage, compact = false }: SearchBoxProps) {
   const navigate = useNavigate();
+  const area = areaFromPath(useLocation().pathname);
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
@@ -49,15 +51,15 @@ export function SearchBox({ currentPage, compact = false }: SearchBoxProps) {
   }, [keyword]);
 
   const recentQuery = useQuery({
-    queryKey: ['search', 'recent'],
-    queryFn: getRecentPages,
+    queryKey: ['search', 'recent', area],
+    queryFn: () => getRecentPages(area),
     enabled: open && debounced.length === 0,
     staleTime: 10_000,
   });
 
   const searchQuery = useQuery({
-    queryKey: ['search', 'pages', debounced],
-    queryFn: () => searchPages(debounced),
+    queryKey: ['search', 'pages', area, debounced],
+    queryFn: () => searchPages(debounced, area),
     enabled: open && debounced.length > 0,
     staleTime: 30_000,
   });
@@ -77,14 +79,14 @@ export function SearchBox({ currentPage, compact = false }: SearchBoxProps) {
 
   const go = useCallback(
     (page: PageSuggestion) => {
-      rememberPage(page.path);
+      rememberPage(page.path, area);
       navigate(page.path);
       setKeyword('');
       setDebounced('');
       setOpen(false);
       inputRef.current?.blur();
     },
-    [navigate],
+    [navigate, area],
   );
 
   useEffect(() => {

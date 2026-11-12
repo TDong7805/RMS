@@ -7,10 +7,12 @@ import { formatBadgeCount } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { NotificationItem } from '@/features/notifications/NotificationItem';
 import {
+  useCurrentArea,
   useMarkAllAsRead,
   useMarkAsRead,
   useNotificationsQuery,
 } from '@/features/notifications/hooks';
+import { AREA_HOME } from '@/lib/areas';
 import type { AppNotification } from '@/types';
 
 const TAB_CLASS =
@@ -18,6 +20,7 @@ const TAB_CLASS =
 
 export function NotificationMenu() {
   const navigate = useNavigate();
+  const area = useCurrentArea();
   const { data, isLoading, isError, refetch, isFetching } = useNotificationsQuery();
   const markAsRead = useMarkAsRead();
   const markAll = useMarkAllAsRead();
@@ -159,7 +162,7 @@ export function NotificationMenu() {
             <Button
               variant="ghost"
               className="w-full justify-center text-[13px] text-[var(--accent)] hover:!bg-[var(--accent-soft)]"
-              onClick={() => navigate('/quan-ly/thong-bao')}
+              onClick={() => navigate(`${AREA_HOME[area]}/thong-bao`)}
             >
               Xem tất cả thông báo
             </Button>

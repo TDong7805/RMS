@@ -123,3 +123,75 @@ export const menuGroups: MenuGroup[] = [
     ],
   },
 ];
+
+/**
+ * [FAKE-DATA] Menu khu Quản lý kho (/kho) theo đặc tả UC Quản lý kho (DacTa_UC_QuanLyKho.docx, mục 3).
+ * [BACKEND-TODO] Như menuGroups: khi có backend, GET /api/menu trả menu theo vai trò đang đăng nhập.
+ */
+export const warehouseMenuGroups: MenuGroup[] = [
+  {
+    id: 'kho-root',
+    label: null,
+    items: [{ id: 'kho-dashboard', label: 'Dashboard', icon: 'layout-dashboard', path: '/kho' }],
+  },
+  {
+    id: 'kho-catalog',
+    label: 'DANH MỤC',
+    items: [
+      {
+        id: 'kho-ingredients',
+        label: 'Quản lý nguyên liệu',
+        icon: 'package',
+        children: [
+          { id: 'kho-ingredient-list', label: 'Danh sách nguyên liệu', path: '/kho/nguyen-lieu' },
+          { id: 'kho-ingredient-create', label: 'Thêm nguyên liệu', path: '/kho/nguyen-lieu/them' },
+        ],
+      },
+      {
+        id: 'kho-suppliers',
+        label: 'Quản lý nhà cung cấp',
+        icon: 'truck',
+        children: [
+          { id: 'kho-supplier-list', label: 'Danh sách nhà cung cấp', path: '/kho/nha-cung-cap' },
+          { id: 'kho-supplier-create', label: 'Thêm nhà cung cấp', path: '/kho/nha-cung-cap/them' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'kho-stock',
+    label: 'NHẬP – XUẤT KHO',
+    items: [
+      {
+        id: 'kho-purchase',
+        label: 'Quản lý phiếu mua',
+        icon: 'clipboard-list',
+        children: [
+          { id: 'kho-purchase-list', label: 'Danh sách phiếu mua', path: '/kho/phieu-mua' },
+          { id: 'kho-purchase-create', label: 'Tạo phiếu mua', path: '/kho/phieu-mua/them' },
+        ],
+      },
+      { id: 'kho-receive', label: 'Nhập kho', icon: 'package-plus', path: '/kho/nhap-kho' },
+      { id: 'kho-issue', label: 'Xuất kho', icon: 'package-minus', path: '/kho/xuat-kho' },
+      { id: 'kho-stocktake', label: 'Kiểm kê', icon: 'clipboard-check', path: '/kho/kiem-ke' },
+    ],
+  },
+  {
+    id: 'kho-finance',
+    label: 'TÀI CHÍNH',
+    items: [{ id: 'kho-debt', label: 'Công nợ nhà cung cấp', icon: 'wallet', path: '/kho/cong-no' }],
+  },
+  {
+    id: 'kho-system',
+    label: 'HỆ THỐNG',
+    items: [
+      {
+        id: 'kho-notifications',
+        label: 'Thông báo',
+        icon: 'bell',
+        path: '/kho/thong-bao',
+        badge: { source: 'notifications', variant: 'danger' },
+      },
+    ],
+  },
+];
