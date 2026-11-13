@@ -4,44 +4,34 @@ API cho Hệ thống quản lý và vận hành nhà hàng. Java 17 · Spring Bo
 
 ## Chạy lần đầu
 
-Yêu cầu: JDK 17+, Maven 3.9+, MySQL 8.0.16+. Các lệnh PowerShell dưới đây chạy tại **thư mục gốc repo**.
+Yêu cầu: JDK 17+, Maven 3.9+, MySQL 8.0.16+ đang chạy. Các lệnh PowerShell dưới đây chạy tại **thư mục gốc repo**.
 
-**1. Tạo CSDL** (xem chi tiết ở [database/README.md](database/README.md))
-
-```powershell
-$mysql = "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
-& $mysql -u root -p --default-character-set=utf8mb4 -e "source backend/database/rms_schema.sql"    # XÓA và tạo lại rms_db
-& $mysql -u root -p --default-character-set=utf8mb4 -e "source backend/database/rms_verify.sql"    # phải in toàn PASS
-& $mysql -u root -p --default-character-set=utf8mb4 -e "source backend/database/rms_dev_seed.sql"  # dữ liệu mẫu để demo
-```
-
-**Đã tạo `rms_db` từ trước (bản chưa có đăng nhập)?** Không cần tạo lại, chỉ chạy file nâng cấp:
-
-```powershell
-& $mysql -u root -p --default-character-set=utf8mb4 -e "source backend/database/migrations/001_dang_nhap.sql"
-```
-
-**2. Khai báo kết nối:** sao chép `backend/.env.properties.example` thành `backend/.env.properties` rồi điền mật khẩu MySQL.
+**1. Khai báo kết nối:** sao chép `backend/.env.properties.example` thành `backend/.env.properties` rồi điền mật khẩu MySQL.
 File này đã được `.gitignore` bỏ qua — không commit mật khẩu.
 
-**3. Chạy backend**
+**2. Chạy backend** — CSDL được tạo tự động, không cần chạy file SQL nào:
 
 ```powershell
 cd backend
 mvn spring-boot:run          # API tại http://localhost:8080
 ```
 
+Lần đầu, Flyway tạo CSDL `rms_db` (cấu trúc + dữ liệu mẫu) trong vài giây. Những lần sau chỉ chạy các file
+thay đổi CSDL mới mà người khác đã thêm. Chi tiết, cách làm lại CSDL từ đầu và cách thêm bảng: [database/README.md](database/README.md).
+
+> Đã có `rms_db` tạo bằng các file SQL cũ? Không cần làm gì: Flyway tự nhận và chỉ chạy phần mới.
+
 Hoặc mở thư mục `backend` bằng IntelliJ IDEA và chạy lớp `com.rms.RmsApplication`
 (working directory là `backend` hoặc thư mục gốc repo đều được).
 
-**4. Chạy frontend** (cửa sổ khác): `cd frontend; npm run dev` → http://localhost:3000.
+**3. Chạy frontend** (cửa sổ khác): `cd frontend; npm run dev` → http://localhost:3000.
 Vite tự chuyển mọi request `/api/...` sang backend cổng 8080 (đổi bằng biến `BACKEND_PORT`).
 
-**5. Đăng nhập** bằng một trong các tài khoản mẫu, mật khẩu chung **`Rms@2026`** (chỉ dùng khi phát triển):
+**4. Đăng nhập** bằng một trong các tài khoản mẫu, mật khẩu chung **`Rms@2026`** (chỉ có ở profile dev):
 
 | Tài khoản | Vai trò | Vào trang |
 |---|---|---|
-| `tuan.nguyen` | Quản lý nhà hàng | `/` — toàn bộ trang quản lý |
+| `tuan.nguyen` | Quản lý nhà hàng | `/quan-ly` — toàn bộ trang quản lý |
 | `linh.tran` | Thu ngân | `/thu-ngan` |
 | `hung.pham` | Nhân viên bếp | `/bep` |
 | `thao.bui` | Quản lý kho | `/kho` |
@@ -54,15 +44,41 @@ Vite tự chuyển mọi request `/api/...` sang backend cổng 8080 (đổi b�
 
 ```
 src/main/java/com/rms/
-├── auth/          Đăng nhập, đổi mật khẩu, phân quyền theo vai trò (Spring Security, session cookie)
-├── common/        Dùng chung: xử lý lỗi, phân trang, chuỗi tiếng Việt, thời gian, người dùng hiện tại
+├── auth/          Đăng nhập, đổi mật khẩu, phân quyền theo vai trò (Spring Security, phiên lưu trong MySQL),
+│                  BootstrapManager: tạo tài khoản quản lý đầu tiên khi chạy thật
+├── common/        Dùng chung: xử lý lỗi, phân trang, chuỗi tiếng Việt, thời gian, người dùng hiện tại,
+│                  FrontendConfig: phục vụ giao diện đã build khi đóng gói một file jar
+├── account/       Quản lý tài khoản nhân viên
+├── dish/          Món ăn, danh mục món, dị nguyên
+├── post/          Bài viết (tin tức, ưu đãi, sự kiện): xuất bản / ẩn, ảnh bìa, khóa đường dẫn sau khi xuất bản
+├── shift/         Ca làm việc, phân công ca (kiểm tra trùng lịch kể cả ca qua đêm), danh sách nhân viên cho lịch
+├── chatbot/       Chatbot AI: cấu hình trợ lý, FAQ, câu hỏi chưa giải đáp, thực đơn cho AI, combo gợi ý
+├── storage/       Lưu ảnh tải lên: StorageService (thư mục máy chủ, sau này S3/R2), kiểm tra & xử lý ảnh
+├── backup/        Sao lưu & phục hồi thật (file .zip: dữ liệu + ảnh), tự động theo lịch, phục hồi an toàn
 ├── audit/         Nhật ký hoạt động (AuditService.log được mọi service gọi sau khi lưu)
 ├── settings/      Thông tin nhà hàng, giờ hoạt động, lịch sao lưu
 ├── table/         Khu vực, bàn, sơ đồ bàn
 └── reservation/   Đặt bàn, cấu hình form đặt bàn, ReservationRules (quy tắc dùng chung)
+
+src/main/resources/
+├── application.properties        Cấu hình chung (đọc biến môi trường)
+├── application-dev.properties    Khi phát triển (mặc định): dữ liệu mẫu, CORS cho Vite
+├── application-prod.properties   Khi chạy thật: không dữ liệu mẫu, cookie chỉ qua HTTPS
+└── db/migration, db/dev          File SQL của Flyway (xem database/README.md)
 ```
 
 Mỗi phân hệ gồm `XxxController` (định nghĩa endpoint) và `XxxService` (nghiệp vụ + câu SQL qua `JdbcClient`).
+
+## Môi trường dev / prod
+
+| | `dev` (mặc định) | `prod` (`SPRING_PROFILES_ACTIVE=prod`) |
+|---|---|---|
+| Dữ liệu | Dữ liệu mẫu, tài khoản mật khẩu `Rms@2026` | Chỉ dữ liệu nền; quản lý đầu tiên tạo từ biến `RMS_BOOTSTRAP_*` |
+| Cookie phiên | Gửi qua HTTP | Chỉ gửi qua HTTPS (`Secure`) |
+| Frontend | Chạy riêng bằng `npm run dev` | Đóng gói chung trong `rms.jar` |
+| Thiếu `DB_USER` / `DB_PASSWORD` | Dùng mặc định `root` / rỗng | Dừng ngay khi khởi động, báo thiếu biến |
+
+Cách đóng gói và đưa lên máy chủ: [TRIEN_KHAI.md](../TRIEN_KHAI.md).
 
 ## Quy ước API (frontend phụ thuộc vào các quy ước này)
 
@@ -70,6 +86,7 @@ Mỗi phân hệ gồm `XxxController` (định nghĩa endpoint) và `XxxService
 |---|---|
 | Lỗi dữ liệu theo trường | HTTP 422 `{"message": "...", "fields": {"phone": "..."}}` → form hiện lỗi dưới từng ô |
 | Lỗi nghiệp vụ | 404 / 409 / 400 `{"message": "..."}` → frontend hiện toast |
+| Ảnh trong form | Gửi trong JSON dạng data URL (`data:image/jpeg;base64,...`, tối đa 2 MB); giữ nguyên địa chỉ ảnh cũ = không đổi ảnh; `null` = bỏ ảnh. API trả địa chỉ `/uploads/...`. Dùng `ImageStore.apply(...)` cho chức năng mới có ảnh |
 | Id | Chuỗi số (`"12"`), dù trong CSDL là `BIGINT` |
 | Thời gian | ISO-8601 UTC (`2026-11-11T12:30:00Z`); CSDL lưu giờ Việt Nam (+07:00) |
 | Danh sách có phân trang | `{"items": [...], "total", "page", "pageCount"}` |
@@ -80,12 +97,15 @@ Mỗi phân hệ gồm `XxxController` (định nghĩa endpoint) và `XxxService
 - **Không có đăng ký.** Quản lý cấp tài khoản; tài khoản mới (hoặc vừa được đặt lại mật khẩu) có
   `must_change_password = 1` → sau khi đăng nhập chỉ gọi được `/api/auth/**` cho tới khi đổi mật khẩu.
 - **Phiên đăng nhập** là cookie `RMS_SESSION` (HttpOnly, SameSite=Lax), trình duyệt tự gửi kèm.
-  Hết sau 2 giờ không thao tác; chọn "Ghi nhớ đăng nhập" thì giữ 7 ngày. Khởi động lại backend thì phải đăng nhập lại.
+  Hết sau 2 giờ không thao tác; chọn "Ghi nhớ đăng nhập" thì giữ tới khi 7 ngày liền không thao tác.
+  Phiên lưu trong MySQL (Spring Session JDBC): khởi động lại / cập nhật backend không đẩy ai ra ngoài.
 - **API:** `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/change-password`, `POST /api/auth/logout`.
 - **Mã lỗi:** 401 = chưa đăng nhập / hết phiên / sai mật khẩu; 403 = không đủ quyền (hoặc phải đổi mật khẩu);
   429 = sai mật khẩu 5 lần liên tiếp, bị chặn 5 phút.
 - **Khóa tài khoản có hiệu lực ngay:** mỗi request kiểm tra lại trạng thái trong CSDL (`ActiveUserFilter`).
 - **Vai trò nào vào được đâu** khai báo ở `auth/StaffAreas.java` (backend) và `src/routes.tsx` (frontend).
+- **Đường dẫn:** trang quản lý nằm dưới `/quan-ly/...` (`src/lib/paths.ts`); `/`, `/thuc-don`, `/tin-tuc`, `/dat-ban`
+  để dành cho website khách hàng. Đường dẫn cũ (`/mon-an`, `/cai-dat`…) tự chuyển sang `/quan-ly/...`.
 - **Người đang thao tác** lấy bằng `CurrentUserService.get()` — `AuditService` dùng hàm này để ghi nhật ký đúng người.
 
 **Thêm API cho phân hệ mới** (vd. Thu ngân): đặt đường dẫn `/api/cashier/...` và thêm
@@ -97,17 +117,25 @@ Hiện mọi API khác dưới `/api/**` chỉ dành cho Quản lý nhà hàng.
 | Chức năng | Trạng thái |
 |---|---|
 | Cấu hình hệ thống: thông tin nhà hàng, giờ hoạt động, lịch sao lưu | ✅ |
-| Sao lưu / phục hồi dữ liệu thật (mysqldump) | ⏳ frontend còn giả lập |
+| Sao lưu & phục hồi thật: sao lưu ngay / tự động theo lịch, tải về, phục hồi an toàn, xóa | ✅ |
 | Khu vực & sơ đồ bàn | ✅ |
 | Quản lý đặt bàn, cấu hình form đặt bàn | ✅ |
 | Nhật ký hoạt động | ✅ |
 | Đăng nhập, đổi mật khẩu, phân quyền 4 vai trò nhân viên | ✅ |
-| Món ăn, Ca làm việc, Tài khoản, Bài viết, Chatbot AI, Thông báo, Dashboard | ⏳ frontend còn dữ liệu giả |
+| Quản lý tài khoản: tạo, sửa, khóa/mở khóa, đặt lại mật khẩu, xóa (mềm) | ✅ |
+| Quản lý món ăn: danh sách, tìm/lọc, thêm, sửa (kèm ảnh), đổi trạng thái bán, xóa; danh mục | ✅ |
+| Chatbot AI — thực đơn cho AI (thẻ, bật gợi ý, đồng bộ) và combo gợi ý | ✅ |
+| Chatbot AI — cấu hình trợ lý, FAQ, câu hỏi chưa giải đáp | ✅ |
+| Chatbot AI — lịch sử hội thoại, thống kê | ⏳ còn dữ liệu giả, chờ phân hệ Khách hàng (xem [DU_LIEU_GIA.md](../DU_LIEU_GIA.md)) |
+| Quản lý ca làm việc: thêm, sửa, xóa ca; phân công / hủy phân công, chặn trùng lịch | ✅ |
+| Quản lý bài viết: thêm, sửa (ảnh bìa), xuất bản / ẩn, xóa, tìm kiếm | ✅ |
+| Thông báo, Dashboard | ⏳ còn dữ liệu giả (xem [DU_LIEU_GIA.md](../DU_LIEU_GIA.md)) |
+| Sẵn sàng triển khai: Flyway, phiên lưu trong MySQL, profile dev/prod, đóng gói một file jar, tài khoản quản lý đầu tiên | ✅ (xem [TRIEN_KHAI.md](../TRIEN_KHAI.md)) |
 
 ## Dữ liệu của actor khác
 
 Mọi actor dùng chung CSDL `rms_db`. Chức năng của Quản lý nhà hàng đọc dữ liệu do actor khác tạo ra
 (ví dụ lịch đặt bàn do Khách hàng đặt). Khi phân hệ đó chưa có, dữ liệu mẫu nằm trong
-`database/rms_dev_seed.sql`. Khi viết phân hệ mới, hãy **dùng lại quy tắc có sẵn** thay vì viết lại —
+`src/main/resources/db/dev/` (chỉ nạp ở profile dev). Khi viết phân hệ mới, hãy **dùng lại quy tắc có sẵn** thay vì viết lại —
 ví dụ Khách hàng đặt bàn gọi `ReservationRules.validate(...)` để có đúng các kiểm tra trùng lịch,
 sức chứa, giờ hoạt động như phía quản lý.

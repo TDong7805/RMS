@@ -1,7 +1,9 @@
 /* =====================================================================
-   KIỂM TRA NHANH SAU KHI CHẠY rms_schema.sql
-   Chạy:  mysql -u root -p --default-character-set=utf8mb4 < backend/database/rms_verify.sql
-   Mọi thay đổi chạy trong procedure và được ROLLBACK → dữ liệu khởi tạo giữ nguyên.
+   KIỂM TRA NHANH RÀNG BUỘC CSDL (trigger tồn kho, CHECK, khóa ngoại...)
+   Chạy trên CSDL phát triển (đã có dữ liệu mẫu — backend chạy profile dev ít nhất một lần):
+     mysql -u root -p --default-character-set=utf8mb4 < backend/database/rms_verify.sql
+   Mọi thay đổi chạy trong procedure và được ROLLBACK → dữ liệu giữ nguyên.
+   Không chạy trên CSDL thật.
    ===================================================================== */
 USE rms_db;
 SET NAMES utf8mb4;

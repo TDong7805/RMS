@@ -41,7 +41,7 @@ export function PostFormPage() {
     invalidate: [qk.posts],
     success: (p) => (isEdit ? `Đã cập nhật “${p.title}”` : `Đã tạo bài viết “${p.title}” (${POST_STATUS[p.status].label})`),
     onFieldErrors: setErrors,
-    onSuccess: () => navigate('/bai-viet'),
+    onSuccess: () => navigate('/quan-ly/bai-viet'),
   });
 
   const set = <K extends keyof PostInput>(k: K, v: PostInput[K]) => {
@@ -59,6 +59,8 @@ export function PostFormPage() {
   };
 
   const title = isEdit ? 'Chỉnh sửa bài viết' : 'Thêm bài viết';
+  // Bài đã xuất bản ít nhất một lần: backend giữ nguyên đường dẫn để link đã chia sẻ không hỏng.
+  const lockedSlug = isEdit && postQuery.data?.publishedAt ? postQuery.data.slug : null;
 
   return (
     <AppShell meta={{ label: title, parent: 'Quản lý bài viết' }}>
@@ -66,7 +68,7 @@ export function PostFormPage() {
         <PageHeader
           title={title}
           description={isEdit && postQuery.data ? `Tác giả ${postQuery.data.author} · cập nhật ${formatDateTime(postQuery.data.updatedAt)}` : 'Soạn tin tức, ưu đãi hoặc sự kiện cho website nhà hàng.'}
-          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/bai-viet')}>Về danh sách</Button>}
+          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/quan-ly/bai-viet')}>Về danh sách</Button>}
         />
 
         {isEdit && postQuery.isError ? (
@@ -77,7 +79,7 @@ export function PostFormPage() {
           <form onSubmit={submit} noValidate className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
             <Card padded className="min-w-0">
               <div className="space-y-4">
-                <Field label="Tiêu đề" htmlFor="p-title" required error={errors.title} hint={form.title ? `Đường dẫn: /tin-tuc/${slugify(form.title)}` : `${form.title.length}/150 ký tự`}>
+                <Field label="Tiêu đề" htmlFor="p-title" required error={errors.title} hint={lockedSlug ? `Đường dẫn: /tin-tuc/${lockedSlug} (đã xuất bản nên giữ cố định)` : form.title ? `Đường dẫn: /tin-tuc/${slugify(form.title)}` : `${form.title.length}/150 ký tự`}>
                   <TextInput id="p-title" value={form.title} maxLength={150} invalid={Boolean(errors.title)} onChange={(e) => set('title', e.target.value)} className="h-11 text-[16px] font-semibold" placeholder="Tiêu đề bài viết" />
                 </Field>
                 <Field label="Tóm tắt" htmlFor="p-summary" error={errors.summary} hint={`${form.summary.length}/300 ký tự — hiển thị ở trang danh sách tin`}>
@@ -91,7 +93,7 @@ export function PostFormPage() {
                     <Segmented<'write' | 'preview'> ariaLabel="Chế độ soạn thảo" value={mode} onChange={setMode} options={[{ value: 'write', label: 'Soạn' }, { value: 'preview', label: 'Xem trước' }]} />
                   </div>
                   {mode === 'write' ? (
-                    <TextArea id="p-content" rows={14} value={form.content} invalid={Boolean(errors.content)} onChange={(e) => set('content', e.target.value)} placeholder={'Nội dung bài viết…\nDòng bắt đầu bằng "- " sẽ hiển thị dạng danh sách.'} />
+                    <TextArea id="p-content" rows={14} maxLength={20000} value={form.content} invalid={Boolean(errors.content)} onChange={(e) => set('content', e.target.value)} placeholder={'Nội dung bài viết…\nDòng bắt đầu bằng "- " sẽ hiển thị dạng danh sách.'} />
                   ) : (
                     <article className="min-h-[300px] rounded-control border border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-3">
                       <h2 className="text-[20px] font-bold">{form.title || 'Tiêu đề bài viết'}</h2>
@@ -126,7 +128,7 @@ export function PostFormPage() {
                     <SelectInput id="p-cat" value={form.category} onChange={(e) => set('category', e.target.value as PostCategory)} options={(Object.keys(POST_CATEGORY) as PostCategory[]).map((c) => ({ value: c, label: POST_CATEGORY[c] }))} />
                   </Field>
                   <div className="flex gap-2 pt-1">
-                    <Button variant="ghost" className="flex-1" onClick={() => navigate('/bai-viet')} disabled={mutation.isPending}>Hủy</Button>
+                    <Button variant="ghost" className="flex-1" onClick={() => navigate('/quan-ly/bai-viet')} disabled={mutation.isPending}>Hủy</Button>
                     <Button type="submit" className="flex-1" loading={mutation.isPending} leadingIcon={<Save size={15} />}>Lưu</Button>
                   </div>
                 </div>
@@ -134,7 +136,7 @@ export function PostFormPage() {
               <Card padded>
                 <CardHeader title="Ảnh bìa" />
                 <div className="mt-3">
-                  <ImageUpload aspect="wide" value={form.coverImage} onChange={(v) => set('coverImage', v)} label="Chọn ảnh bìa" />
+                  <ImageUpload aspect="wide" value={form.coverImage} onChange={(v) => set('coverImage', v)} label="Chọn ảnh bìa" error={errors.coverImage} onError={(m) => setErrors((prev) => ({ ...prev, coverImage: m }))} />
                 </div>
               </Card>
             </div>

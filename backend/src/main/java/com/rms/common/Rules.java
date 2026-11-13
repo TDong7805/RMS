@@ -6,6 +6,8 @@ import java.util.regex.Pattern;
 public final class Rules {
     public static final Pattern PHONE = Pattern.compile("^(0|\\+84)(3|5|7|8|9)\\d{8}$");
     public static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$");
+    /** Tên đăng nhập: 4–30 ký tự chữ thường không dấu, số, dấu chấm, gạch dưới. */
+    public static final Pattern USERNAME = Pattern.compile("^[a-z0-9._]{4,30}$");
 
     public static final int PASSWORD_MIN = 8;
     /** bcrypt chỉ dùng 72 byte đầu; giới hạn để mật khẩu dài hơn không bị cắt âm thầm. */

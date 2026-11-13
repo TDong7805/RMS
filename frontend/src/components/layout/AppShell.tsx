@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react';
 import { getMenu } from '@/api/menu';
-import { getNotifications } from '@/api/notifications';
+import { pagesOf } from '@/api/search';
+import { useNotificationsQuery } from '@/features/notifications/hooks';
+import { AREA_LABEL, areaFromPath } from '@/lib/areas';
 import { cn } from '@/lib/cn';
 import { useUiStore } from '@/lib/ui-store';
 import { findCurrentPage, SearchBox } from './SearchBox';
@@ -13,7 +15,6 @@ import { Breadcrumb } from './Breadcrumb';
 import { ThemeToggle } from './ThemeToggle';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu } from './NotificationMenu';
-import { pageSuggestions } from '@/mocks/notifications';
 
 export interface PageMeta {
   /** Tên trang hiện tại hiển thị ở breadcrumb. */
@@ -77,17 +78,16 @@ export function AppShell({ meta, children }: AppShellProps) {
     setMobileSearchOpen(false);
   }, [location.pathname]);
 
+  /** Khu đang xem (Quản lý nhà hàng / Quản lý kho) quyết định menu, thông báo và gợi ý tìm kiếm. */
+  const area = areaFromPath(location.pathname);
+
   const { data: menuData } = useQuery({
-    queryKey: ['menu'],
-    queryFn: getMenu,
+    queryKey: ['menu', area],
+    queryFn: () => getMenu(area),
     staleTime: 10 * 60_000,
   });
 
-  const { data: notificationData } = useQuery({
-    queryKey: ['notifications', 'list'],
-    queryFn: getNotifications,
-    staleTime: 30_000,
-  });
+  const { data: notificationData } = useNotificationsQuery();
 
   const groups = useMemo(() => menuData?.groups ?? [], [menuData]);
   const unreadCount = notificationData?.unreadCount ?? 0;
@@ -95,8 +95,8 @@ export function AppShell({ meta, children }: AppShellProps) {
   const collapsed = showDrawer ? false : isTablet || sidebarCollapsed;
 
   const currentPage = useMemo(
-    () => findCurrentPage(location.pathname, pageSuggestions),
-    [location.pathname],
+    () => findCurrentPage(location.pathname, pagesOf(area)),
+    [location.pathname, area],
   );
 
   const brand = (
@@ -113,7 +113,7 @@ export function AppShell({ meta, children }: AppShellProps) {
             Green Lotus
           </span>
           <span className="block truncate text-[11px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
-            Restaurant Manager
+            {area === 'manager' ? 'Restaurant Manager' : AREA_LABEL[area]}
           </span>
         </span>
       )}

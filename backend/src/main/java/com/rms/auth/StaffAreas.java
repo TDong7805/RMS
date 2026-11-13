@@ -10,12 +10,14 @@ import java.util.Map;
  * chỉ để xếp ca/tính lương) không có trong danh sách này nên không đăng nhập được.
  *
  * Thêm actor mới đăng nhập được: thêm một dòng ở đây + khu vực trang tương ứng ở frontend.
+ *
+ * Trang quản lý nằm dưới /quan-ly (frontend lib/paths.ts — MANAGER_HOME); "/" để dành cho website khách hàng.
  */
 public final class StaffAreas {
     private StaffAreas() {}
 
     public static final Map<String, String> HOME = Map.of(
-        "manager", "/",
+        "manager", "/quan-ly",
         "cashier", "/thu-ngan",
         "kitchen", "/bep",
         "warehouse", "/kho"

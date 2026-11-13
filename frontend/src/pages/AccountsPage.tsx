@@ -13,7 +13,7 @@ import { ConfirmDialog, Modal } from '@/components/common/Modal';
 import { DataTable, PageHeader, Pagination, TableSkeleton, Td, Th, Toolbar } from '@/components/common/PageParts';
 import {
   ACCOUNT_PAGE_SIZE,
-  CURRENT_USER_ID,
+  canLogin,
   deleteAccount,
   resetAccountPassword,
   setAccountLocked,
@@ -21,6 +21,7 @@ import {
 import { qk, useAccounts } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { useDebounced } from '@/hooks/use-debounced';
+import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/cn';
 import { formatRelativeTime } from '@/lib/format';
 import { ACCOUNT_STATUS, ROLES, ROLE_KEYS, formatDateOnly } from '@/lib/labels';
@@ -30,6 +31,7 @@ type Pending = { kind: 'lock' | 'unlock' | 'reset' | 'delete'; account: Account 
 
 export function AccountsPage() {
   const navigate = useNavigate();
+  const { data: me } = useAuth();
   const [keyword, setKeyword] = useState('');
   const [role, setRole] = useState<RoleKey | 'all'>('all');
   const [status, setStatus] = useState<AccountStatus | 'all'>('all');
@@ -47,6 +49,8 @@ export function AccountsPage() {
     onSuccess: () => setPending(null),
   });
   const resetMutation = useApiMutation((a: Account) => resetAccountPassword(a.id), {
+    // Tải lại để hiện nhãn "Chưa đổi mật khẩu" cho tài khoản vừa đặt lại.
+    invalidate: [qk.accounts],
     onSuccess: (password, account) => {
       setPending(null);
       setTempPassword({ account, password });
@@ -69,8 +73,8 @@ export function AccountsPage() {
   const CONFIRM_TEXT = {
     lock: { title: 'Khóa tài khoản?', body: 'Người dùng sẽ bị đăng xuất và không thể đăng nhập cho đến khi được mở khóa.', label: 'Khóa', tone: 'danger' as const },
     unlock: { title: 'Mở khóa tài khoản?', body: 'Người dùng có thể đăng nhập lại với mật khẩu hiện tại.', label: 'Mở khóa', tone: 'primary' as const },
-    reset: { title: 'Đặt lại mật khẩu?', body: 'Hệ thống tạo mật khẩu tạm mới; người dùng phải đổi mật khẩu ở lần đăng nhập kế tiếp.', label: 'Đặt lại', tone: 'primary' as const },
-    delete: { title: 'Xóa tài khoản?', body: 'Tài khoản sẽ bị xóa khỏi hệ thống. Lịch sử thao tác trong nhật ký vẫn được giữ lại.', label: 'Xóa tài khoản', tone: 'danger' as const },
+    reset: { title: 'Đặt lại mật khẩu?', body: 'Hệ thống tạo mật khẩu tạm mới, mật khẩu cũ hết hiệu lực ngay và người dùng bị đăng xuất. Họ phải đổi mật khẩu ở lần đăng nhập kế tiếp.', label: 'Đặt lại', tone: 'primary' as const },
+    delete: { title: 'Xóa tài khoản?', body: 'Tài khoản sẽ bị xóa khỏi hệ thống và không đăng nhập được nữa. Lịch sử ca làm, hóa đơn và nhật ký vẫn được giữ lại.', label: 'Xóa tài khoản', tone: 'danger' as const },
   };
   const text = pending ? CONFIRM_TEXT[pending.kind] : null;
   const hasFilter = Boolean(keyword || role !== 'all' || status !== 'all');
@@ -82,7 +86,7 @@ export function AccountsPage() {
           title="Danh sách tài khoản"
           description="Quản lý tài khoản nhân viên, phân vai trò và quyền truy cập hệ thống."
           actions={
-            <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => navigate('/tai-khoan/them')}>
+            <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => navigate('/quan-ly/tai-khoan/them')}>
               Tạo tài khoản
             </Button>
           }
@@ -133,8 +137,8 @@ export function AccountsPage() {
                 </thead>
                 <tbody>
                   {list.data.items.map((a) => {
-                    const self = a.id === CURRENT_USER_ID;
-                    const protectedAcc = self || a.role === 'admin';
+                    const self = a.id === me?.id;
+                    const loginRole = canLogin(a.role);
                     return (
                       <tr key={a.id} className="hover:bg-[var(--bg-subtle)]">
                         <Td>
@@ -156,8 +160,17 @@ export function AccountsPage() {
                           <p className="font-mono text-[12px] text-[var(--text-muted)]">{a.phone || '—'}</p>
                         </Td>
                         <Td>{ROLES[a.role].label}</Td>
-                        <Td><Badge variant={ACCOUNT_STATUS[a.status].variant}>{ACCOUNT_STATUS[a.status].label}</Badge></Td>
-                        <Td className="font-mono text-[12.5px] text-[var(--text-secondary)]">{a.lastLoginAt ? formatRelativeTime(a.lastLoginAt) : 'Chưa đăng nhập'}</Td>
+                        <Td>
+                          <Badge variant={ACCOUNT_STATUS[a.status].variant}>{ACCOUNT_STATUS[a.status].label}</Badge>
+                          {a.mustChangePassword && loginRole && a.status === 'active' ? (
+                            <p className="mt-1 text-[11.5px] text-[var(--warning)]" title="Người dùng chưa đổi mật khẩu do quản lý cấp">
+                              Chưa đổi mật khẩu
+                            </p>
+                          ) : null}
+                        </Td>
+                        <Td className="font-mono text-[12.5px] text-[var(--text-secondary)]">
+                          {!loginRole ? 'Không đăng nhập' : a.lastLoginAt ? formatRelativeTime(a.lastLoginAt) : 'Chưa đăng nhập'}
+                        </Td>
                         <Td className="font-mono text-[12.5px] text-[var(--text-secondary)]">{formatDateOnly(a.createdAt)}</Td>
                         <Td className="text-right">
                           <Dropdown.Root>
@@ -168,20 +181,22 @@ export function AccountsPage() {
                             </Dropdown.Trigger>
                             <Dropdown.Portal>
                               <Dropdown.Content align="end" sideOffset={4} className="z-[80] min-w-[200px] rounded-item border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-overlay">
-                                <MenuItem icon={<Pencil size={14} />} disabled={a.role === 'admin'} onSelect={() => navigate(`/tai-khoan/${a.id}/sua`)}>
+                                <MenuItem icon={<Pencil size={14} />} onSelect={() => navigate(`/quan-ly/tai-khoan/${a.id}/sua`)}>
                                   Sửa thông tin
                                 </MenuItem>
                                 {a.status === 'active' ? (
-                                  <MenuItem icon={<Lock size={14} />} disabled={protectedAcc} onSelect={() => setPending({ kind: 'lock', account: a })}>Khóa tài khoản</MenuItem>
+                                  <MenuItem icon={<Lock size={14} />} disabled={self} onSelect={() => setPending({ kind: 'lock', account: a })}>Khóa tài khoản</MenuItem>
                                 ) : (
-                                  <MenuItem icon={<LockOpen size={14} />} disabled={protectedAcc} onSelect={() => setPending({ kind: 'unlock', account: a })}>Mở khóa tài khoản</MenuItem>
+                                  <MenuItem icon={<LockOpen size={14} />} disabled={self} onSelect={() => setPending({ kind: 'unlock', account: a })}>Mở khóa tài khoản</MenuItem>
                                 )}
-                                <MenuItem icon={<KeyRound size={14} />} disabled={protectedAcc} onSelect={() => setPending({ kind: 'reset', account: a })}>Đặt lại mật khẩu</MenuItem>
+                                <MenuItem icon={<KeyRound size={14} />} disabled={self || !loginRole} onSelect={() => setPending({ kind: 'reset', account: a })}>Đặt lại mật khẩu</MenuItem>
                                 <Dropdown.Separator className="my-1 h-px bg-[var(--border)]" />
-                                <MenuItem icon={<Trash2 size={14} />} danger disabled={protectedAcc} onSelect={() => setPending({ kind: 'delete', account: a })}>Xóa tài khoản</MenuItem>
-                                {protectedAcc ? (
+                                <MenuItem icon={<Trash2 size={14} />} danger disabled={self} onSelect={() => setPending({ kind: 'delete', account: a })}>Xóa tài khoản</MenuItem>
+                                {self || !loginRole ? (
                                   <p className="px-2.5 pb-1 pt-1.5 text-[11px] leading-4 text-[var(--text-muted)]">
-                                    {self ? 'Không thể thao tác trên tài khoản đang đăng nhập.' : 'Tài khoản Quản trị viên do Quản trị viên quản lý.'}
+                                    {self
+                                      ? 'Tài khoản đang đăng nhập: đổi mật khẩu ở menu tài khoản góc trên.'
+                                      : 'Nhân viên phục vụ không đăng nhập nên không cần mật khẩu.'}
                                   </p>
                                 ) : null}
                               </Dropdown.Content>

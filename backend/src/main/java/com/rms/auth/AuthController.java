@@ -6,15 +6,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.session.security.web.authentication.SpringSessionRememberMeServices;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,20 +28,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-    /** "Ghi nhớ đăng nhập": giữ phiên 7 ngày kể cả khi đóng trình duyệt. Không chọn: hết khi đóng trình duyệt hoặc sau 2 giờ không thao tác. */
+    /**
+     * "Ghi nhớ đăng nhập": phiên còn hiệu lực tới khi 7 ngày liền không thao tác, kể cả khi đóng trình duyệt.
+     * Không chọn: hết khi đóng trình duyệt hoặc sau 2 giờ không thao tác.
+     */
     static final Duration REMEMBER = Duration.ofDays(7);
 
     private final AuthService auth;
     private final AuditService audit;
     private final SecurityContextRepository contextRepository;
-    private final String cookieName;
 
-    public AuthController(AuthService auth, AuditService audit, SecurityContextRepository contextRepository,
-                          @Value("${server.servlet.session.cookie.name:JSESSIONID}") String cookieName) {
+    public AuthController(AuthService auth, AuditService audit, SecurityContextRepository contextRepository) {
         this.auth = auth;
         this.audit = audit;
         this.contextRepository = contextRepository;
-        this.cookieName = cookieName;
     }
 
     @PostMapping("/login")
@@ -60,9 +58,10 @@ public class AuthController {
         boolean remember = Boolean.TRUE.equals(body.remember());
         if (remember) {
             session.setMaxInactiveInterval((int) REMEMBER.toSeconds());
-            // Cookie phiên mặc định mất khi đóng trình duyệt; gửi lại cùng tên kèm Max-Age để giữ 7 ngày.
-            res.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from(cookieName, session.getId())
-                .path("/").httpOnly(true).sameSite("Lax").maxAge(REMEMBER).build().toString());
+            // Cookie phiên mặc định mất khi đóng trình duyệt. Thuộc tính này báo Spring Session ghi cookie lâu dài
+            // (Spring Boot tự cấu hình: DefaultCookieSerializer.rememberMeRequestAttribute); phiên vẫn hết hạn
+            // phía máy chủ sau REMEMBER không thao tác.
+            req.setAttribute(SpringSessionRememberMeServices.REMEMBER_ME_LOGIN_ATTR, Boolean.TRUE);
         }
         auth.recordLogin(account, remember);
         return auth.toMe(account);
@@ -86,13 +85,11 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest req) {
         audit.log("auth", "Đăng xuất", null);
+        // Hủy phiên trong CSDL; Spring Session tự gửi cookie hết hạn để trình duyệt xóa RMS_SESSION.
         var session = req.getSession(false);
         if (session != null) session.invalidate();
         SecurityContextHolder.clearContext();
-        return ResponseEntity.noContent()
-            .header(HttpHeaders.SET_COOKIE, ResponseCookie.from(cookieName, "").path("/").httpOnly(true)
-                .sameSite("Lax").maxAge(0).build().toString())
-            .build();
+        return ResponseEntity.noContent().build();
     }
 
     private void signIn(AuthService.Account account, HttpServletRequest req, HttpServletResponse res) {

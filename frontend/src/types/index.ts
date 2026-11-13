@@ -1,4 +1,5 @@
 export * from './management';
+export * from './warehouse';
 
 export type PeriodKey =
   | 'today'

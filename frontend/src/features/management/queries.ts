@@ -1,16 +1,17 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { getAccounts, getEmployees } from '@/api/accounts';
+import { getAccounts } from '@/api/accounts';
 import { getAuditActors, getAuditLogs } from '@/api/audit';
 import {
   getChatbotConfig,
   getChatbotMenu,
   getChatbotStats,
+  getAiTags,
   getCombos,
   getConversations,
   getFaqs,
   getUnansweredQuestions,
 } from '@/api/chatbot';
-import { getCategories, getDish, getDishes } from '@/api/dishes';
+import { getAllergens, getCategories, getDish, getDishes } from '@/api/dishes';
 import { getPost, getPosts } from '@/api/posts';
 import {
   getReservation,
@@ -19,7 +20,7 @@ import {
   getReservations,
 } from '@/api/reservations';
 import { getBackups, getOpeningHours, getRestaurantInfo } from '@/api/settings';
-import { getAssignments, getShifts } from '@/api/shifts';
+import { getAssignments, getEmployees, getShifts } from '@/api/shifts';
 import { getAreas, getTables } from '@/api/tables';
 import type {
   AccountFilter,
@@ -65,11 +66,14 @@ export const useDishes = (f: DishFilter) =>
 export const useDish = (id: string | undefined) =>
   useQuery({ queryKey: [...qk.dishes, 'detail', id], queryFn: () => getDish(id!), enabled: Boolean(id), retry: false });
 export const useCategories = () => useQuery({ queryKey: qk.categories, queryFn: getCategories });
+/** Danh sách dị nguyên ít khi đổi → giữ 5 phút. */
+export const useAllergens = () => useQuery({ queryKey: ['allergens'], queryFn: getAllergens, staleTime: 300_000 });
 
 /* ---------------- Tài khoản & ca làm */
 export const useAccounts = (f: AccountFilter) =>
   useQuery({ queryKey: [...qk.accounts, 'list', f], queryFn: () => getAccounts(f), placeholderData: keepPreviousData });
-export const useEmployees = () => useQuery({ queryKey: qk.employees, queryFn: getEmployees });
+export const useEmployees = (from: string, to: string) =>
+  useQuery({ queryKey: [...qk.employees, from, to], queryFn: () => getEmployees(from, to), placeholderData: keepPreviousData });
 export const useShifts = () => useQuery({ queryKey: qk.shifts, queryFn: getShifts });
 export const useAssignments = (from: string, to: string) =>
   useQuery({ queryKey: [...qk.assignments, from, to], queryFn: () => getAssignments(from, to), placeholderData: keepPreviousData });
@@ -84,6 +88,7 @@ export const usePost = (id: string | undefined) =>
 export const useChatbotConfig = () => useQuery({ queryKey: [...qk.chatbot, 'config'], queryFn: getChatbotConfig });
 export const useChatbotMenu = () => useQuery({ queryKey: [...qk.chatbot, 'menu'], queryFn: getChatbotMenu });
 export const useCombos = () => useQuery({ queryKey: [...qk.chatbot, 'combos'], queryFn: getCombos });
+export const useAiTags = () => useQuery({ queryKey: [...qk.chatbot, 'ai-tags'], queryFn: getAiTags, staleTime: 300_000 });
 export const useFaqs = () => useQuery({ queryKey: [...qk.chatbot, 'faqs'], queryFn: getFaqs });
 export const useUnanswered = () => useQuery({ queryKey: [...qk.chatbot, 'unanswered'], queryFn: getUnansweredQuestions });
 export const useConversations = (f: ConversationFilter) =>

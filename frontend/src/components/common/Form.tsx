@@ -9,7 +9,8 @@ import {
 import { ChevronDown, ImagePlus, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/cn';
-import { readFileAsDataUrl, validateImageFile } from '@/lib/mock';
+import { prepareImage } from '@/lib/image';
+import { validateImageFile } from '@/lib/mock';
 
 const CONTROL =
   'w-full rounded-control border bg-[var(--bg-surface)] text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors focus:outline-none disabled:cursor-not-allowed disabled:bg-[var(--bg-subtle)] disabled:text-[var(--text-muted)]';
@@ -280,7 +281,13 @@ export function ImageUpload({
       else toast.error(problem);
       return;
     }
-    onChange(await readFileAsDataUrl(file));
+    try {
+      onChange(await prepareImage(file));
+    } catch {
+      const message = 'Không đọc được ảnh, file có thể bị hỏng. Vui lòng chọn ảnh khác';
+      if (onError) onError(message);
+      else toast.error(message);
+    }
   };
 
   return (

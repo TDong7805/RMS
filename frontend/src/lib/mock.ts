@@ -102,7 +102,11 @@ export function collapseSpaces(input: string): string {
 
 /** Tải một chuỗi thành file về máy (dùng cho xuất CSV, tải bản sao lưu). */
 export function downloadText(filename: string, content: string, mime = 'text/plain'): void {
-  const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+  downloadBlob(filename, new Blob([content], { type: `${mime};charset=utf-8` }));
+}
+
+/** Lưu một Blob (vd. file sao lưu .zip tải từ máy chủ) xuống máy người dùng. */
+export function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -111,16 +115,6 @@ export function downloadText(filename: string, content: string, mime = 'text/pla
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-}
-
-/** Đọc file ảnh thành data URL để xem trước (mock cho việc upload). */
-export function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('Không đọc được file'));
-    reader.readAsDataURL(file);
-  });
 }
 
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];

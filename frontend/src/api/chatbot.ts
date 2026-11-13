@@ -1,16 +1,7 @@
-import {
-  chatbotConfigSeed,
-  comboSeed,
-  conversationSeed,
-  dishMentionSeed,
-  faqCategorySeed,
-  faqSeed,
-  unansweredSeed,
-} from '@/mocks/chatbot';
+import { conversationSeed, dishMentionSeed } from '@/mocks/chatbot';
 import { matchesKeyword } from '@/lib/normalize';
-import { BusinessError, ValidationError, collapseSpaces, delay, paginate, toDateKey, uid } from '@/lib/mock';
-import { logActivity } from './audit';
-import { dishesSnapshot, patchDishAi } from './dishes';
+import { delay, paginate, toDateKey } from '@/lib/mock';
+import { api } from '@/lib/http';
 import type {
   ChatbotConfig,
   ChatbotStats,
@@ -27,204 +18,102 @@ import type {
   UnansweredQuestion,
 } from '@/types';
 
-let config: ChatbotConfig = { ...chatbotConfigSeed, quickReplies: [...chatbotConfigSeed.quickReplies] };
-let combos: Combo[] = comboSeed.map((c) => ({ ...c, dishIds: [...c.dishIds] }));
-const faqCategories: FaqCategory[] = faqCategorySeed.map((c) => ({ ...c }));
-let faqs: Faq[] = faqSeed.map((f) => ({ ...f }));
-let unanswered: UnansweredQuestion[] = unansweredSeed.map((u) => ({ ...u }));
 const conversations: Conversation[] = conversationSeed;
-let lastSync: MenuSyncResult | null = null;
 
 export const CONVERSATION_PAGE_SIZE = 8;
 
-/* ------------------------------------------------------------ Cấu hình */
+/* ------------------------------------------------------------ Cấu hình (dữ liệu thật) */
 
-/** [BACKEND-TODO] GET /api/chatbot/config */
-export async function getChatbotConfig(): Promise<ChatbotConfig> {
-  await delay(260);
-  return { ...config, quickReplies: [...config.quickReplies] };
-}
-
-/** [BACKEND-TODO] PUT /api/chatbot/config — áp dụng cho phiên chat tiếp theo. */
-export async function updateChatbotConfig(input: Omit<ChatbotConfig, 'updatedAt'>): Promise<ChatbotConfig> {
-  await delay(450);
-  const errors: Record<string, string> = {};
-  if (!collapseSpaces(input.botName)) errors.botName = 'Vui lòng đặt tên cho trợ lý';
-  else if (input.botName.length > 30) errors.botName = 'Tên tối đa 30 ký tự';
-  if (!input.greeting.trim()) errors.greeting = 'Vui lòng nhập câu chào';
-  else if (input.greeting.length > 300) errors.greeting = 'Câu chào tối đa 300 ký tự';
-  const replies = input.quickReplies.map(collapseSpaces).filter(Boolean);
-  if (replies.length > 6) errors.quickReplies = 'Tối đa 6 gợi ý nhanh';
-  else if (replies.some((r) => r.length > 30)) errors.quickReplies = 'Mỗi gợi ý tối đa 30 ký tự';
-  else if (new Set(replies.map((r) => r.toLowerCase())).size !== replies.length) errors.quickReplies = 'Gợi ý nhanh bị trùng';
-  if (!input.fallbackMessage.trim()) errors.fallbackMessage = 'Vui lòng nhập câu trả lời khi ngoài phạm vi';
-  if (!input.allergyDisclaimer.trim())
-    errors.allergyDisclaimer = 'Cảnh báo dị ứng là bắt buộc theo nguyên tắc hoạt động của AI';
-  if (input.personality.length > 500) errors.personality = 'Mô tả tính cách tối đa 500 ký tự';
-  if (Object.keys(errors).length) throw new ValidationError(errors);
-  config = { ...input, botName: collapseSpaces(input.botName), quickReplies: replies, updatedAt: new Date().toISOString() };
-  logActivity('chatbot', 'Cập nhật cấu hình', `Cấu hình trợ lý "${config.botName}" (${config.active ? 'đang bật' : 'đang tắt'})`);
-  return { ...config, quickReplies: [...config.quickReplies] };
-}
-
-/* ------------------------------------------------------------ Thực đơn cho AI */
-
-function missingFields(d: Dish): string[] {
-  const missing: string[] = [];
-  if (!d.ingredients.trim()) missing.push('thành phần');
-  if (!d.description.trim()) missing.push('mô tả');
-  return missing;
-}
-
-/** [BACKEND-TODO] GET /api/chatbot/menu — danh sách món kèm dữ liệu AI sử dụng. */
-export async function getChatbotMenu(): Promise<{ dishes: Dish[]; lastSync: MenuSyncResult | null }> {
-  await delay(260);
-  return { dishes: dishesSnapshot(), lastSync };
+/** GET /api/chatbot/config */
+export function getChatbotConfig(): Promise<ChatbotConfig> {
+  return api.get<ChatbotConfig>('/api/chatbot/config');
 }
 
 /**
- * [BACKEND-TODO] POST /api/chatbot/menu/sync — đồng bộ thực đơn từ phân hệ Món ăn vào kho tri thức AI.
- * Món "Ngừng bán" không được gợi ý; món thiếu thành phần được cảnh báo để AI không khẳng định.
+ * PUT /api/chatbot/config — áp dụng cho phiên chat tiếp theo. Cảnh báo dị ứng bắt buộc; tối đa 6 gợi ý nhanh,
+ * mỗi gợi ý ≤ 30 ký tự, không trùng.
  */
-export async function syncChatbotMenu(): Promise<MenuSyncResult> {
-  await delay(1100);
-  const all = dishesSnapshot();
-  all.filter((d) => d.status === 'stopped' && d.aiEnabled).forEach((d) => patchDishAi(d.id, { aiEnabled: false }));
-  const fresh = dishesSnapshot();
-  lastSync = {
-    syncedAt: new Date().toISOString(),
-    total: fresh.length,
-    enabled: fresh.filter((d) => d.aiEnabled).length,
-    missingData: fresh
-      .filter((d) => d.status === 'selling' && missingFields(d).length > 0)
-      .map((d) => ({ id: d.id, name: d.name, missing: missingFields(d) })),
-  };
-  logActivity('chatbot', 'Đồng bộ thực đơn', `${lastSync.enabled}/${lastSync.total} món được AI sử dụng`);
-  return lastSync;
+export function updateChatbotConfig(input: Omit<ChatbotConfig, 'updatedAt'>): Promise<ChatbotConfig> {
+  return api.put<ChatbotConfig>('/api/chatbot/config', input);
 }
 
-/** [BACKEND-TODO] PATCH /api/chatbot/menu/{dishId} { aiEnabled?, aiTags? } */
-export async function updateDishAi(id: string, patch: { aiEnabled?: boolean; aiTags?: string[] }): Promise<Dish> {
-  await delay(220);
-  const dish = dishesSnapshot().find((d) => d.id === id);
-  if (!dish) throw new BusinessError('Món ăn không tồn tại');
-  if (patch.aiEnabled && dish.status === 'stopped')
-    throw new BusinessError('Món đang "Ngừng bán", AI không được gợi ý món này');
-  const updated = patchDishAi(id, patch);
-  if (patch.aiTags) logActivity('chatbot', 'Gắn thẻ món', `${dish.name}: ${patch.aiTags.join(', ') || '(không thẻ)'}`);
-  if (patch.aiEnabled !== undefined)
-    logActivity('chatbot', patch.aiEnabled ? 'Bật gợi ý món' : 'Tắt gợi ý món', dish.name);
-  return updated;
+/* ------------------------------------------------------------ Thực đơn cho AI (dữ liệu thật) */
+
+/** GET /api/chatbot/menu — toàn bộ món (dùng chung bảng món với trang Quản lý món ăn) + lần đồng bộ gần nhất. */
+export function getChatbotMenu(): Promise<{ dishes: Dish[]; lastSync: MenuSyncResult | null }> {
+  return api.get<{ dishes: Dish[]; lastSync: MenuSyncResult | null }>('/api/chatbot/menu');
 }
 
-/** [BACKEND-TODO] GET /api/chatbot/combos */
-export async function getCombos(): Promise<Combo[]> {
-  await delay(200);
-  return combos.map((c) => ({ ...c, dishIds: [...c.dishIds] }));
+/**
+ * POST /api/chatbot/menu/sync — đồng bộ thực đơn vào kho tri thức AI.
+ * Món "Ngừng bán" không được gợi ý; món thiếu thành phần / mô tả được cảnh báo để AI không khẳng định.
+ */
+export function syncChatbotMenu(): Promise<MenuSyncResult> {
+  return api.post<MenuSyncResult>('/api/chatbot/menu/sync');
 }
 
-/** [BACKEND-TODO] POST /api/chatbot/combos | PUT /api/chatbot/combos/{id} */
-export async function saveCombo(id: string | null, input: ComboInput): Promise<Combo> {
-  await delay(360);
-  const errors: Record<string, string> = {};
-  const name = collapseSpaces(input.name);
-  if (!name) errors.name = 'Vui lòng nhập tên combo';
-  else if (combos.some((c) => c.id !== id && c.name.toLowerCase() === name.toLowerCase())) errors.name = 'Tên combo đã tồn tại';
-  if (input.dishIds.length < 2) errors.dishIds = 'Combo cần ít nhất 2 món';
-  const stopped = dishesSnapshot().filter((d) => input.dishIds.includes(d.id) && d.status === 'stopped');
-  if (stopped.length) errors.dishIds = `Có món đang ngừng bán: ${stopped.map((d) => d.name).join(', ')}`;
-  if (Object.keys(errors).length) throw new ValidationError(errors);
-  if (id) {
-    const current = combos.find((c) => c.id === id);
-    if (!current) throw new BusinessError('Combo không tồn tại');
-    const updated = { ...current, ...input, name, note: input.note.trim() };
-    combos = combos.map((c) => (c.id === id ? updated : c));
-    logActivity('chatbot', 'Cập nhật combo gợi ý', name);
-    return { ...updated };
-  }
-  const created: Combo = { id: uid('cb'), ...input, name, note: input.note.trim() };
-  combos = [...combos, created];
-  logActivity('chatbot', 'Thêm combo gợi ý', name);
-  return { ...created };
+/** PATCH /api/chatbot/menu/{dishId} { aiEnabled?, aiTags? } — 409 nếu bật gợi ý món đang ngừng bán. */
+export function updateDishAi(id: string, patch: { aiEnabled?: boolean; aiTags?: string[] }): Promise<Dish> {
+  return api.patch<Dish>(`/api/chatbot/menu/${encodeURIComponent(id)}`, {
+    aiEnabled: patch.aiEnabled,
+    aiTags: patch.aiTags,
+  });
 }
 
-/** [BACKEND-TODO] DELETE /api/chatbot/combos/{id} */
-export async function deleteCombo(id: string): Promise<void> {
-  await delay(260);
-  const current = combos.find((c) => c.id === id);
-  if (!current) throw new BusinessError('Combo không tồn tại');
-  combos = combos.filter((c) => c.id !== id);
-  logActivity('chatbot', 'Xóa combo gợi ý', current.name);
+/** GET /api/chatbot/ai-tags — thẻ phân loại món cho AI (bảng ai_tags). */
+export function getAiTags(): Promise<string[]> {
+  return api.get<string[]>('/api/chatbot/ai-tags');
 }
 
-/* ------------------------------------------------------------ FAQ */
-
-/** [BACKEND-TODO] GET /api/chatbot/faqs */
-export async function getFaqs(): Promise<{ faqs: Faq[]; categories: FaqCategory[] }> {
-  await delay(240);
-  return {
-    faqs: [...faqs].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
-    categories: faqCategories.map((c) => ({ ...c })),
-  };
+/** GET /api/chatbot/combos */
+export function getCombos(): Promise<Combo[]> {
+  return api.get<Combo[]>('/api/chatbot/combos');
 }
 
-/** [BACKEND-TODO] GET /api/chatbot/unanswered — câu khách hay hỏi mà bot chưa trả lời được. */
-export async function getUnansweredQuestions(): Promise<UnansweredQuestion[]> {
-  await delay(200);
-  return [...unanswered].sort((a, b) => b.askedCount - a.askedCount);
+/** POST /api/chatbot/combos | PUT /api/chatbot/combos/{id} — tối thiểu 2 món, không chứa món ngừng bán. */
+export function saveCombo(id: string | null, input: ComboInput): Promise<Combo> {
+  return id
+    ? api.put<Combo>(`/api/chatbot/combos/${encodeURIComponent(id)}`, input)
+    : api.post<Combo>('/api/chatbot/combos', input);
 }
 
-function validateFaq(input: FaqInput, editingId: string | null) {
-  const errors: Record<string, string> = {};
-  const question = collapseSpaces(input.question);
-  if (!question) errors.question = 'Vui lòng nhập câu hỏi';
-  else if (question.length > 200) errors.question = 'Câu hỏi tối đa 200 ký tự';
-  else if (faqs.some((f) => f.id !== editingId && f.question.toLowerCase() === question.toLowerCase()))
-    errors.question = 'Câu hỏi đã có trong FAQ';
-  if (!input.answer.trim()) errors.answer = 'Vui lòng nhập câu trả lời';
-  else if (input.answer.length > 1000) errors.answer = 'Câu trả lời tối đa 1000 ký tự';
-  if (!faqCategories.some((c) => c.id === input.categoryId)) errors.categoryId = 'Vui lòng chọn danh mục';
-  if (Object.keys(errors).length) throw new ValidationError(errors);
-  return question;
+/** DELETE /api/chatbot/combos/{id} */
+export function deleteCombo(id: string): Promise<void> {
+  return api.delete(`/api/chatbot/combos/${encodeURIComponent(id)}`);
 }
 
-/** [BACKEND-TODO] POST /api/chatbot/faqs | PUT /api/chatbot/faqs/{id} */
-export async function saveFaq(id: string | null, input: FaqInput): Promise<Faq> {
-  await delay(380);
-  const question = validateFaq(input, id);
-  const ts = new Date().toISOString();
-  let saved: Faq;
-  if (id) {
-    const current = faqs.find((f) => f.id === id);
-    if (!current) throw new BusinessError('FAQ không tồn tại');
-    saved = { ...current, question, answer: input.answer.trim(), categoryId: input.categoryId, active: input.active, updatedAt: ts };
-    faqs = faqs.map((f) => (f.id === id ? saved : f));
-    logActivity('chatbot', 'Sửa FAQ', question);
-  } else {
-    saved = { id: uid('faq'), question, answer: input.answer.trim(), categoryId: input.categoryId, active: input.active, updatedAt: ts };
-    faqs = [saved, ...faqs];
-    logActivity('chatbot', 'Thêm FAQ', question);
-  }
-  if (input.fromUnansweredId) unanswered = unanswered.filter((u) => u.id !== input.fromUnansweredId);
-  return { ...saved };
+/* ------------------------------------------------------------ FAQ (dữ liệu thật) */
+
+/** GET /api/chatbot/faqs — FAQ (mới cập nhật trước) + danh mục. */
+export function getFaqs(): Promise<{ faqs: Faq[]; categories: FaqCategory[] }> {
+  return api.get<{ faqs: Faq[]; categories: FaqCategory[] }>('/api/chatbot/faqs');
 }
 
-/** [BACKEND-TODO] DELETE /api/chatbot/faqs/{id} */
-export async function deleteFaq(id: string): Promise<void> {
-  await delay(260);
-  const current = faqs.find((f) => f.id === id);
-  if (!current) throw new BusinessError('FAQ không tồn tại');
-  faqs = faqs.filter((f) => f.id !== id);
-  logActivity('chatbot', 'Xóa FAQ', current.question);
+/**
+ * GET /api/chatbot/unanswered — câu khách hay hỏi mà bot chưa trả lời được (nhiều lần hỏi trước).
+ * Hiện chỉ có dữ liệu mẫu (db/dev); phân hệ Khách hàng (chat với bot) sẽ ghi bảng này.
+ */
+export function getUnansweredQuestions(): Promise<UnansweredQuestion[]> {
+  return api.get<UnansweredQuestion[]>('/api/chatbot/unanswered');
 }
 
-/** [BACKEND-TODO] DELETE /api/chatbot/unanswered/{id} — bỏ qua câu hỏi không cần đưa vào FAQ. */
-export async function dismissUnanswered(id: string): Promise<void> {
-  await delay(200);
-  unanswered = unanswered.filter((u) => u.id !== id);
+/** POST /api/chatbot/faqs | PUT /api/chatbot/faqs/{id} — fromUnansweredId: câu hỏi được giải đáp bởi FAQ này. */
+export function saveFaq(id: string | null, input: FaqInput): Promise<Faq> {
+  return id ? api.put<Faq>(`/api/chatbot/faqs/${encodeURIComponent(id)}`, input) : api.post<Faq>('/api/chatbot/faqs', input);
 }
 
-/* ------------------------------------------------------------ Lịch sử hội thoại */
+/** DELETE /api/chatbot/faqs/{id} */
+export function deleteFaq(id: string): Promise<void> {
+  return api.delete(`/api/chatbot/faqs/${encodeURIComponent(id)}`);
+}
+
+/** DELETE /api/chatbot/unanswered/{id} — bỏ qua câu hỏi không cần đưa vào FAQ (backend đánh dấu, không xóa). */
+export function dismissUnanswered(id: string): Promise<void> {
+  return api.delete(`/api/chatbot/unanswered/${encodeURIComponent(id)}`);
+}
+
+/* ------------------------------------------------------------ Lịch sử hội thoại — DỮ LIỆU GIẢ
+ * Chỉ có dữ liệu thật khi khách chat với bot (phân hệ Khách hàng). Xem DU_LIEU_GIA.md. */
 
 /** [BACKEND-TODO] GET /api/chatbot/conversations?keyword=&date=&status=&page= */
 export async function getConversations(filter: ConversationFilter): Promise<Paged<Conversation>> {
@@ -242,7 +131,8 @@ export async function getConversations(filter: ConversationFilter): Promise<Page
   return paginate(items, filter.page, CONVERSATION_PAGE_SIZE);
 }
 
-/* ------------------------------------------------------------ Thống kê */
+/* ------------------------------------------------------------ Thống kê — DỮ LIỆU GIẢ
+ * Tính từ lịch sử hội thoại thật khi có phân hệ Khách hàng. Xem DU_LIEU_GIA.md. */
 
 /** [BACKEND-TODO] GET /api/chatbot/stats?days=7 */
 export async function getChatbotStats(): Promise<ChatbotStats> {
@@ -250,7 +140,6 @@ export async function getChatbotStats(): Promise<ChatbotStats> {
   const total = conversations.length;
   const count = (s: Conversation['status']) => conversations.filter((c) => c.status === s).length;
   const messages = conversations.reduce((s, c) => s + c.messages.length, 0);
-  const dishes = dishesSnapshot();
   const daily: ChatbotStats['daily'] = [];
   for (let i = 6; i >= 0; i -= 1) {
     const d = new Date();
@@ -273,7 +162,7 @@ export async function getChatbotStats(): Promise<ChatbotStats> {
     avgMessages: total ? messages / total : 0,
     cartConversion: total ? (conversations.filter((c) => c.addedToCart.length > 0).length / total) * 100 : 0,
     topAskedDishes: Object.entries(dishMentionSeed)
-      .map(([dishId, n]) => ({ dishId, name: dishes.find((d) => d.id === dishId)?.name ?? dishId, count: n }))
+      .map(([name, n]) => ({ dishId: name, name, count: n }))
       .sort((a, b) => b.count - a.count),
     daily,
   };

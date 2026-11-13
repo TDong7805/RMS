@@ -10,10 +10,10 @@ import { PageHeader } from '@/components/common/PageParts';
 import { Segmented } from '@/components/common/Segmented';
 import { Skeleton } from '@/components/common/Skeleton';
 import { DESCRIPTION_MAX, createDish, updateDish } from '@/api/dishes';
-import { qk, useCategories, useDish } from '@/features/management/queries';
+import { qk, useAllergens, useCategories, useDish } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { formatCurrency } from '@/lib/format';
-import { ALLERGENS, SPICY_LEVELS, formatDateTime } from '@/lib/labels';
+import { SPICY_LEVELS, formatDateTime } from '@/lib/labels';
 import type { DishInput, DishStatus } from '@/types';
 
 const EMPTY: DishInput = {
@@ -34,6 +34,7 @@ export function DishFormPage() {
   const navigate = useNavigate();
   const dishQuery = useDish(id);
   const { data: categories = [] } = useCategories();
+  const { data: allergenOptions = [] } = useAllergens();
 
   const [form, setForm] = useState<DishInput>(EMPTY);
   const [priceText, setPriceText] = useState('');
@@ -75,7 +76,7 @@ export function DishFormPage() {
     invalidate: [qk.dishes, qk.categories, qk.chatbot],
     success: (d) => (isEdit ? `Đã cập nhật món ${d.name}` : `Đã thêm món ${d.name} (${d.code})`),
     onFieldErrors: setErrors,
-    onSuccess: () => navigate('/mon-an'),
+    onSuccess: () => navigate('/quan-ly/mon-an'),
   });
 
   const set = <K extends keyof DishInput>(key: K, value: DishInput[K]) => {
@@ -113,7 +114,7 @@ export function DishFormPage() {
               : 'Mã món do hệ thống tự phát sinh sau khi lưu.'
           }
           actions={
-            <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/mon-an')}>
+            <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/quan-ly/mon-an')}>
               Về danh sách
             </Button>
           }
@@ -169,7 +170,7 @@ export function DishFormPage() {
                     <TextArea id="d-ing" rows={2} maxLength={500} value={form.ingredients} invalid={Boolean(errors.ingredients)} onChange={(e) => set('ingredients', e.target.value)} placeholder="Tôm, thịt ba chỉ, bún, rau sống…" />
                   </Field>
                   <Field label="Dị nguyên đã khai báo" hint="AI luôn kèm cảnh báo nguy cơ nhiễm chéo khi khách hỏi về dị ứng">
-                    <ChipSelect ariaLabel="Chọn dị nguyên" options={ALLERGENS} value={form.allergens} onChange={(v) => set('allergens', v)} />
+                    <ChipSelect ariaLabel="Chọn dị nguyên" options={allergenOptions} value={form.allergens} onChange={(v) => set('allergens', v)} />
                   </Field>
                   <Field label="Mức cay">
                     <Segmented<string>
@@ -206,7 +207,7 @@ export function DishFormPage() {
                 <Button type="submit" loading={mutation.isPending} leadingIcon={<Save size={15} />} className="flex-1 lg:flex-none">
                   {isEdit ? 'Lưu thay đổi' : 'Thêm món'}
                 </Button>
-                <Button variant="ghost" onClick={() => navigate('/mon-an')} disabled={mutation.isPending} className="flex-1 lg:flex-none">
+                <Button variant="ghost" onClick={() => navigate('/quan-ly/mon-an')} disabled={mutation.isPending} className="flex-1 lg:flex-none">
                   Hủy
                 </Button>
               </div>

@@ -47,7 +47,7 @@ export function PostsPage() {
         <PageHeader
           title="Danh sách tin đăng"
           description="Quản lý tin tức, ưu đãi và sự kiện hiển thị trên website nhà hàng."
-          actions={<Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => navigate('/bai-viet/them')}>Thêm bài viết</Button>}
+          actions={<Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => navigate('/quan-ly/bai-viet/them')}>Thêm bài viết</Button>}
         />
 
         <Card className="overflow-hidden">
@@ -97,7 +97,7 @@ export function PostsPage() {
                         <Badge variant={POST_STATUS[p.status].variant}>{POST_STATUS[p.status].label}</Badge>
                         <Badge variant="neutral">{POST_CATEGORY[p.category]}</Badge>
                       </div>
-                      <button type="button" onClick={() => navigate(`/bai-viet/${p.id}/sua`)} className="mt-1 block max-w-full truncate text-left text-[15px] font-semibold hover:text-[var(--accent)]">
+                      <button type="button" onClick={() => navigate(`/quan-ly/bai-viet/${p.id}/sua`)} className="mt-1 block max-w-full truncate text-left text-[15px] font-semibold hover:text-[var(--accent)]">
                         {p.title}
                       </button>
                       <p className="line-clamp-1 text-[13px] text-[var(--text-secondary)]">{p.summary || 'Chưa có tóm tắt'}</p>
@@ -116,7 +116,7 @@ export function PostsPage() {
                           Xuất bản
                         </Button>
                       )}
-                      <Button size="sm" variant="ghost" aria-label={`Sửa ${p.title}`} onClick={() => navigate(`/bai-viet/${p.id}/sua`)}><Pencil size={14} /></Button>
+                      <Button size="sm" variant="ghost" aria-label={`Sửa ${p.title}`} onClick={() => navigate(`/quan-ly/bai-viet/${p.id}/sua`)}><Pencil size={14} /></Button>
                       <Button size="sm" variant="ghost" aria-label={`Xóa ${p.title}`} onClick={() => setToDelete(p)}><Trash2 size={14} /></Button>
                     </div>
                   </li>
