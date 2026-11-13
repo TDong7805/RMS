@@ -1,7 +1,17 @@
 import type { BadgeVariant } from '@/components/common/Badge';
 import type {
   IngredientGroup,
+  IssueReason,
+  StocktakeEventType,
+  StocktakeReason,
+  StocktakeScope,
   PaymentMethod,
+  PaymentStatus,
+  PurchaseCancelReason,
+  PurchaseCloseReason,
+  PurchaseEventType,
+  PurchaseListStatus,
+  ReceiptKind,
   PriceChange,
   PurchaseOrderStatus,
   ReceiveStatus,
@@ -82,6 +92,86 @@ export const RECEIVE_STATUS: Record<ReceiveStatus, { label: string; variant: Bad
   partial: { label: 'Nhận một phần', variant: 'warning' },
   received: { label: 'Đã nhận đủ', variant: 'accent' },
   closed: { label: 'Đã kết thúc', variant: 'neutral' },
+};
+
+export const PAYMENT_STATUS: Record<PaymentStatus, { label: string; variant: BadgeVariant }> = {
+  unpaid: { label: 'Chưa thanh toán', variant: 'neutral' },
+  partial: { label: 'Thanh toán một phần', variant: 'warning' },
+  paid: { label: 'Đã thanh toán', variant: 'accent' },
+};
+
+/** Nhãn một cột "Trạng thái" của phiếu mua (UC-KHO-12): Nháp / Đã hủy, hoặc trạng thái nhận khi Đã đặt. */
+export function purchaseStatusLabel(status: PurchaseOrderStatus, receive: ReceiveStatus): { label: string; variant: BadgeVariant } {
+  if (status === 'draft') return { label: 'Nháp', variant: 'neutral' };
+  if (status === 'cancelled') return { label: 'Đã hủy', variant: 'danger' };
+  return RECEIVE_STATUS[receive];
+}
+
+export const PURCHASE_LIST_STATUS: Record<PurchaseListStatus, string> = {
+  all: 'Tất cả trạng thái',
+  draft: 'Nháp',
+  waiting: 'Đang chờ nhận',
+  received: 'Đã nhận đủ',
+  closed: 'Đã kết thúc',
+  cancelled: 'Đã hủy',
+};
+
+export const PURCHASE_CANCEL_REASON: Record<PurchaseCancelReason, string> = {
+  supplier_cannot: 'Nhà cung cấp không giao được',
+  wrong: 'Đặt nhầm',
+  switch: 'Chuyển sang nhà cung cấp khác',
+  no_need: 'Không còn nhu cầu',
+  other: 'Khác',
+};
+
+export const PURCHASE_CLOSE_REASON: Record<PurchaseCloseReason, string> = {
+  out_of_stock: 'Nhà cung cấp hết hàng',
+  short: 'Nhà cung cấp giao thiếu',
+  no_need: 'Không còn nhu cầu',
+  other: 'Khác',
+};
+
+export const PURCHASE_EVENT: Record<PurchaseEventType, string> = {
+  create: 'Tạo phiếu',
+  order: 'Đặt hàng',
+  cancel: 'Hủy phiếu',
+  close: 'Kết thúc nhận hàng',
+};
+
+export const RECEIPT_KIND: Record<ReceiptKind, string> = {
+  po: 'Theo phiếu mua',
+  direct: 'Nhập không phiếu',
+  opening: 'Tồn đầu kỳ',
+};
+
+export const ISSUE_REASON: Record<IssueReason, { label: string; variant: BadgeVariant }> = {
+  kitchen: { label: 'Xuất cho bếp', variant: 'info' },
+  damaged: { label: 'Hủy – hư hỏng', variant: 'danger' },
+  expired: { label: 'Hủy – hết hạn', variant: 'danger' },
+  other: { label: 'Khác', variant: 'neutral' },
+};
+
+export const STOCKTAKE_SCOPE: Record<StocktakeScope, string> = {
+  all: 'Tất cả nguyên liệu',
+  group: 'Theo nhóm',
+  pick: 'Chọn từng nguyên liệu',
+};
+
+export const STOCKTAKE_REASON: Record<StocktakeReason, string> = {
+  natural: 'Hao hụt tự nhiên',
+  damaged: 'Hư hỏng / hết hạn chưa xuất hủy',
+  wrong_entry: 'Nhập / xuất ghi sai',
+  lost: 'Mất mát',
+  other: 'Khác',
+};
+
+export const STOCKTAKE_EVENT: Record<StocktakeEventType, string> = {
+  create: 'Lập phiếu',
+  submit: 'Gửi duyệt',
+  matched: 'Hoàn tất (khớp sổ sách)',
+  approve: 'Duyệt',
+  reject: 'Từ chối',
+  cancel: 'Hủy phiếu',
 };
 
 export const STOCKTAKE_STATUS: Record<StocktakeStatus, { label: string; variant: BadgeVariant }> = {

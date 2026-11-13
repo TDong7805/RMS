@@ -171,6 +171,13 @@ export interface SupplierInput {
   links?: SupplierLinkInput[];
 }
 
+export interface SupplierOption {
+  id: string;
+  code: string;
+  name: string;
+  active: boolean;
+}
+
 export interface SupplierFilter {
   keyword: string;
   status: SupplierStatus | 'all';
@@ -270,6 +277,397 @@ export interface StocktakeSummary {
   rejectReason: string;
   increaseValue: number;
   decreaseValue: number;
+}
+
+/* ---------------------------------------------------------------- Phiếu mua (API thật, UC-KHO-12..16) */
+
+/** Bộ lọc trạng thái danh sách: waiting = Chưa nhận + Nhận một phần. */
+export type PurchaseListStatus = 'all' | 'draft' | 'waiting' | 'received' | 'closed' | 'cancelled';
+
+export interface PurchaseOrderRow {
+  id: string;
+  code: string;
+  name: string;
+  supplierId: string;
+  supplierName: string;
+  orderDate: string | null;
+  expectedDate: string | null;
+  status: PurchaseOrderStatus;
+  receiveStatus: ReceiveStatus;
+  /** Chỉ có khi phiếu Đã đặt. */
+  paymentStatus: PaymentStatus | null;
+  total: number;
+  payable: number;
+  paid: number;
+  debt: number;
+  late: boolean;
+  lineCount: number;
+  createdAt: string;
+}
+
+export interface PurchaseOrderFilter {
+  keyword: string;
+  supplierId: string;
+  status: PurchaseListStatus;
+  payment: PaymentStatus | 'all';
+  from: string;
+  to: string;
+  page: number;
+}
+
+export interface PurchaseCurrentLink {
+  active: boolean;
+  purchaseUnit: string;
+  factor: number;
+  price: number;
+  minOrder: number | null;
+}
+
+export interface PurchaseOrderLineDetail {
+  id: string;
+  ingredientId: string;
+  ingredientCode: string;
+  ingredientName: string;
+  stockUnit: string;
+  ingredientActive: boolean;
+  purchaseUnit: string;
+  factor: number;
+  qtyOrdered: number | null;
+  qtyReceived: number;
+  unitPrice: number | null;
+  amount: number;
+  onHand: number;
+  currentLink: PurchaseCurrentLink | null;
+}
+
+export type PurchaseEventType = 'create' | 'order' | 'cancel' | 'close';
+export type PurchaseCancelReason = 'supplier_cannot' | 'wrong' | 'switch' | 'no_need' | 'other';
+export type PurchaseCloseReason = 'out_of_stock' | 'short' | 'no_need' | 'other';
+
+export interface PurchaseOrderDetail {
+  id: string;
+  code: string;
+  name: string;
+  supplier: { id: string; code: string; name: string; phone: string; address: string; paymentMethod: PaymentMethod; active: boolean };
+  orderDate: string | null;
+  expectedDate: string | null;
+  note: string;
+  status: PurchaseOrderStatus;
+  receiveStatus: ReceiveStatus;
+  paymentStatus: PaymentStatus | null;
+  late: boolean;
+  discountPercent: number | null;
+  discount: number;
+  taxPercent: number;
+  otherCost: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+  payable: number;
+  paid: number;
+  debt: number;
+  lines: PurchaseOrderLineDetail[];
+  receipts: { id: string; code: string; at: string; by: string; value: number; status: ReceiptStatus }[];
+  payments: { id: string; code: string; paidAt: string; amount: number; method: PaymentMethod; by: string; status: 'valid' | 'cancelled' }[];
+  events: { id: string; event: PurchaseEventType; reason: string | null; note: string; by: string; at: string }[];
+  createdBy: string;
+  createdAt: string;
+  orderedBy: string | null;
+  orderedAt: string | null;
+}
+
+export interface PurchaseOrderInput {
+  supplierId: string;
+  name: string;
+  orderDate: string;
+  expectedDate: string;
+  note: string;
+  /** null = giảm theo số tiền (discount). */
+  discountPercent: number | null;
+  discount: number | null;
+  taxPercent: number;
+  otherCost: number;
+  lines: { ingredientId: string; qty: number | null; unitPrice: number | null }[];
+}
+
+/* ---------------------------------------------------------------- Phiếu nhập (UC-KHO-17..19) */
+
+export type ReceiptKind = 'po' | 'direct' | 'opening';
+export type ReceiptStatus = 'posted' | 'cancelled';
+
+export interface ReceiptRow {
+  id: string;
+  code: string;
+  at: string;
+  kind: ReceiptKind;
+  purchaseOrderId: string | null;
+  purchaseOrderCode: string | null;
+  source: string;
+  itemCount: number;
+  value: number;
+  by: string;
+  status: ReceiptStatus;
+}
+
+export type ReceiptPage = Paged<ReceiptRow> & { totalValue: number };
+
+export interface ReceiptFilter {
+  keyword: string;
+  kind: ReceiptKind | 'all';
+  from: string;
+  to: string;
+  page: number;
+}
+
+export interface ReceiptLine {
+  id: string;
+  ingredientId: string;
+  ingredientCode: string;
+  ingredientName: string;
+  stockUnit: string;
+  unit: string;
+  factor: number;
+  qty: number;
+  stockQty: number;
+  unitPrice: number;
+  stockUnitCost: number;
+  amount: number;
+  note: string;
+}
+
+export interface ReceiptDetail {
+  id: string;
+  code: string;
+  at: string;
+  kind: ReceiptKind;
+  purchaseOrderId: string | null;
+  purchaseOrderCode: string | null;
+  supplierId: string | null;
+  source: string;
+  note: string;
+  value: number;
+  by: string;
+  status: ReceiptStatus;
+  cancelReason: string | null;
+  cancelledBy: string | null;
+  cancelledAt: string | null;
+  canCancel: boolean;
+  cannotCancelReason: string | null;
+  lines: ReceiptLine[];
+}
+
+export interface ReceiveInput {
+  lines: { purchaseOrderItemId: string; qty: number; note: string }[];
+  note: string;
+}
+
+export interface DirectReceiptInput {
+  supplierId: string | null;
+  sourceName: string;
+  note: string;
+  lines: { ingredientId: string; unit: string; qty: number | null; unitPrice: number | null }[];
+}
+
+/* ---------------------------------------------------------------- Xuất kho (UC-KHO-20, 21) */
+
+export type IssueReason = 'kitchen' | 'damaged' | 'expired' | 'other';
+
+export interface IssueRow {
+  id: string;
+  code: string;
+  at: string;
+  reason: IssueReason;
+  receiver: string;
+  itemCount: number;
+  value: number;
+  by: string;
+  itemNames: string;
+}
+
+export type IssuePage = Paged<IssueRow> & { totalValue: number };
+
+export interface IssueFilter {
+  keyword: string;
+  reason: IssueReason | 'all';
+  from: string;
+  to: string;
+  page: number;
+}
+
+export interface IssueDetail {
+  id: string;
+  code: string;
+  at: string;
+  reason: IssueReason;
+  receiver: string;
+  note: string;
+  value: number;
+  by: string;
+  lines: { id: string; ingredientId: string; ingredientCode: string; ingredientName: string; unit: string; qty: number; unitCost: number | null; value: number }[];
+}
+
+export interface IssueInput {
+  reason: IssueReason;
+  receiverId: string;
+  note: string;
+  lines: { ingredientId: string; qty: number | null }[];
+}
+
+export interface WarehouseEmployee {
+  id: string;
+  fullName: string;
+  role: string;
+}
+
+/* ---------------------------------------------------------------- Kiểm kê (UC-KHO-22..24) */
+
+export type StocktakeScope = 'all' | 'group' | 'pick';
+export type StocktakeReason = 'natural' | 'damaged' | 'wrong_entry' | 'lost' | 'other';
+export type StocktakeEventType = 'create' | 'submit' | 'matched' | 'approve' | 'reject' | 'cancel';
+
+export interface StocktakeRow {
+  id: string;
+  code: string;
+  createdAt: string;
+  scope: StocktakeScope;
+  itemCount: number;
+  countedCount: number;
+  diffCount: number;
+  increaseValue: number;
+  decreaseValue: number;
+  /** Giá trị tạm tính (chưa duyệt). */
+  provisional: boolean;
+  status: StocktakeStatus;
+  rejectReason: string | null;
+  createdBy: string;
+  approvedBy: string | null;
+  submittedAt: string | null;
+}
+
+export interface StocktakeFilter {
+  keyword: string;
+  status: StocktakeStatus | 'all';
+  from: string;
+  to: string;
+  page: number;
+}
+
+export interface StocktakeLine {
+  id: string;
+  ingredientId: string;
+  code: string;
+  name: string;
+  group: IngredientGroup;
+  unit: string;
+  active: boolean;
+  onHand: number;
+  avgCost: number | null;
+  bookQty: number | null;
+  actualQty: number | null;
+  countedAt: string | null;
+  diff: number | null;
+  reason: StocktakeReason | null;
+  note: string;
+  estUnitCost: number | null;
+  suggestedCost: number | null;
+  value: number | null;
+}
+
+export interface StocktakeDetail {
+  id: string;
+  code: string;
+  scope: StocktakeScope;
+  groups: IngredientGroup[];
+  note: string;
+  status: StocktakeStatus;
+  rejectReason: string | null;
+  cancelReason: string | null;
+  createdBy: string;
+  createdAt: string;
+  submittedAt: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  itemCount: number;
+  countedCount: number;
+  diffCount: number;
+  increaseValue: number;
+  decreaseValue: number;
+  provisional: boolean;
+  lines: StocktakeLine[];
+  events: { id: string; event: StocktakeEventType; note: string; by: string; at: string }[];
+  /** Thông báo kèm theo (VD: một số nguyên liệu bị bỏ vì đang nằm trong phiếu khác). */
+  message: string | null;
+}
+
+export interface StocktakeCreateInput {
+  scope: StocktakeScope;
+  groups: IngredientGroup[];
+  ingredientIds: string[];
+  note: string;
+}
+
+export interface StocktakeLineInput {
+  actualQty: number | null;
+  reason: StocktakeReason | null;
+  note: string;
+  estUnitCost: number | null;
+}
+
+/* ---------------------------------------------------------------- Công nợ NCC (UC-KHO-25, 26) */
+
+export interface DebtRow {
+  supplierId: string;
+  supplierCode: string;
+  supplierName: string;
+  payable: number;
+  paid: number;
+  debt: number;
+  openCount: number;
+  oldestDate: string | null;
+}
+
+export type DebtPage = Paged<DebtRow> & { totalPayable: number; totalPaid: number; totalDebt: number };
+
+export interface DebtFilter {
+  keyword: string;
+  status: 'all' | 'owing' | 'clear';
+  page: number;
+}
+
+export interface SupplierPayment {
+  id: string;
+  code: string;
+  paidAt: string;
+  purchaseOrderId: string | null;
+  purchaseOrderCode: string | null;
+  amount: number;
+  method: PaymentMethod;
+  reference: string;
+  note: string;
+  by: string;
+  status: 'valid' | 'cancelled';
+  cancelReason: string | null;
+}
+
+export interface DebtDetail {
+  supplierId: string;
+  supplierCode: string;
+  supplierName: string;
+  paymentMethod: PaymentMethod;
+  payable: number;
+  paid: number;
+  debt: number;
+  orders: PurchaseOrderRow[];
+  payments: SupplierPayment[];
+}
+
+export interface PaymentInput {
+  purchaseOrderId: string;
+  amount: number | null;
+  method: PaymentMethod | '';
+  paidDate: string;
+  reference: string;
+  note: string;
 }
 
 /* ---------------------------------------------------------------- Dashboard kho */

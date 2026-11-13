@@ -1,4 +1,5 @@
-import { buildInventoryResponse, buildRevenueResponse, buildTopDishesResponse } from '@/mocks/dashboard';
+import { buildRevenueResponse, buildTopDishesResponse } from '@/mocks/dashboard';
+import { api } from '@/lib/http';
 import type { InventoryResponse, PeriodKey, RevenueResponse, TopDishesResponse } from '@/types';
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -15,14 +16,11 @@ export async function getDashboardRevenue(period: PeriodKey): Promise<RevenueRes
 }
 
 /**
- * [BACKEND-TODO] Thống kê kho trong kỳ: hiện dùng dữ liệu giả ở src/mocks/dashboard.ts.
- * Khi có backend: thay thân hàm getInventoryStats bằng gọi API
- * GET /api/dashboard/inventory?period={period}, giữ nguyên kiểu trả về InventoryResponse
- * (chi phí nhập, phiếu chờ nhận, công nợ nhà cung cấp, nguyên liệu sắp hết).
+ * Thống kê kho trong kỳ (cùng cách tính với Dashboard kho): GET /api/dashboard/inventory?period=
+ * Chi phí nhập, phiếu chờ nhận, công nợ nhà cung cấp, nguyên liệu sắp hết / hết hàng.
  */
-export async function getInventoryStats(period: PeriodKey): Promise<InventoryResponse> {
-  await delay(720);
-  return buildInventoryResponse(period);
+export function getInventoryStats(period: PeriodKey): Promise<InventoryResponse> {
+  return api.get<InventoryResponse>('/api/dashboard/inventory', { period });
 }
 
 /**

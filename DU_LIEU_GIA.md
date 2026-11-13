@@ -23,8 +23,7 @@ ls backend/src/main/resources/db/dev                  # loại B
 
 | Trang / chức năng | File | Vì sao còn giả | Cần gì để thay |
 |---|---|---|---|
-| **Dashboard thống kê** — doanh thu, kho trong kỳ, kho hiện tại, món bán chạy / bán chậm | `mocks/dashboard.ts`, `api/dashboard.ts` | Doanh thu lấy từ **hóa đơn** (Thu ngân), số liệu kho từ **phiếu nhập / xuất** (Quản lý kho) — các phân hệ này chưa làm | Làm Thu ngân + Quản lý kho trước, rồi viết API thống kê đọc bảng `invoices`, `payments`, `stock_transactions`, các view `v_revenue_daily`, `v_dish_sales`, `v_ingredient_status` |
-| **Thông báo** — trang Thông báo + chuông | `mocks/notifications.ts` (`notificationSeed`), `api/notifications.ts` | Thông báo do actor khác sinh ra: khách đặt bàn mới, kho sắp hết, khách gọi nhân viên, bếp xong món | Viết backend bảng `notifications` + `notification_recipients`; mỗi phân hệ ghi thông báo khi có sự kiện. Lưu ý: link trong thông báo giả trỏ tới `/quan-ly/dat-ban/lich-su?id=13`, 15… — tạo lại CSDL thì id có thể khác |
+| **Dashboard thống kê** — doanh thu, món bán chạy / bán chậm | `mocks/dashboard.ts`, `api/dashboard.ts` | Doanh thu lấy từ **hóa đơn** (Thu ngân) — phân hệ này chưa làm. **Thẻ Kho đã dùng số liệu thật** (`GET /api/dashboard/inventory`) | Làm Thu ngân trước, rồi viết API thống kê đọc bảng `invoices`, `payments`, các view `v_revenue_daily`, `v_dish_sales` |
 | **Chatbot AI — Lịch sử hội thoại** | `mocks/chatbot.ts` (`conversationSeed`), `api/chatbot.ts` (`getConversations`) | Chỉ có khi **khách chat với bot** (phân hệ Khách hàng) | Làm phần bot trả lời khách, ghi bảng `chat_conversations` / `chat_messages`, rồi viết API đọc |
 | **Chatbot AI — Thống kê & báo cáo** | `api/chatbot.ts` (`getChatbotStats`), `mocks/chatbot.ts` (`dishMentionSeed`) | Tính từ lịch sử hội thoại (chưa có). Số theo ngày đang là công thức giả | Như trên, tính từ `chat_conversations`, `chat_message_dishes`, `unanswered_questions` |
 | **Ô tìm kiếm — "Trang truy cập gần đây"** | `mocks/notifications.ts` (`recentPagePaths`), `api/search.ts` | Chỉ là tiện ích giao diện | Có thể lưu vào `localStorage` của trình duyệt; không cần backend |
@@ -48,6 +47,11 @@ khi làm actor đó.
 | `V3_2__phan_ca_mau.sql` | Lịch phân ca 21 ngày quanh ngày tạo CSDL | — (demo) | **Chưa có chấm công** (`attendances`) — Thu ngân tính lương sẽ cần |
 | `V3_3__bai_viet_mau.sql` | 7 bài viết (có nháp, đã ẩn), chưa có ảnh bìa | — (demo) | — |
 | `V4_1__chatbot_mau.sql` | Thêm 4 FAQ | — (demo) | — |
+| `V9_1__kho_xuat_kiem_ke_mau.sql` | 9 phiếu xuất 10 ngày gần đây (cho bếp, hủy hư hỏng / hết hạn, khác), 3 phiếu kiểm kê (đã duyệt, bị từ chối, chờ duyệt) kèm thông báo, 4 lần thanh toán NCC. Sinh bằng `backend/database/kho-seed/gen-v9_1.mjs` | Xuất cho bếp: **Bếp** (sau này có thể tự trừ kho theo món đã bán) | — |
+| `V8_1__kho_phieu_mua_mau.sql` | 8 phiếu mua ở đủ trạng thái (đã nhận đủ có thuế / giảm giá / chi phí khác, nhận một phần rồi kết thúc, nhận một phần + trễ hạn, chưa nhận, đã hủy, nháp), các phiếu nhập tương ứng, 1 phiếu nhập không phiếu và 1 thông báo trễ hạn. Sinh bằng `backend/database/kho-seed/gen-v8_1.mjs` | — (demo) | Thanh toán mẫu nằm ở V9_1 |
+| `V7_1__kho_mau.sql` | Kho: 26 nguyên liệu (NL001–NL006 từ V1_1 được bổ sung nhóm, ghi chú), 6 nhà cung cấp (NCC006 đang ngừng), 26 liên kết giá theo đơn vị mua + lịch sử đổi giá, tồn đầu kỳ 35 ngày trước và vài lần xuất bếp để có đủ Sắp hết / Hết hàng. Sinh tự động, trùng bộ giả cũ của frontend | — (demo) | Chưa có phiếu mua / nhập / xuất / kiểm kê mẫu — đợt 2–3 sẽ thêm file seed riêng |
+| `V7_1__kho_mau.sql` | **Công thức định lượng** (`dish_ingredients`) cho 7 món | **Bếp** (đầu bếp khai báo định lượng — trang chưa làm) | Khi làm khu Bếp: thêm UC nhập định lượng, đọc / ghi `dish_ingredients`; khu Kho chỉ hiển thị |
+| `V7_1__kho_mau.sql` | **8 thông báo mẫu** (5 tồn kho gửi Kho + Quản lý, 3 đặt bàn gửi Quản lý) | Đặt bàn: **Khách hàng** (đặt qua website) | Thông báo kho đã sinh thật khi tồn giảm qua mức tối thiểu. Thông báo đặt bàn: khi làm website khách, gọi `NotificationService.sendToRoles("reservation", …, "reservations", id, ["manager"])` lúc có lịch mới |
 | `V4_1__chatbot_mau.sql` | **6 câu hỏi khách hay hỏi mà bot chưa trả lời được** | **Khách hàng** (chat với bot) | Bot ghi / cộng dồn `unanswered_questions` mỗi khi không trả lời được |
 
 Dữ liệu mẫu tính ngày giờ theo **lúc tạo CSDL**. Muốn có lại lịch "hôm nay": xóa `rms_db` rồi chạy backend
@@ -59,4 +63,3 @@ Dữ liệu mẫu tính ngày giờ theo **lúc tạo CSDL**. Muốn có lại l
 |---|---|
 | Cấu hình mô hình AI (nhà cung cấp, model, nhiệt độ, tên biến chứa API key) | Có bảng `ai_model_config` + quyền `ai.config`, chưa có giao diện. Làm cùng phần bot trả lời khách. Không lưu API key thật trong CSDL |
 | API công khai cho khách (xem thực đơn, đọc tin tức, đặt bàn) | Thuộc phân hệ Khách hàng. Backend đã có sẵn dữ liệu (`dishes`, `posts` có `slug`, `reservations`) |
-| Điều chỉnh tồn kho (quyền của Quản lý nhà hàng) | Trùng nghiệp vụ Quản lý kho — chờ đặc tả Kho |

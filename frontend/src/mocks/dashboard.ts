@@ -1,5 +1,4 @@
 import type {
-  InventoryResponse,
   PeriodKey,
   RevenueResponse,
   TopDishesResponse,
@@ -135,85 +134,6 @@ export function buildRevenueResponse(
     series,
     comparing,
     hasData: seed.total > 0,
-  };
-}
-
-/** [FAKE-DATA] Kho: số liệu theo kỳ + danh sách nguyên liệu sắp hết. */
-const inventoryByPeriod: Record<PeriodKey, Omit<InventoryResponse, 'period' | 'lowStock' | 'hasData'>> = {
-  today: {
-    purchaseCost: 3820000,
-    pendingReceipts: 3,
-    pendingReceiptsValue: 6120000,
-    supplierDebt: 9450000,
-    totalIngredients: 48,
-    lowStockCount: 5,
-    outOfStockCount: 1,
-  },
-  yesterday: {
-    purchaseCost: 5140000,
-    pendingReceipts: 2,
-    pendingReceiptsValue: 4380000,
-    supplierDebt: 9100000,
-    totalIngredients: 48,
-    lowStockCount: 4,
-    outOfStockCount: 0,
-  },
-  last7: {
-    purchaseCost: 27400000,
-    pendingReceipts: 4,
-    pendingReceiptsValue: 8360000,
-    supplierDebt: 9450000,
-    totalIngredients: 48,
-    lowStockCount: 5,
-    outOfStockCount: 1,
-  },
-  last30: {
-    purchaseCost: 112800000,
-    pendingReceipts: 5,
-    pendingReceiptsValue: 11200000,
-    supplierDebt: 9450000,
-    totalIngredients: 48,
-    lowStockCount: 6,
-    outOfStockCount: 1,
-  },
-  thisMonth: {
-    purchaseCost: 41800000,
-    pendingReceipts: 4,
-    pendingReceiptsValue: 8360000,
-    supplierDebt: 9450000,
-    totalIngredients: 48,
-    lowStockCount: 5,
-    outOfStockCount: 1,
-  },
-  lastMonth: {
-    purchaseCost: 105600000,
-    pendingReceipts: 2,
-    pendingReceiptsValue: 3900000,
-    supplierDebt: 8720000,
-    totalIngredients: 47,
-    lowStockCount: 3,
-    outOfStockCount: 0,
-  },
-};
-
-/** Tồn kho hiện tại — không phụ thuộc bộ lọc thời gian. */
-export const currentStock: InventoryResponse['lowStock'] = [
-  { id: 'ing-01', name: 'Thịt bò Úc thăn ngoại', unit: 'kg', onHand: 0, minLevel: 8, status: 'out' },
-  { id: 'ing-02', name: 'Tôm sú tươi', unit: 'kg', onHand: 2.4, minLevel: 6, status: 'low' },
-  { id: 'ing-03', name: 'Rau xà lách Romaine', unit: 'kg', onHand: 3.1, minLevel: 5, status: 'low' },
-  { id: 'ing-04', name: 'Nấm hương khô', unit: 'kg', onHand: 1.2, minLevel: 2, status: 'low' },
-  { id: 'ing-05', name: 'Dầu olive nguyên chất', unit: 'lít', onHand: 4, minLevel: 5, status: 'low' },
-  { id: 'ing-06', name: 'Phô mai Parmesan', unit: 'kg', onHand: 1.8, minLevel: 3, status: 'low' },
-];
-
-export function buildInventoryResponse(period: PeriodKey): InventoryResponse {
-  const base = inventoryByPeriod[period];
-  const lowStock = currentStock.slice(0, Math.max(3, base.lowStockCount));
-  return {
-    period,
-    ...base,
-    lowStock,
-    hasData: base.purchaseCost > 0 || base.totalIngredients > 0,
   };
 }
 

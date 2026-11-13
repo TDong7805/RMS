@@ -415,9 +415,12 @@ export function Sidebar({
         className="ghost-scroll min-h-0 flex-1 px-2 pb-4"
       >
         {filtered.length === 0 ? (
-          <p className="px-3 py-6 text-center text-[13px] text-[var(--text-muted)]">
-            Không tìm thấy
-          </p>
+          // Menu đang tải thì để trống; chỉ báo "Không tìm thấy" khi đang lọc mà không khớp mục nào.
+          isFiltering ? (
+            <p className="px-3 py-6 text-center text-[13px] text-[var(--text-muted)]">
+              Không tìm thấy
+            </p>
+          ) : null
         ) : (
           <div className="space-y-1">
             {filtered.map((group) => (

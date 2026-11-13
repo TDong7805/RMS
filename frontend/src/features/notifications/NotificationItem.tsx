@@ -1,4 +1,4 @@
-import { CalendarCheck, Check, PackageSearch } from 'lucide-react';
+import { Bell, CalendarCheck, Check, ChefHat, ClipboardCheck, ClipboardList, ConciergeBell, PackageSearch } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { Button } from '@/components/common/Button';
@@ -11,7 +11,12 @@ export const NOTIFICATION_TYPE_META: Record<
   { label: string; icon: ComponentType<LucideProps> }
 > = {
   reservation: { label: 'Đặt bàn', icon: CalendarCheck },
-  inventory: { label: 'Kho', icon: PackageSearch },
+  inventory: { label: 'Tồn kho', icon: PackageSearch },
+  purchase: { label: 'Phiếu mua', icon: ClipboardList },
+  stocktake: { label: 'Kiểm kê', icon: ClipboardCheck },
+  service_request: { label: 'Yêu cầu của khách', icon: ConciergeBell },
+  kitchen: { label: 'Bếp', icon: ChefHat },
+  system: { label: 'Hệ thống', icon: Bell },
 };
 
 export interface NotificationItemProps {
