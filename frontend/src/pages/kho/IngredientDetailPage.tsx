@@ -108,7 +108,7 @@ export function IngredientDetailPage() {
                 </div>
               </Card>
               <Card padded>
-                <CardHeader title="Món sử dụng" description="Theo công thức món do Quản lý nhà hàng khai báo" />
+                <CardHeader title="Món sử dụng" description="Theo công thức định lượng do bếp khai báo" />
                 {it.dishes.length === 0 ? (
                   <p className="mt-3 text-[13px] text-[var(--text-muted)]">Chưa có món nào dùng nguyên liệu này.</p>
                 ) : (

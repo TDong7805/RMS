@@ -20,8 +20,10 @@ import org.springframework.security.web.context.SecurityContextRepository;
  * Phân quyền theo đường dẫn API:
  *  - POST /api/auth/login        : ai cũng gọi được
  *  - /api/auth/**                : đã đăng nhập (kể cả khi đang bị buộc đổi mật khẩu)
- *  - /api/** còn lại             : hiện tại đều là chức năng của Quản lý nhà hàng → ROLE_MANAGER.
- *    Khi làm phân hệ Thu ngân/Bếp/Kho: thêm requestMatchers("/api/cashier/**").hasRole("CASHIER")... TRƯỚC dòng này.
+ *  - /api/notifications/**       : mọi vai trò nội bộ (thông báo của chính tài khoản)
+ *  - /api/kho/**                 : Quản lý kho → ROLE_WAREHOUSE
+ *  - /api/** còn lại             : chức năng của Quản lý nhà hàng → ROLE_MANAGER.
+ *    Khi làm phân hệ Thu ngân/Bếp: thêm requestMatchers("/api/cashier/**").hasRole("CASHIER")... TRƯỚC dòng này.
  *
  * CSRF tắt có chủ đích: API chỉ nhận JSON (form của trang khác không gửi được application/json khi
  * chưa qua CORS) và cookie phiên là SameSite=Lax nên trình duyệt không gửi kèm khi trang lạ POST tới.
@@ -55,6 +57,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers("/api/auth/**").authenticated()
+                .requestMatchers("/api/notifications/**").hasAnyRole("MANAGER", "CASHIER", "KITCHEN", "WAREHOUSE")
+                .requestMatchers("/api/kho/**").hasRole("WAREHOUSE")
                 .requestMatchers("/api/**").hasRole("MANAGER")
                 .anyRequest().permitAll())
             .exceptionHandling(e -> e

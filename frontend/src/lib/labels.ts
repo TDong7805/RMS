@@ -110,6 +110,7 @@ export const AUDIT_MODULE: Record<AuditModule, string> = {
   post: 'Bài viết',
   chatbot: 'Chatbot AI',
   settings: 'Cấu hình hệ thống',
+  warehouse: 'Quản lý kho',
 };
 
 export const WEEKDAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];

@@ -65,6 +65,15 @@ export const menuGroups: MenuGroup[] = [
           { id: 'staff-shifts', label: 'Quản lý ca làm', path: '/quan-ly/nhan-vien/ca-lam' },
         ],
       },
+      {
+        id: 'warehouse',
+        label: 'Kho',
+        icon: 'package',
+        children: [
+          { id: 'stocktake-approvals', label: 'Duyệt kiểm kê', path: '/quan-ly/kiem-ke' },
+          { id: 'supplier-debts', label: 'Công nợ nhà cung cấp', path: '/quan-ly/cong-no' },
+        ],
+      },
     ],
   },
   {

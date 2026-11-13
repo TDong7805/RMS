@@ -394,7 +394,8 @@ export type AuditModule =
   | 'shift'
   | 'post'
   | 'chatbot'
-  | 'settings';
+  | 'settings'
+  | 'warehouse';
 
 export interface AuditLog {
   id: string;
