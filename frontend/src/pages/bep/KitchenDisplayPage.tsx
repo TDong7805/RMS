@@ -14,6 +14,7 @@ import {
   undoItem,
 } from '@/api/ordering';
 import { beep, unlockAudio, useLiveEvents } from '@/features/ordering/live';
+import { KitchenNav } from '@/features/ordering/KitchenShell';
 import { useAuth, useLogout } from '@/lib/auth';
 import { cn } from '@/lib/cn';
 import type { KitchenCancelReason, KitchenItem, KitchenQueue } from '@/types';
@@ -115,6 +116,7 @@ export default function KitchenDisplayPage() {
           <span className="text-[20px] font-extrabold tracking-wide">BẾP</span>
           <span className="font-mono text-[20px] text-white/70">{clock(new Date(now))}</span>
         </div>
+        <KitchenNav />
         <div className="flex items-center gap-2 text-[15px]">
           <Counter label="Chờ" value={queue.data?.pendingCount ?? 0} cls="bg-white/10" />
           <Counter label="Đang làm" value={queue.data?.cookingCount ?? 0} cls="bg-[#f59e0b]/20 text-[#fbbf24]" />

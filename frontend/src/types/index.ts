@@ -146,3 +146,4 @@ export interface MenuGroup {
 export interface MenuResponse {
   groups: MenuGroup[];
 }export * from './ordering';
+export * from './payroll';

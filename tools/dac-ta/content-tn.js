@@ -507,6 +507,8 @@ const UCS = [
     rules: [
       '• Số liệu tồn lấy từ phân hệ Quản lý kho (chỉ đọc). Số phần ước tính = min(tồn ÷ định lượng một phần), làm tròn xuống.',
       '• Phiên bản này **không tự trừ kho** khi bán món; bếp lĩnh nguyên liệu qua phiếu xuất kho của Quản lý kho.',
+      '• Tình trạng theo món: **Hết hàng** = 0 phần, **Sắp hết** = 1–5 phần, còn lại **Đủ hàng**. Theo nguyên liệu: Hết hàng = tồn ≤ 0, Sắp hết = tồn ≤ tồn tối thiểu.',
+      '• Mở từ thanh trên của màn hình bếp (Hàng chờ · Kiểm tra nguyên liệu · Công thức); cùng nền tối, không dùng khung trang quản lý.',
     ],
     future: 'Bếp gửi yêu cầu xuất kho cho Quản lý kho; tự trừ kho theo món đã bán.',
   },
@@ -814,7 +816,13 @@ const UCS = [
       '3c. Lỗi từng dòng: không tìm thấy nhân viên · ngày / giờ sai định dạng · giờ ra không sau giờ vào (ca qua đêm: giờ ra nhỏ hơn giờ vào được hiểu là sáng hôm sau) · ngày thuộc kỳ lương đã chốt · ca dài quá 16 giờ · trùng / chồng giờ với dòng khác của cùng nhân viên.',
       '5b. Không có dòng hợp lệ: nút nhập bị khóa, hiện *"Không có dòng nào hợp lệ để nhập"*.',
     ],
-    rules: ['• Nhập theo nguyên tắc: dòng hợp lệ được lưu, dòng lỗi bỏ qua; toàn bộ thao tác ghi Nhật ký (tên file, số dòng).', '• Chỉ nhập cho tài khoản nhân viên còn tồn tại (kể cả đã khóa).'],
+    rules: [
+      '• Nhập theo nguyên tắc: dòng hợp lệ được lưu, dòng lỗi bỏ qua; toàn bộ thao tác ghi Nhật ký (tên file, số dòng).',
+      '• Chỉ nhập cho tài khoản nhân viên còn tồn tại (kể cả đã khóa); nhận diện theo tên đăng nhập hoặc email.',
+      '• Dòng tiêu đề cột được tìm trong 10 dòng đầu (file có thể có dòng tên bảng phía trên). Ô ngày / giờ kiểu ngày giờ của Excel được hiểu đúng; giờ viết "8h" cũng được.',
+      '• Giờ ra để trống: dòng vẫn hợp lệ, lưu ở trạng thái "Thiếu giờ ra" (tính 0 giờ, chặn chốt lương). Ngày ở tương lai là lỗi.',
+      '• Máy chủ kiểm tra lại toàn bộ khi bấm Nhập (không tin kết quả xem trước). File mẫu và file các dòng lỗi đều là .xlsx.',
+    ],
     future: 'Kết nối trực tiếp máy chấm công.',
   },
   {
@@ -872,6 +880,8 @@ const UCS = [
       '• Thực lĩnh = Giờ công × Lương theo giờ + Lương cơ bản + Phụ cấp − Khấu trừ (làm tròn đến đồng, không âm).',
       '• Lương theo giờ, lương cơ bản lấy từ tài khoản nhân viên lúc tính / tính lại; sau khi chốt giữ nguyên dù tài khoản đổi.',
       '• Kỳ đã chốt không mở lại (phiên bản này).',
+      '• Kỳ dài tối đa 62 ngày, không bắt đầu ở tương lai; chỉ chốt được khi kỳ đã kết thúc. Khi chốt, hệ thống tính lại lần cuối theo chấm công hiện tại.',
+      '• Tính lương cho mọi tài khoản còn tồn tại có chấm công hoặc có lương cơ bản trong kỳ.',
     ],
     future: 'Thuế thu nhập, bảo hiểm, tăng ca; xuất Excel; Quản lý nhà hàng duyệt bảng lương.',
   },

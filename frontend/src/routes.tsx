@@ -38,11 +38,16 @@ import { DebtDetailPage, DebtsPage } from '@/pages/kho/DebtsPage';
 import WarehouseDashboardPage from '@/pages/kho/WarehouseDashboardPage';
 import QrOrderPage from '@/pages/goi-mon/QrOrderPage';
 import KitchenDisplayPage from '@/pages/bep/KitchenDisplayPage';
+import StockCheckPage from '@/pages/bep/StockCheckPage';
+import RecipesPage from '@/pages/bep/RecipesPage';
 import FloorPage from '@/pages/thu-ngan/FloorPage';
 import CashierOrderPage from '@/pages/thu-ngan/CashierOrderPage';
 import OrdersPage from '@/pages/thu-ngan/OrdersPage';
 import RequestsPage from '@/pages/thu-ngan/RequestsPage';
 import InvoicesPage from '@/pages/thu-ngan/InvoicesPage';
+import AttendancePage from '@/pages/thu-ngan/AttendancePage';
+import PayrollPage from '@/pages/thu-ngan/PayrollPage';
+import PayrollDetailPage from '@/pages/thu-ngan/PayrollDetailPage';
 
 /**
  * Định tuyến theo vai trò (backend: com.rms.auth.StaffAreas):
@@ -84,13 +89,17 @@ export function AppRoutes() {
         <Route path="/thu-ngan/don-hang" element={<OrdersPage />} />
         <Route path="/thu-ngan/yeu-cau" element={<RequestsPage />} />
         <Route path="/thu-ngan/hoa-don" element={<InvoicesPage />} />
-        <Route path="/thu-ngan/cham-cong" element={<PlaceholderPage title="Chấm công" parent="Nhân sự" description="Nhập chấm công từ Excel có ở đợt 3." />} />
-        <Route path="/thu-ngan/bang-luong" element={<PlaceholderPage title="Bảng lương" parent="Nhân sự" description="Tính và chốt bảng lương có ở đợt 3." />} />
+        <Route path="/thu-ngan/cham-cong" element={<AttendancePage />} />
+        <Route path="/thu-ngan/bang-luong" element={<PayrollPage />} />
+        <Route path="/thu-ngan/bang-luong/:id" element={<PayrollDetailPage />} />
         <Route path="/thu-ngan/*" element={<PlaceholderPage title="Không tìm thấy trang" description="Đường dẫn không tồn tại trong khu Thu ngân." />} />
       </Route>
       <Route element={<RequireAuth roles={['kitchen']} />}>
         {/* Màn hình bếp (KDS) — toàn màn hình, không dùng khung trang quản lý */}
         <Route path="/bep" element={<KitchenDisplayPage />} />
+        <Route path="/bep/nguyen-lieu" element={<StockCheckPage />} />
+        <Route path="/bep/cong-thuc" element={<RecipesPage />} />
+        <Route path="/bep/cong-thuc/:dishId" element={<RecipesPage />} />
         <Route path="/bep/*" element={<Navigate to="/bep" replace />} />
       </Route>
       <Route element={<RequireAuth roles={['warehouse']} />}>

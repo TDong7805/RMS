@@ -47,6 +47,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(new ErrorBody("Yêu cầu không hợp lệ", Map.of()));
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    ResponseEntity<ErrorBody> tooLarge(Exception e) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+            .body(new ErrorBody("File quá lớn", Map.of("file", "File quá dung lượng cho phép")));
+    }
+
     @ExceptionHandler(NoResourceFoundException.class)
     ResponseEntity<ErrorBody> noResource(NoResourceFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody("Đường dẫn không tồn tại", Map.of()));

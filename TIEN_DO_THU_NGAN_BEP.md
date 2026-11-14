@@ -7,7 +7,7 @@ Khi sửa chức năng: cập nhật file này **và** đặc tả.
 1. **Đợt 1 — XONG**: gọi món tại bàn bằng QR, màn hình bếp, sơ đồ bàn của thu ngân. Đồng bộ ngay giữa các màn hình.
 2. **Đợt 2 — XONG**: gọi nhân viên, yêu cầu thanh toán; thu ngân xử lý yêu cầu, hủy món / hủy đơn, chuyển bàn, lập hóa đơn, thu tiền (mã QR chuyển khoản), danh sách hóa đơn, thông báo.
    - Bên Quản lý: tài khoản nhận tiền trong Cấu hình hệ thống; doanh thu thật trên Dashboard.
-3. **Đợt 3 (tiếp theo)**: bếp khai báo công thức định lượng và kiểm tra nguyên liệu; thu ngân nhập chấm công từ Excel, tính và chốt bảng lương.
+3. **Đợt 3 — XONG**: bếp khai báo công thức định lượng và kiểm tra nguyên liệu; thu ngân nhập chấm công từ Excel, tính và chốt bảng lương.
 
 ## Đợt 1 đã làm
 
@@ -41,7 +41,6 @@ Khi sửa chức năng: cập nhật file này **và** đặc tả.
   - `/thu-ngan`: sơ đồ bàn theo khu vực, lọc nhanh, thẻ bàn (tạm tính, thời gian ngồi, số món đang làm / chờ mang ra, lịch đặt trước), khung "Món chờ mang ra".
   - `/thu-ngan/don/:id`: chi tiết đơn, đã mang ra từng món / tất cả, in tạm tính.
   - `/thu-ngan/thong-bao`: thông báo.
-  - Các mục của đợt 3 (Chấm công, Bảng lương) tạm hiện trang "đang hoàn thiện".
 - **Quản lý – Khu vực bàn**: nút **Mã QR** ở danh sách bàn và trong hộp sửa bàn. Hộp này hiện mã QR, cho sao chép / mở thử đường dẫn và in để dán lên bàn. Dùng thư viện `qrcode` (mới thêm).
 - Đã bỏ trang tạm `StaffAreaPage` (Thu ngân, Bếp đã có trang thật).
 
@@ -106,6 +105,56 @@ Khi sửa chức năng: cập nhật file này **và** đặc tả.
   - Luồng thanh toán: yêu cầu thanh toán → lập hóa đơn → khách thấy QR → thu 2 hình thức → khách thấy "Cảm ơn".
   - Chuyển bàn, hủy đơn, danh sách hóa đơn / đơn, cấu hình tài khoản, Dashboard.
 
+## Đợt 3 đã làm
+
+### Database
+- `db/migration/V12__cham_cong_luong.sql`:
+  - Chấm công: nguồn (Excel / nhập tay), người và thời điểm nhập / sửa.
+  - Kỳ lương: người tạo, người chốt, thời điểm chốt.
+  - Bảng lương: tên vai trò lúc tính.
+- `db/dev/V12_1__cham_cong_mau.sql`: chấm công khoảng 1,5 tháng, 2 dòng thiếu giờ ra, kỳ lương tháng trước đã chốt.
+- `application.properties`: nâng giới hạn tải file lên 5 MB. Spring mặc định 1 MB; giới hạn 2 MB của file chấm công kiểm tra trong code. File quá lớn trả lỗi 422 "File quá lớn".
+
+### Backend
+- `com.rms.payroll.SheetIO`: tự đọc .xlsx (zip + XML, có chặn file nén "bom") và .csv (UTF-8 / BOM, dấu phẩy hoặc chấm phẩy, ngoặc kép). Tự ghi .xlsx cho file mẫu và file dòng lỗi. Không thêm thư viện.
+- `AttendanceService` (UC-TN-10, 11):
+  - Tìm dòng tiêu đề cột trong 10 dòng đầu.
+  - Nhận diện nhân viên theo tên đăng nhập / email.
+  - Hiểu ô ngày / giờ kiểu số của Excel, "dd/MM/yyyy", "8h". Ngày sai (31/02) là lỗi, không tự chỉnh.
+  - Ca qua đêm.
+  - Báo lỗi: chồng giờ (trong file và với dữ liệu có sẵn), ca quá 16 giờ, ngày ở tương lai, kỳ đã chốt.
+  - Dòng trùng: bỏ qua / ghi đè. Máy chủ kiểm tra lại khi nhập.
+  - Thêm / sửa / xóa tay (bắt buộc ghi chú); tổng giờ theo nhân viên.
+- `PayrollService` (UC-TN-12):
+  - Tạo kỳ: không chồng kỳ khác, tối đa 62 ngày.
+  - Tính lương; tính lại vẫn giữ phụ cấp / khấu trừ.
+  - Phụ cấp / khấu trừ bắt buộc có ghi chú.
+  - Chốt: chặn khi còn dòng thiếu giờ ra hoặc kỳ chưa kết thúc; tính lại lần cuối trước khi chốt.
+  - Phiếu lương.
+- `RecipeService` (UC-BEP-06, 07):
+  - Danh sách món + giá vốn ước tính.
+  - Lưu công thức (thay toàn bộ): chặn trùng nguyên liệu, nguyên liệu đã ngừng dùng, định lượng ≤ 0 hoặc quá 3 số lẻ.
+  - Số phần còn làm được theo món; tồn kho theo nguyên liệu.
+- Phân quyền theo đường dẫn có sẵn: `/api/thu-ngan/attendance|payroll|employees` (Thu ngân), `/api/bep/recipes|stock-check|ingredient-options` (Bếp).
+- Nhật ký module `payroll`, `kitchen`.
+
+### Frontend
+- **Bếp** (cùng nền tối với KDS, có thanh chuyển trang Hàng chờ · Kiểm tra nguyên liệu · Công thức):
+  - `/bep/nguyen-lieu`: theo món (số phần, nguyên liệu giới hạn, nút Đánh dấu tạm hết khi còn 0 phần) và theo nguyên liệu; lọc danh mục, tình trạng.
+  - `/bep/cong-thuc/:món`: danh sách món (lọc "Chưa có"), form định lượng, giá vốn / phần và % giá bán. Hỏi lại khi rời form chưa lưu hoặc khi xóa hết công thức.
+- **Thu ngân**:
+  - `/thu-ngan/cham-cong`: lọc nhân viên / khoảng ngày, tổng giờ theo nhân viên, thêm / sửa / xóa.
+  - Hộp **Nhập từ Excel**: tải file mẫu, xem trước có lọc Hợp lệ / Trùng / Lỗi, chọn cách xử lý dòng trùng, tải file các dòng lỗi.
+  - `/thu-ngan/bang-luong` và `/thu-ngan/bang-luong/:id`: tạo kỳ, phụ cấp / khấu trừ, tính lại, chốt, in bảng lương / phiếu lương.
+- **Trang Nhật ký** (Quản lý): thêm tên module Bếp, Thu ngân, Chấm công – lương. Trước đây các dòng nhật ký của đợt 1–2 hiện trống tên module.
+
+### Đã chạy thử
+- API: 55/55 bước đạt.
+  - Dùng file Excel thật tạo bằng openpyxl (ô ngày / giờ kiểu số, có dòng tên bảng phía trên), file CSV, file mẫu và file dòng lỗi đọc lại được.
+- Chrome: 23/23 bước đạt.
+  - Thu ngân: nhập file, thêm tay, tạo kỳ, phụ cấp, chặn chốt, in phiếu lương.
+  - Bếp: kiểm tra nguyên liệu, khai báo công thức.
+
 ## Khác đặc tả / lưu ý
 - **Combo không bán trên trang đặt món**: bảng combo hiện chỉ dùng cho chatbot gợi ý, chưa có giá bán. Đặc tả đã sửa theo.
 - **Lọc nhanh** (không cay / chay / không chứa chất gây dị ứng) chưa làm, đưa sang "phát triển sau" trong đặc tả.
@@ -116,4 +165,8 @@ Khi sửa chức năng: cập nhật file này **và** đặc tả.
   - Lời cảm ơn hiện 15 phút sau khi thanh toán.
   - Lọc "Đang mở" ở Đơn hàng không gồm đơn chờ thanh toán.
   - Tài khoản nhận tiền đặt ở Cấu hình hệ thống → Thanh toán.
+- **Đợt 3** (đặc tả đã cập nhật theo):
+  - Giờ ra để trống khi nhập vẫn hợp lệ, đánh dấu "Thiếu giờ ra".
+  - Kỳ lương tối đa 62 ngày, chỉ chốt khi kỳ đã kết thúc.
+  - Tình trạng món: Sắp hết = 1–5 phần.
 - Tài khoản nhận tiền trong dữ liệu mẫu là **giả** (Vietcombank 1234567890). Trước khi dùng thật, Quản lý phải sửa ở Cấu hình hệ thống → Thanh toán.
