@@ -21,7 +21,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * GET  /api/public/qr/{token}/order               {order: đơn đang mở | null}
  * POST /api/public/qr/{token}/orders              gửi giỏ món {items: [{dishId, qty, note}]}
  * POST /api/public/qr/{token}/items/{id}/cancel   hủy món còn Chờ chế biến
- * GET  /api/public/qr/{token}/stream              SSE: báo khi đơn của bàn thay đổi
+ * POST /api/public/qr/{token}/requests          gọi nhân viên {type: support|consult|other, content}
+ * POST /api/public/qr/{token}/payment-request   yêu cầu thanh toán {method: cash|card|transfer, vatCompany, vatTaxCode}
+ * POST /api/public/qr/{token}/requests/{id}/cancel  khách hủy yêu cầu còn Mới
+ * GET  /api/public/qr/{token}/stream             SSE: báo khi đơn của bàn thay đổi
  */
 @RestController
 public class QrOrderingController {
@@ -56,6 +59,21 @@ public class QrOrderingController {
     @PostMapping("/api/public/qr/{token}/items/{id}/cancel")
     public OrderView cancel(@PathVariable String token, @PathVariable String id) {
         return service.cancelItem(token, id);
+    }
+
+    @PostMapping("/api/public/qr/{token}/requests")
+    public TableInfo callStaff(@PathVariable String token, @RequestBody ServiceRequestService.SupportInput in) {
+        return service.callStaff(token, in);
+    }
+
+    @PostMapping("/api/public/qr/{token}/payment-request")
+    public TableInfo requestPayment(@PathVariable String token, @RequestBody ServiceRequestService.PaymentInput in) {
+        return service.requestPayment(token, in);
+    }
+
+    @PostMapping("/api/public/qr/{token}/requests/{id}/cancel")
+    public TableInfo cancelRequest(@PathVariable String token, @PathVariable String id) {
+        return service.cancelRequest(token, id);
     }
 
     @GetMapping(value = "/api/public/qr/{token}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

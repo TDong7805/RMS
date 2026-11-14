@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Building2, Clock, DatabaseBackup, Download, HardDriveDownload, RotateCcw, Save, ScrollText, Trash2 } from 'lucide-react';
+import { Building2, Clock, DatabaseBackup, Landmark, Download, HardDriveDownload, RotateCcw, Save, ScrollText, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
@@ -20,6 +20,7 @@ import {
   updateOpeningHours,
   updateRestaurantInfo,
 } from '@/api/settings';
+import { PaymentSettingsCard } from '@/features/management/PaymentSettingsCard';
 import { qk, useBackups, useOpeningHours, useRestaurantInfo } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { cn } from '@/lib/cn';
@@ -28,8 +29,8 @@ import { WEEKDAYS, formatDateTime } from '@/lib/labels';
 import { downloadBlob } from '@/lib/mock';
 import type { BackupFile, BackupFrequency, BackupSchedule, OpeningDay, RestaurantInfo } from '@/types';
 
-type Tab = 'info' | 'backup' | 'logs';
-const TABS: Tab[] = ['info', 'backup', 'logs'];
+type Tab = 'info' | 'payment' | 'backup' | 'logs';
+const TABS: Tab[] = ['info', 'payment', 'backup', 'logs'];
 
 export function SettingsPage() {
   const [params, setParams] = useSearchParams();
@@ -39,13 +40,14 @@ export function SettingsPage() {
   return (
     <AppShell meta={{ label: 'Cấu hình hệ thống', parent: 'Hệ thống' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader title="Cấu hình hệ thống" description="Thông tin nhà hàng, giờ hoạt động, sao lưu & phục hồi dữ liệu và nhật ký hoạt động." />
+        <PageHeader title="Cấu hình hệ thống" description="Thông tin nhà hàng, giờ hoạt động, tài khoản nhận tiền, sao lưu & phục hồi dữ liệu và nhật ký hoạt động." />
         <PageTabs<Tab>
           ariaLabel="Phân khu cấu hình"
           value={tab}
           onChange={(t) => setParams({ tab: t }, { replace: true })}
           items={[
             { value: 'info', label: 'Thông tin nhà hàng', icon: <Building2 size={16} /> },
+            { value: 'payment', label: 'Thanh toán', icon: <Landmark size={16} /> },
             { value: 'backup', label: 'Sao lưu & phục hồi', icon: <DatabaseBackup size={16} /> },
             { value: 'logs', label: 'Nhật ký hoạt động', icon: <ScrollText size={16} /> },
           ]}
@@ -56,6 +58,7 @@ export function SettingsPage() {
             <OpeningHoursCard />
           </div>
         ) : null}
+        {tab === 'payment' ? <PaymentSettingsCard /> : null}
         {tab === 'backup' ? <BackupSection /> : null}
         {tab === 'logs' ? (
           <Card padded>

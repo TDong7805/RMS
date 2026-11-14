@@ -3,13 +3,14 @@ import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { BellRing, ChevronRight, ClipboardList, Receipt, Search, ShoppingBag, UtensilsCrossed, X } from 'lucide-react';
-import { cancelQrItem, getQrMenu, getQrTable, qrStreamUrl, sendQrOrder } from '@/api/ordering';
+import { callStaff, cancelQrItem, cancelQrRequest, getQrMenu, getQrTable, qrStreamUrl, requestPayment, sendQrOrder } from '@/api/ordering';
 import { CartSheet, DishRow, DishSheet, OrdersTab, Sheet, vnd } from '@/features/ordering/QrParts';
 import { useLiveEvents } from '@/features/ordering/live';
+import { CallStaffSheet, InvoiceSheet, PaymentRequestSheet, ThanksCard } from '@/features/ordering/QrService';
 import { BusinessError, ValidationError } from '@/lib/mock';
 import { matchesKeyword } from '@/lib/normalize';
 import { cn } from '@/lib/cn';
-import type { CartLine, MenuDish, OrderItem } from '@/types';
+import type { CartLine, MenuDish, OrderItem, QrTableInfo } from '@/types';
 
 type Tab = 'menu' | 'orders';
 
@@ -26,7 +27,7 @@ function loadCart(token: string): CartLine[] {
 }
 
 /**
- * Trang đặt món của khách tại bàn (UC-KH-01..04) — mở bằng mã QR dán trên bàn, không đăng nhập.
+ * Trang đặt món của khách tại bàn (UC-KH-01..06) — mở bằng mã QR dán trên bàn, không đăng nhập.
  * Giao diện kiểu app đặt đồ ăn trên điện thoại; giỏ món lưu riêng trên máy cho tới khi gửi.
  */
 export default function QrOrderPage() {
@@ -46,6 +47,12 @@ export default function QrOrderPage() {
   const [confirmSend, setConfirmSend] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<OrderItem | null>(null);
   const [invalid, setInvalid] = useState<Set<string>>(new Set());
+  const [staffOpen, setStaffOpen] = useState(false);
+  const [staffError, setStaffError] = useState('');
+  const [payOpen, setPayOpen] = useState(false);
+  const [payErrors, setPayErrors] = useState<Record<string, string>>({});
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [thanksSeen, setThanksSeen] = useState(() => sessionStorage.getItem(`rms-thanks-${token}`) ?? '');
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const chipBar = useRef<HTMLDivElement>(null);
 
@@ -144,6 +151,64 @@ export default function QrOrderPage() {
     },
   });
 
+  /* ---------------- Gọi nhân viên, yêu cầu thanh toán (UC-KH-05, UC-KH-06) */
+  const putInfo = (next: QrTableInfo) => qc.setQueryData(keys.info, next);
+  const staffCall = useMutation({
+    mutationFn: (v: { type: 'support' | 'consult' | 'other'; content: string }) => callStaff(token, v.type, v.content),
+    onSuccess: (next) => {
+      putInfo(next);
+      setStaffError('');
+      toast.success('Đã gửi yêu cầu, nhân viên sẽ đến ngay');
+    },
+    onError: (e) => {
+      if (e instanceof ValidationError) setStaffError(Object.values(e.fields)[0] ?? e.message);
+      else toast.error(e instanceof Error ? e.message : 'Chưa gửi được yêu cầu');
+      void qc.invalidateQueries({ queryKey: keys.info });
+    },
+  });
+  const payRequest = useMutation({
+    mutationFn: (body: { method: 'cash' | 'card' | 'transfer'; vatCompany: string; vatTaxCode: string }) => requestPayment(token, body),
+    onSuccess: (next) => {
+      putInfo(next);
+      setPayErrors({});
+      toast.success('Đã gửi yêu cầu thanh toán. Nhân viên sẽ mang hóa đơn đến.');
+    },
+    onError: (e) => {
+      if (e instanceof ValidationError) setPayErrors(e.fields);
+      else toast.error(e instanceof Error ? e.message : 'Chưa gửi được yêu cầu');
+      void qc.invalidateQueries({ queryKey: keys.info });
+    },
+  });
+  const cancelReq = useMutation({
+    mutationFn: (id: string) => cancelQrRequest(token, id),
+    onSuccess: (next) => {
+      putInfo(next);
+      toast.success('Đã hủy yêu cầu');
+    },
+    onError: (e) => {
+      toast.error(e instanceof Error ? e.message : 'Không hủy được yêu cầu');
+      void qc.invalidateQueries({ queryKey: keys.info });
+    },
+  });
+
+  // Thu ngân vừa lập hóa đơn → tự mở hóa đơn cho khách; vừa thanh toán xong → hiện lời cảm ơn.
+  const invoiceCode = info.data?.invoice?.code ?? '';
+  const lastInvoice = useRef('');
+  useEffect(() => {
+    if (invoiceCode && invoiceCode !== lastInvoice.current) {
+      setPayOpen(false);
+      setInvoiceOpen(true);
+    }
+    if (!invoiceCode) setInvoiceOpen(false);
+    lastInvoice.current = invoiceCode;
+  }, [invoiceCode]);
+
+  const openPayment = () => {
+    if (info.data?.invoice) setInvoiceOpen(true);
+    else if (!order || order.items.every((i) => i.status === 'cancelled')) toast.info('Bàn chưa có món nào để thanh toán');
+    else setPayOpen(true);
+  };
+
   /* ---------------- Danh mục: bấm cuộn tới mục, cuộn trang thì đổi mục đang chọn */
   useEffect(() => {
     if (tab !== 'menu' || keyword) return;
@@ -168,8 +233,6 @@ export default function QrOrderPage() {
     const el = sectionRefs.current[catId];
     if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 118, behavior: 'smooth' });
   };
-
-  const comingSoon = (what: string) => toast.info(`${what} sẽ có trong bản cập nhật tới. Vui lòng gọi trực tiếp nhân viên.`);
 
   /* ---------------- Trạng thái lỗi / đang tải */
   if (info.isError) {
@@ -207,12 +270,25 @@ export default function QrOrderPage() {
           Bàn {t.tableCode} · {t.areaName}
         </div>
         <div className="mt-3 flex gap-2">
-          <button type="button" onClick={() => comingSoon('Gọi nhân viên')} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[13px] font-semibold text-[#0f7b5a]"><BellRing size={14} />Gọi nhân viên</button>
-          <button type="button" onClick={() => comingSoon('Yêu cầu thanh toán')} className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-[13px] font-semibold"><Receipt size={14} />Thanh toán</button>
+          <button type="button" onClick={() => setStaffOpen(true)} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[13px] font-semibold text-[#0f7b5a]">
+            <BellRing size={14} className={t.support ? 'animate-pulse' : ''} />
+            {t.support ? (t.support.status === 'forwarded' ? 'Nhân viên đang đến' : 'Đang chờ nhân viên') : 'Gọi nhân viên'}
+          </button>
+          <button type="button" onClick={openPayment} className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-[13px] font-semibold">
+            <Receipt size={14} />
+            {t.invoice ? 'Xem hóa đơn' : t.payment ? 'Đã yêu cầu thanh toán' : 'Thanh toán'}
+          </button>
         </div>
       </header>
       {!t.openNow ? <div className="bg-[#fff7ed] px-4 py-2 text-[13px] text-[#8a4b12]">Nhà hàng hiện ngoài giờ phục vụ — bạn vẫn xem được thực đơn.</div> : null}
-      {order?.locked ? <div className="bg-[#fff7ed] px-4 py-2 text-[13px] text-[#8a4b12]">Bàn đang chờ thanh toán.</div> : null}
+      {t.invoice ? (
+        <button type="button" onClick={() => setInvoiceOpen(true)} className="flex w-full items-center justify-between bg-[#fff7ed] px-4 py-2.5 text-left text-[13.5px] text-[#8a4b12]">
+          <span>Hóa đơn <b>{t.invoice.code}</b> · {vnd(t.invoice.total)} — chờ thanh toán</span>
+          <ChevronRight size={16} />
+        </button>
+      ) : order?.locked ? (
+        <div className="bg-[#fff7ed] px-4 py-2 text-[13px] text-[#8a4b12]">Bàn đang chờ thanh toán.</div>
+      ) : null}
 
       {tab === 'menu' ? (
         <>
@@ -325,6 +401,36 @@ export default function QrOrderPage() {
           </div>
         </div>
       </Sheet>
+      <CallStaffSheet
+        open={staffOpen}
+        onClose={() => setStaffOpen(false)}
+        waiting={t.support}
+        sending={staffCall.isPending || cancelReq.isPending}
+        error={staffError}
+        onSend={(type, content) => staffCall.mutate({ type, content })}
+        onCancel={(id) => cancelReq.mutate(id)}
+      />
+      <PaymentRequestSheet
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+        order={order}
+        waiting={t.payment}
+        sending={payRequest.isPending || cancelReq.isPending}
+        errors={payErrors}
+        onSend={(body) => payRequest.mutate(body)}
+        onCancel={(id) => cancelReq.mutate(id)}
+      />
+      <InvoiceSheet open={invoiceOpen} onClose={() => setInvoiceOpen(false)} invoice={t.invoice} preferTransfer={t.payment?.paymentMethod === 'transfer'} />
+      {t.paid && !order && thanksSeen !== t.paid.code ? (
+        <ThanksCard
+          code={t.paid.code}
+          total={t.paid.total}
+          onClose={() => {
+            sessionStorage.setItem(`rms-thanks-${token}`, t.paid?.code ?? '');
+            setThanksSeen(t.paid?.code ?? '');
+          }}
+        />
+      ) : null}
     </Shell>
   );
 }

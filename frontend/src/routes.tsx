@@ -40,6 +40,9 @@ import QrOrderPage from '@/pages/goi-mon/QrOrderPage';
 import KitchenDisplayPage from '@/pages/bep/KitchenDisplayPage';
 import FloorPage from '@/pages/thu-ngan/FloorPage';
 import CashierOrderPage from '@/pages/thu-ngan/CashierOrderPage';
+import OrdersPage from '@/pages/thu-ngan/OrdersPage';
+import RequestsPage from '@/pages/thu-ngan/RequestsPage';
+import InvoicesPage from '@/pages/thu-ngan/InvoicesPage';
 
 /**
  * Định tuyến theo vai trò (backend: com.rms.auth.StaffAreas):
@@ -78,9 +81,9 @@ export function AppRoutes() {
         <Route path="/thu-ngan" element={<FloorPage />} />
         <Route path="/thu-ngan/don/:id" element={<CashierOrderPage />} />
         <Route path="/thu-ngan/thong-bao" element={<NotificationsPage />} />
-        <Route path="/thu-ngan/don-hang" element={<PlaceholderPage title="Đơn hàng" parent="Bán hàng" description="Tra cứu đơn hàng có ở đợt 2." />} />
-        <Route path="/thu-ngan/yeu-cau" element={<PlaceholderPage title="Yêu cầu của khách" parent="Bán hàng" description="Gọi nhân viên và yêu cầu thanh toán có ở đợt 2." />} />
-        <Route path="/thu-ngan/hoa-don" element={<PlaceholderPage title="Hóa đơn" parent="Bán hàng" description="Lập hóa đơn và thanh toán có ở đợt 2." />} />
+        <Route path="/thu-ngan/don-hang" element={<OrdersPage />} />
+        <Route path="/thu-ngan/yeu-cau" element={<RequestsPage />} />
+        <Route path="/thu-ngan/hoa-don" element={<InvoicesPage />} />
         <Route path="/thu-ngan/cham-cong" element={<PlaceholderPage title="Chấm công" parent="Nhân sự" description="Nhập chấm công từ Excel có ở đợt 3." />} />
         <Route path="/thu-ngan/bang-luong" element={<PlaceholderPage title="Bảng lương" parent="Nhân sự" description="Tính và chốt bảng lương có ở đợt 3." />} />
         <Route path="/thu-ngan/*" element={<PlaceholderPage title="Không tìm thấy trang" description="Đường dẫn không tồn tại trong khu Thu ngân." />} />

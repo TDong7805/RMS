@@ -29,7 +29,21 @@ public class QrOrderingService {
     static final int NOTE_MAX = 200;
 
     public record TableInfo(String tableId, String tableCode, String areaName, String restaurantName, String restaurantPhone,
-                            boolean openNow, OrderView order) {}
+                            boolean openNow, OrderView order, CustomerRequest support, CustomerRequest payment,
+                            CustomerInvoice invoice, PaidInfo paid) {}
+
+    /** Yêu cầu đang chờ của bàn (không lộ thông tin nội bộ ngoài tên nhân viên đang đến). */
+    public record CustomerRequest(String id, String type, String content, String status, String assignedName, String createdAt,
+                                  String paymentMethod) {}
+
+    /** Hóa đơn chưa thanh toán của bàn, kèm mã QR chuyển khoản (nếu nhà hàng đã cấu hình tài khoản). */
+    public record CustomerInvoice(String id, String code, List<InvoiceService.Line> lines, long total,
+                                  PaymentSettingsService.TransferQr transfer) {}
+
+    /** Hóa đơn vừa thanh toán (trong 15 phút, bàn chưa có đơn mới) → trang hiện "Cảm ơn quý khách". */
+    public record PaidInfo(String code, long total, String paidAt) {}
+
+    static final int THANKS_MINUTES = 15;
 
     public record MenuCategory(String id, String name) {}
 
@@ -47,13 +61,18 @@ public class QrOrderingService {
     private final LiveEvents live;
     private final WarehouseCodes codes;
     private final ImageStore images;
+    private final ServiceRequestService requests;
+    private final InvoiceService invoices;
 
-    public QrOrderingService(JdbcClient jdbc, OrderCore core, LiveEvents live, WarehouseCodes codes, ImageStore images) {
+    public QrOrderingService(JdbcClient jdbc, OrderCore core, LiveEvents live, WarehouseCodes codes, ImageStore images,
+                             ServiceRequestService requests, InvoiceService invoices) {
         this.jdbc = jdbc;
         this.core = core;
         this.live = live;
         this.codes = codes;
         this.images = images;
+        this.requests = requests;
+        this.invoices = invoices;
     }
 
     /** UC-KH-01: mã QR sai / bàn đã xóa → 404; bàn ngừng phục vụ → 409 kèm thông báo. */
@@ -72,7 +91,47 @@ public class QrOrderingService {
             .query((rs, n) -> new String[] {rs.getString("name"), rs.getString("phone")}).optional()
             .orElse(new String[] {"Nhà hàng", ""});
         OrderView order = core.openOrderId(t.id()).map(core::order).orElse(null);
-        return new TableInfo(Ids.str(t.id()), t.code(), t.areaName(), r[0], r[1], core.isOpenNow(), order);
+        CustomerRequest support = requests.waitingSupport(t.id()).map(QrOrderingService::slim).orElse(null);
+        CustomerRequest payment = requests.waitingPayment(t.id()).map(QrOrderingService::slim).orElse(null);
+        CustomerInvoice invoice = null;
+        PaidInfo paid = null;
+        if (order != null && order.locked()) {
+            var inv = jdbc.sql("SELECT id FROM invoices WHERE order_id = ? AND status = 'unpaid' ORDER BY id DESC LIMIT 1")
+                .param(Long.parseLong(order.id())).query(Long.class).optional().map(invoices::get).orElse(null);
+            if (inv != null) invoice = new CustomerInvoice(inv.id(), inv.code(), inv.lines(), inv.total(), inv.transfer());
+        }
+        if (order == null) {
+            paid = jdbc.sql("""
+                    SELECT i.code, i.total_amount, i.paid_at FROM invoices i JOIN orders o ON o.id = i.order_id
+                    WHERE o.table_id = ? AND i.status = 'paid' AND i.paid_at >= ? ORDER BY i.paid_at DESC LIMIT 1
+                    """).params(t.id(), Times.now().minusMinutes(THANKS_MINUTES))
+                .query((rs, n) -> new PaidInfo(rs.getString(1), rs.getBigDecimal(2).longValue(),
+                    Times.iso(com.rms.common.Db.dateTime(rs, "paid_at"))))
+                .optional().orElse(null);
+        }
+        return new TableInfo(Ids.str(t.id()), t.code(), t.areaName(), r[0], r[1], core.isOpenNow(), order, support, payment,
+            invoice, paid);
+    }
+
+    private static CustomerRequest slim(ServiceRequestService.Request r) {
+        return new CustomerRequest(r.id(), r.type(), r.content(), r.status(), r.assignedName(), r.createdAt(), r.paymentMethod());
+    }
+
+    /** UC-KH-05: gọi nhân viên. */
+    public TableInfo callStaff(String token, ServiceRequestService.SupportInput in) {
+        requests.createSupport(table(token), in);
+        return info(token);
+    }
+
+    /** UC-KH-06: yêu cầu thanh toán. */
+    public TableInfo requestPayment(String token, ServiceRequestService.PaymentInput in) {
+        requests.createPayment(table(token), in);
+        return info(token);
+    }
+
+    public TableInfo cancelRequest(String token, String requestId) {
+        requests.cancelByCustomer(table(token), requestId);
+        return info(token);
     }
 
     public OrderView currentOrder(String token) {

@@ -1,5 +1,28 @@
 import { api } from '@/lib/http';
-import type { CashierFloor, KitchenCancelReason, KitchenQueue, OrderView, QrMenu, QrTableInfo, SoldOutDish } from '@/types';
+import type {
+  BankAccount,
+  CashierCancelReason,
+  CashierFloor,
+  CashierOrderDetail,
+  Invoice,
+  InvoiceList,
+  InvoicePreview,
+  InvoiceStatus,
+  KitchenCancelReason,
+  KitchenQueue,
+  MoveTarget,
+  OrderList,
+  OrderListStatus,
+  OrderView,
+  PaymentLineInput,
+  PayMethod,
+  QrMenu,
+  QrTableInfo,
+  RequestList,
+  ServiceRequest,
+  SoldOutDish,
+  StaffOption,
+} from '@/types';
 
 /* ---------------------------------------------------------------- Trang đặt món (công khai, nhận diện bàn bằng mã QR) */
 
@@ -27,6 +50,23 @@ export function sendQrOrder(token: string, items: { dishId: string; qty: number;
 /** UC-KH-04: hủy món còn Chờ chế biến. */
 export function cancelQrItem(token: string, itemId: string): Promise<OrderView> {
   return api.post<OrderView>(`${qr(token)}/items/${encodeURIComponent(itemId)}/cancel`);
+}
+
+/** UC-KH-05: gọi nhân viên. */
+export function callStaff(token: string, type: 'support' | 'consult' | 'other', content: string): Promise<QrTableInfo> {
+  return api.post<QrTableInfo>(`${qr(token)}/requests`, { type, content });
+}
+
+/** UC-KH-06: yêu cầu thanh toán. */
+export function requestPayment(
+  token: string,
+  body: { method: 'cash' | 'card' | 'transfer'; vatCompany: string; vatTaxCode: string },
+): Promise<QrTableInfo> {
+  return api.post<QrTableInfo>(`${qr(token)}/payment-request`, body);
+}
+
+export function cancelQrRequest(token: string, requestId: string): Promise<QrTableInfo> {
+  return api.post<QrTableInfo>(`${qr(token)}/requests/${encodeURIComponent(requestId)}/cancel`);
 }
 
 export const qrStreamUrl = (token: string) => `${qr(token)}/stream`;
@@ -73,13 +113,102 @@ export function getCashierFloor(): Promise<CashierFloor> {
   return api.get<CashierFloor>('/api/thu-ngan/floor');
 }
 
-export function getCashierOrder(id: string): Promise<OrderView> {
-  return api.get<OrderView>(`/api/thu-ngan/orders/${encodeURIComponent(id)}`);
+const tn = (path: string) => `/api/thu-ngan/${path}`;
+const enc = encodeURIComponent;
+
+export function getCashierOrder(id: string): Promise<CashierOrderDetail> {
+  return api.get<CashierOrderDetail>(tn(`orders/${enc(id)}`));
 }
 
 /** UC-TN-03: món Đã xong → Đã mang ra. */
-export function serveItems(ids: string[]): Promise<OrderView> {
-  return api.post<OrderView>('/api/thu-ngan/items/serve', { ids });
+export function serveItems(ids: string[]): Promise<CashierOrderDetail> {
+  return api.post<CashierOrderDetail>(tn('items/serve'), { ids });
+}
+
+/** UC-TN-02: tra cứu đơn (tối đa 31 ngày). */
+export function getCashierOrders(params: { keyword?: string; status?: OrderListStatus; from?: string; to?: string }): Promise<OrderList> {
+  return api.get<OrderList>(tn('orders'), params);
+}
+
+/** UC-TN-04 */
+export function cashierCancelItem(itemId: string, reason: CashierCancelReason, note: string): Promise<CashierOrderDetail> {
+  return api.post<CashierOrderDetail>(tn(`items/${enc(itemId)}/cancel`), { reason, note });
+}
+
+export function cashierCancelOrder(orderId: string, reason: CashierCancelReason, note: string): Promise<CashierOrderDetail> {
+  return api.post<CashierOrderDetail>(tn(`orders/${enc(orderId)}/cancel`), { reason, note });
+}
+
+/** UC-TN-05 */
+export function getMoveTargets(): Promise<MoveTarget[]> {
+  return api.get<MoveTarget[]>(tn('move-targets'));
+}
+
+export function moveOrder(orderId: string, tableId: string): Promise<CashierOrderDetail> {
+  return api.post<CashierOrderDetail>(tn(`orders/${enc(orderId)}/move`), { tableId });
+}
+
+/** UC-TN-07 */
+export function getInvoicePreview(orderId: string): Promise<InvoicePreview> {
+  return api.get<InvoicePreview>(tn(`orders/${enc(orderId)}/invoice-preview`));
+}
+
+export function createInvoice(orderId: string, vatCompany: string, vatTaxCode: string): Promise<Invoice> {
+  return api.post<Invoice>(tn(`orders/${enc(orderId)}/invoice`), { vatCompany, vatTaxCode });
+}
+
+/** UC-TN-08, UC-TN-09 */
+export function getInvoices(params: {
+  keyword?: string;
+  status?: InvoiceStatus | '';
+  method?: PayMethod | '';
+  from?: string;
+  to?: string;
+}): Promise<InvoiceList> {
+  return api.get<InvoiceList>(tn('invoices'), params);
+}
+
+export function getInvoice(id: string): Promise<Invoice> {
+  return api.get<Invoice>(tn(`invoices/${enc(id)}`));
+}
+
+export function payInvoice(id: string, payments: PaymentLineInput[]): Promise<Invoice> {
+  return api.post<Invoice>(tn(`invoices/${enc(id)}/pay`), { payments });
+}
+
+export function cancelInvoice(id: string, reason: string): Promise<Invoice> {
+  return api.post<Invoice>(tn(`invoices/${enc(id)}/cancel`), { reason });
+}
+
+/** UC-TN-06 */
+export function getRequests(status: 'waiting' | 'done' | 'cancelled'): Promise<RequestList> {
+  return api.get<RequestList>(tn('requests'), { status });
+}
+
+export function getStaffOptions(): Promise<StaffOption[]> {
+  return api.get<StaffOption[]>(tn('staff'));
+}
+
+export function forwardRequest(id: string, staffId: string): Promise<ServiceRequest> {
+  return api.post<ServiceRequest>(tn(`requests/${enc(id)}/forward`), { staffId });
+}
+
+export function completeRequest(id: string): Promise<ServiceRequest> {
+  return api.post<ServiceRequest>(tn(`requests/${enc(id)}/done`));
+}
+
+export function cancelRequest(id: string): Promise<ServiceRequest> {
+  return api.post<ServiceRequest>(tn(`requests/${enc(id)}/cancel`));
+}
+
+/* ---------------------------------------------------------------- Quản lý: tài khoản nhận tiền */
+
+export function getBankAccount(): Promise<BankAccount> {
+  return api.get<BankAccount>('/api/settings/payment');
+}
+
+export function saveBankAccount(body: Omit<BankAccount, 'configured'>): Promise<BankAccount> {
+  return api.put<BankAccount>('/api/settings/payment', body);
 }
 
 export const CASHIER_STREAM = '/api/thu-ngan/stream';

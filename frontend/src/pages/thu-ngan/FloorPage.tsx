@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Check, Clock3, Users, Wifi, WifiOff } from 'lucide-react';
+import { BellRing, Check, Clock3, Receipt, Users, Wifi, WifiOff } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
@@ -83,8 +83,10 @@ export default function FloorPage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <StatTile label="Bàn có khách" value={`${f.occupiedCount}/${f.tableCount}`} />
               <StatTile label="Món chờ mang ra" value={f.ready.length} tone={f.ready.length ? 'warning' : 'default'} />
-              <StatTile label="Món đang làm" value={f.tables.reduce((s, t) => s + (t.order?.pendingCount ?? 0), 0)} />
-              <StatTile label="Đã thu hôm nay" value={formatCurrency(f.revenueToday)} tone="accent" hint="Có số liệu khi làm phần thanh toán (đợt 2)" />
+              <button type="button" className="text-left" onClick={() => navigate('/thu-ngan/yeu-cau')}>
+                <StatTile label="Yêu cầu đang chờ" value={f.requestCount} tone={f.requestCount ? 'danger' : 'default'} hint={f.unpaidCount ? `${f.unpaidCount} hóa đơn chưa thanh toán` : 'Bấm để xem'} />
+              </button>
+              <StatTile label="Đã thu hôm nay" value={formatCurrency(f.revenueToday)} tone="accent" hint="Tổng hóa đơn đã thanh toán" />
             </div>
 
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -119,7 +121,7 @@ export default function FloorPage() {
                         <div key={a.id}>
                           <p className="mb-2 text-[12.5px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">{a.name}</p>
                           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-                            {list.map((t) => <TableCard key={t.id} t={t} onOpen={() => t.order && navigate(`/thu-ngan/don/${t.order.id}`)} />)}
+                            {list.map((t) => <TableCard key={t.id} t={t} onOpen={() => (t.order ? navigate(`/thu-ngan/don/${t.order.id}`) : t.supportRequest && navigate('/thu-ngan/yeu-cau'))} />)}
                           </div>
                         </div>
                       );
@@ -170,12 +172,16 @@ function TableCard({ t, onOpen }: { t: FloorTable; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      disabled={!t.order}
+      disabled={!t.order && !t.supportRequest}
       className={cn('relative flex min-h-[112px] flex-col rounded-item border-2 p-3 text-left transition-shadow enabled:hover:shadow-soft', st.card, (t.order?.readyCount ?? 0) > 0 && 'ring-2 ring-[var(--warning)]')}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-[19px] font-extrabold leading-none">{t.code}</span>
-        <span className="inline-flex items-center gap-1 text-[12px] text-[var(--text-muted)]"><Users size={12} />{t.seats}</span>
+        <span className="inline-flex items-center gap-1 text-[12px] text-[var(--text-muted)]">
+          {t.supportRequest ? <BellRing size={15} className="animate-pulse text-[var(--danger)]" aria-label="Gọi nhân viên" /> : null}
+          {t.paymentRequest ? <Receipt size={15} className="text-[var(--warning)]" aria-label="Yêu cầu thanh toán" /> : null}
+          <Users size={12} />{t.seats}
+        </span>
       </div>
       <span className="mt-1 inline-flex items-center gap-1.5 text-[12px] font-semibold"><span className={cn('h-2 w-2 rounded-full', st.dot)} />{st.label}</span>
       {t.order ? (
@@ -184,6 +190,7 @@ function TableCard({ t, onOpen }: { t: FloorTable; onOpen: () => void }) {
           <p className="inline-flex items-center gap-1 text-[var(--text-muted)]"><Clock3 size={12} />{minutesSince(t.order.openedAt)} phút</p>
           <div className="flex flex-wrap gap-1">
             {t.order.pendingCount ? <span className="rounded bg-[var(--bg-subtle)] px-1.5 text-[11.5px]">{t.order.pendingCount} đang làm</span> : null}
+            {t.order.locked ? <span className="rounded bg-[var(--warning-soft)] px-1.5 text-[11.5px] font-semibold text-[var(--warning)]">Chờ thanh toán</span> : null}
             {t.order.readyCount ? <span className="rounded bg-[var(--warning-soft)] px-1.5 text-[11.5px] font-semibold text-[var(--warning)]">{t.order.readyCount} chờ mang ra</span> : null}
           </div>
         </div>

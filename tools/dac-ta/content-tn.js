@@ -87,7 +87,7 @@ const BUSINESS_RULES = {
     ['Trạng thái món', '**Chờ chế biến** → **Đang chế biến** → **Đã xong** → **Đã mang ra**. Món còn **Chờ chế biến** thì hủy được (khách, thu ngân, hoặc bếp báo hết); món đã bắt đầu chế biến thì không hủy. Định nghĩa chi tiết ở mục 6.'],
     ['Khóa đơn khi lập hóa đơn', 'Khi đã lập hóa đơn (chưa thanh toán), đơn bị **khóa**: khách không gửi thêm món, không hủy món. Muốn gọi thêm thì Thu ngân hủy hóa đơn chưa thanh toán để mở lại đơn (UC-TN-09).'],
     ['Tạm tính và tổng tiền', 'Tạm tính = Σ (SL × đơn giá) của các món **không bị hủy**. Hóa đơn: Tổng cộng = Tạm tính (phiên bản này không có giảm giá, phụ thu; giá đã gồm thuế).'],
-    ['Thanh toán tại quầy', 'Khách bấm "Yêu cầu thanh toán" trên điện thoại; Thu ngân lập hóa đơn và thu tiền. Một hóa đơn trả được bằng **nhiều hình thức** (tiền mặt, thẻ, chuyển khoản, ví điện tử); tổng các lần thu phải **bằng** tổng cộng. Chuyển khoản dùng mã QR tĩnh theo tài khoản nhận tiền do Quản lý nhà hàng cấu hình. Không tích hợp cổng thanh toán online.'],
+    ['Thanh toán tại quầy', 'Khách bấm "Yêu cầu thanh toán" trên điện thoại; Thu ngân lập hóa đơn và thu tiền. Một hóa đơn trả được bằng **nhiều hình thức** (tiền mặt, thẻ, chuyển khoản, ví điện tử); tổng các lần thu phải **bằng** tổng cộng. Chuyển khoản dùng mã QR VietQR theo tài khoản nhận tiền do Quản lý nhà hàng cấu hình (**Cấu hình hệ thống → Thanh toán**: ngân hàng, số tài khoản, chủ tài khoản); mã có sẵn số tiền và nội dung = mã hóa đơn, mọi ứng dụng ngân hàng quét được. Chưa cấu hình thì hóa đơn không có mã QR. Không tích hợp cổng thanh toán online.'],
     ['Doanh thu', 'Doanh thu tính theo **hóa đơn đã thanh toán**, tại thời điểm thanh toán. Dashboard của Quản lý nhà hàng (doanh thu, số đơn, món bán chạy) đọc từ đây.'],
     ['Yêu cầu của khách', 'Thu ngân là đầu mối: nhận mọi yêu cầu "Gọi nhân viên" và "Yêu cầu thanh toán", chuyển yêu cầu hỗ trợ cho nhân viên phụ trách (chọn theo tên), rồi đánh dấu hoàn thành.'],
     ['Chấm công', 'Dữ liệu chấm công được **nhập từ file Excel** (máy chấm công hoặc bảng tay xuất ra), có thể thêm / sửa từng dòng. Không lấy từ lịch phân ca của Quản lý nhà hàng.'],
@@ -124,7 +124,7 @@ const STATE_TABLES = [
     ['[bắt đầu]', 'Mới', 'Khách gửi (UC-KH-05, UC-KH-06)', '—'],
     ['Mới', 'Đã chuyển', 'Thu ngân chuyển cho nhân viên (UC-TN-06)', 'Chọn nhân viên phụ trách'],
     ['Mới, Đã chuyển', 'Hoàn thành [cuối]', 'Thu ngân đánh dấu (UC-TN-06); yêu cầu thanh toán tự hoàn thành khi thanh toán xong', '—'],
-    ['Mới', 'Đã hủy [cuối]', 'Khách hủy (UC-KH-05) hoặc Thu ngân hủy (UC-TN-06)', '—'],
+    ['Mới', 'Đã hủy [cuối]', 'Khách hủy (UC-KH-05, UC-KH-06) hoặc Thu ngân hủy (UC-TN-06); hủy đơn (UC-TN-04) hủy theo mọi yêu cầu đang chờ của bàn', 'Khách chỉ hủy khi yêu cầu còn Mới (yêu cầu thanh toán: chưa có hóa đơn)'],
   ] },
   { title: 'Hóa đơn', rows: [
     ['[bắt đầu]', 'Chưa thanh toán', 'Lập hóa đơn (UC-TN-07)', '—'],
@@ -356,7 +356,9 @@ const UCS = [
     ],
     alt: [
       '2a. Còn món Chờ / Đang chế biến: hiện *"Còn [n] món chưa xong. Bạn vẫn muốn thanh toán?"*; khách có thể gửi yêu cầu, Thu ngân quyết định chờ hoặc hủy món chưa làm.',
-      '5a. Chọn chuyển khoản: khách quét mã QR hiển thị để chuyển; Thu ngân kiểm tra tiền về rồi xác nhận.',
+      '5a. Chọn chuyển khoản: khách quét mã QR hiển thị để chuyển; Thu ngân kiểm tra tiền về rồi xác nhận. Chọn hình thức khác: hóa đơn có nút **Hiện mã QR chuyển khoản** nếu khách đổi ý.',
+      '4b. Bấm **Hủy yêu cầu** khi yêu cầu còn Mới và Thu ngân chưa lập hóa đơn: yêu cầu Đã hủy.',
+      '6a. Lời cảm ơn hiện trong 15 phút sau khi thanh toán (đến khi bàn có đơn mới); khách bấm **Xem thực đơn** để đóng.',
     ],
     exc: [
       '1a. Bàn chưa gọi món nào: *"Bàn chưa có món nào để thanh toán"*.',
@@ -585,7 +587,7 @@ const UCS = [
     main: ['1. Thu ngân chọn menu **Đơn hàng**.', '2. Hệ thống hiển thị đơn hôm nay, mới nhất ở trên.', '3. Thu ngân tìm, lọc; hệ thống cập nhật.', '4. Thu ngân bấm một đơn → UC-TN-03.'],
     alt: [],
     exc: ['3a. Khoảng ngày không hợp lệ / quá 31 ngày: báo lỗi tại ô ngày.'],
-    rules: ['• "Chờ thanh toán" = đơn đang mở đã có hóa đơn chưa thanh toán.'],
+    rules: ['• "Chờ thanh toán" = đơn đang mở đã có hóa đơn chưa thanh toán; lọc "Đang mở" chỉ gồm đơn chưa lập hóa đơn.'],
     future: 'Xuất Excel danh sách đơn.',
   },
   {
