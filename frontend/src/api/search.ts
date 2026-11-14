@@ -3,6 +3,8 @@ import {
   recentPagePaths,
   warehousePageSuggestions,
   warehouseRecentPaths,
+  cashierPageSuggestions,
+  cashierRecentPaths,
 } from '@/mocks/notifications';
 import { matchesKeyword } from '@/lib/normalize';
 import type { AreaKey } from '@/lib/areas';
@@ -10,10 +12,10 @@ import type { PageSuggestion } from '@/types';
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-const PAGES: Record<AreaKey, PageSuggestion[]> = { manager: pageSuggestions, warehouse: warehousePageSuggestions };
+const PAGES: Record<AreaKey, PageSuggestion[]> = { manager: pageSuggestions, warehouse: warehousePageSuggestions, cashier: cashierPageSuggestions };
 
 /** Bản ghi "đã truy cập gần đây" trong bộ nhớ, mô phỏng lịch sử của một tài khoản (mỗi khu một danh sách). */
-const recent: Record<AreaKey, string[]> = { manager: [...recentPagePaths], warehouse: [...warehouseRecentPaths] };
+const recent: Record<AreaKey, string[]> = { manager: [...recentPagePaths], warehouse: [...warehouseRecentPaths], cashier: [...cashierRecentPaths] };
 
 /** Danh sách trang của một khu — dùng để tìm tên trang hiện tại cho breadcrumb / ô tìm kiếm. */
 export function pagesOf(area: AreaKey): PageSuggestion[] {

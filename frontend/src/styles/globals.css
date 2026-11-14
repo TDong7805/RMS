@@ -92,6 +92,14 @@
     overflow-y: auto;
     overscroll-behavior: contain;
   }
+
+  /* Thanh cuộn ngang không hiện thanh cuộn (danh mục món trên trang đặt món). */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Mảng gradient bên phải trang đăng nhập: các vệt màu mềm theo màu chính, tự đổi theo giao diện sáng/tối. */

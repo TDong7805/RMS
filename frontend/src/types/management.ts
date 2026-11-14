@@ -29,6 +29,8 @@ export interface DiningTable {
   x: number;
   y: number;
   status: TableStatus;
+  /** Mã trong QR dán trên bàn; trang đặt món của khách là /goi-mon/{qrToken}. */
+  qrToken?: string;
 }
 
 export interface TableInput {

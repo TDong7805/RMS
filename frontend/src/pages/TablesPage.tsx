@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { LayoutGrid, Move, Pencil, Plus, Trash2, Users } from 'lucide-react';
+import { LayoutGrid, Move, Pencil, Plus, QrCode, Trash2, Users } from 'lucide-react';
+import { TableQrDialog } from '@/features/ordering/TableQrDialog';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/common/Card';
@@ -52,6 +53,7 @@ export function TablesPage() {
 
   const [areaModal, setAreaModal] = useState<{ open: boolean; area: Area | null }>({ open: false, area: null });
   const [tableModal, setTableModal] = useState<{ open: boolean; table: DiningTable | null }>({ open: false, table: null });
+  const [qrTable, setQrTable] = useState<DiningTable | null>(null);
   const [confirm, setConfirm] = useState<{ kind: 'area' | 'table'; id: string; name: string } | null>(null);
 
   useEffect(() => {
@@ -266,6 +268,9 @@ export function TablesPage() {
                       <Td><Badge variant={TABLE_STATUS[t.status].variant}>{TABLE_STATUS[t.status].label}</Badge></Td>
                       <Td className="text-right">
                         <div className="inline-flex gap-1">
+                          <Button size="sm" variant="ghost" aria-label={`Mã QR bàn ${t.code}`} title="Mã QR gọi món" onClick={() => setQrTable(t)}>
+                            <QrCode size={14} />
+                          </Button>
                           <Button size="sm" variant="ghost" aria-label={`Sửa bàn ${t.code}`} onClick={() => setTableModal({ open: true, table: t })}>
                             <Pencil size={14} />
                           </Button>
@@ -293,6 +298,10 @@ export function TablesPage() {
           setTableModal({ open: false, table: null });
           setConfirm({ kind: 'table', id: t.id, name: t.code });
         }}
+        onShowQr={(t) => {
+          setTableModal({ open: false, table: null });
+          setQrTable(t);
+        }}
       />
       <ConfirmDialog
         open={Boolean(confirm)}
@@ -307,6 +316,7 @@ export function TablesPage() {
         loading={removeMutation.isPending}
         onConfirm={() => confirm && removeMutation.mutate(confirm)}
       />
+      <TableQrDialog table={qrTable} onClose={() => setQrTable(null)} />
     </AppShell>
   );
 }
@@ -388,12 +398,14 @@ function TableModal({
   defaultAreaId,
   onClose,
   onDelete,
+  onShowQr,
 }: {
   state: { open: boolean; table: DiningTable | null };
   areas: Area[];
   defaultAreaId: string;
   onClose: () => void;
   onDelete: (table: DiningTable) => void;
+  onShowQr: (table: DiningTable) => void;
 }) {
   const [form, setForm] = useState<TableInput>({ code: '', areaId: '', seats: 4, shape: 'square', status: 'available' });
   const [seatsText, setSeatsText] = useState('4');
@@ -432,6 +444,11 @@ function TableModal({
           {state.table ? (
             <Button variant="ghost" className="mr-auto text-[var(--danger)]" leadingIcon={<Trash2 size={14} />} onClick={() => onDelete(state.table!)}>
               Xóa bàn
+            </Button>
+          ) : null}
+          {state.table ? (
+            <Button variant="outline" leadingIcon={<QrCode size={14} />} onClick={() => onShowQr(state.table!)}>
+              Mã QR
             </Button>
           ) : null}
           <Button variant="ghost" onClick={onClose}>Hủy</Button>

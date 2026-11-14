@@ -20,3 +20,7 @@ backups/
 !.vscode/extensions.json
 .idea/
 *.iml
+
+# File đặc tả Word giữ riêng trên máy, không đưa lên Git
+DacTa_UC_QuanLyKho.docx
+DacTa_UC_DatMon_Bep_ThuNgan.docx

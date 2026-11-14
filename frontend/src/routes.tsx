@@ -4,7 +4,6 @@ import { useAuth } from '@/lib/auth';
 import { LEGACY_MANAGER_PATHS, MANAGER_HOME } from '@/lib/paths';
 import LoginPage from '@/pages/LoginPage';
 import ChangePasswordPage from '@/pages/ChangePasswordPage';
-import StaffAreaPage from '@/pages/StaffAreaPage';
 import DashboardPage from '@/pages/DashboardPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import PlaceholderPage from '@/pages/PlaceholderPage';
@@ -37,6 +36,10 @@ import { IssueDetailPage, IssueFormPage, IssuesPage } from '@/pages/kho/IssuesPa
 import { StocktakeApprovalDetailPage, StocktakeApprovalsPage, StocktakeDetailPage, StocktakesPage } from '@/pages/kho/StocktakesPage';
 import { DebtDetailPage, DebtsPage } from '@/pages/kho/DebtsPage';
 import WarehouseDashboardPage from '@/pages/kho/WarehouseDashboardPage';
+import QrOrderPage from '@/pages/goi-mon/QrOrderPage';
+import KitchenDisplayPage from '@/pages/bep/KitchenDisplayPage';
+import FloorPage from '@/pages/thu-ngan/FloorPage';
+import CashierOrderPage from '@/pages/thu-ngan/CashierOrderPage';
 
 /**
  * Định tuyến theo vai trò (backend: com.rms.auth.StaffAreas):
@@ -64,16 +67,28 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/dang-nhap" element={<LoginPage />} />
+      {/* Trang đặt món của khách tại bàn: mở bằng mã QR, không đăng nhập */}
+      <Route path="/goi-mon/:token" element={<QrOrderPage />} />
 
       <Route element={<RequireAuth allowPasswordChange />}>
         <Route path="/doi-mat-khau" element={<ChangePasswordPage />} />
       </Route>
 
       <Route element={<RequireAuth roles={['cashier']} />}>
-        <Route path="/thu-ngan/*" element={<StaffAreaPage area="cashier" />} />
+        <Route path="/thu-ngan" element={<FloorPage />} />
+        <Route path="/thu-ngan/don/:id" element={<CashierOrderPage />} />
+        <Route path="/thu-ngan/thong-bao" element={<NotificationsPage />} />
+        <Route path="/thu-ngan/don-hang" element={<PlaceholderPage title="Đơn hàng" parent="Bán hàng" description="Tra cứu đơn hàng có ở đợt 2." />} />
+        <Route path="/thu-ngan/yeu-cau" element={<PlaceholderPage title="Yêu cầu của khách" parent="Bán hàng" description="Gọi nhân viên và yêu cầu thanh toán có ở đợt 2." />} />
+        <Route path="/thu-ngan/hoa-don" element={<PlaceholderPage title="Hóa đơn" parent="Bán hàng" description="Lập hóa đơn và thanh toán có ở đợt 2." />} />
+        <Route path="/thu-ngan/cham-cong" element={<PlaceholderPage title="Chấm công" parent="Nhân sự" description="Nhập chấm công từ Excel có ở đợt 3." />} />
+        <Route path="/thu-ngan/bang-luong" element={<PlaceholderPage title="Bảng lương" parent="Nhân sự" description="Tính và chốt bảng lương có ở đợt 3." />} />
+        <Route path="/thu-ngan/*" element={<PlaceholderPage title="Không tìm thấy trang" description="Đường dẫn không tồn tại trong khu Thu ngân." />} />
       </Route>
       <Route element={<RequireAuth roles={['kitchen']} />}>
-        <Route path="/bep/*" element={<StaffAreaPage area="kitchen" />} />
+        {/* Màn hình bếp (KDS) — toàn màn hình, không dùng khung trang quản lý */}
+        <Route path="/bep" element={<KitchenDisplayPage />} />
+        <Route path="/bep/*" element={<Navigate to="/bep" replace />} />
       </Route>
       <Route element={<RequireAuth roles={['warehouse']} />}>
         {/* Quản lý kho (DacTa_UC_QuanLyKho) — các mục chưa làm tạm hiện trang "đang hoàn thiện" */}

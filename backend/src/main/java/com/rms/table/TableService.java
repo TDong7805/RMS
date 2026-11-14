@@ -28,7 +28,9 @@ public class TableService {
 
     public record AreaInput(String name, String description, Boolean active) {}
 
-    public record DiningTable(String id, String code, String areaId, int seats, String shape, int x, int y, String status) {}
+    /** qrToken: mã trong QR dán trên bàn — trang đặt món của khách là /goi-mon/{qrToken}. */
+    public record DiningTable(String id, String code, String areaId, int seats, String shape, int x, int y, String status,
+                              String qrToken) {}
 
     public record TableInput(String code, String areaId, Integer seats, String shape, String status) {}
 
@@ -108,9 +110,10 @@ public class TableService {
     /* ------------------------------------------------------------ Bàn */
 
     public List<DiningTable> tables() {
-        return jdbc.sql("SELECT id, code, area_id, seats, shape, pos_x, pos_y, status FROM dining_tables ORDER BY code")
+        return jdbc.sql("SELECT id, code, area_id, seats, shape, pos_x, pos_y, status, qr_token FROM dining_tables ORDER BY code")
             .query((rs, n) -> new DiningTable(Ids.str(rs.getLong("id")), rs.getString("code"), Ids.str(rs.getLong("area_id")),
-                rs.getInt("seats"), rs.getString("shape"), rs.getInt("pos_x"), rs.getInt("pos_y"), rs.getString("status")))
+                rs.getInt("seats"), rs.getString("shape"), rs.getInt("pos_x"), rs.getInt("pos_y"), rs.getString("status"),
+                rs.getString("qr_token")))
             .list();
     }
 

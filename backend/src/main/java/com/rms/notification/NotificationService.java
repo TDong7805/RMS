@@ -119,11 +119,13 @@ public class NotificationService {
         if (refTable == null || refId == null) return null;
         boolean warehouse = "warehouse".equals(role);
         boolean manager = "manager".equals(role);
+        boolean cashier = "cashier".equals(role);
         return switch (refTable) {
             case "ingredients" -> warehouse ? "/kho/nguyen-lieu/" + refId : null;
             case "purchase_orders" -> warehouse ? "/kho/phieu-mua/" + refId : null;
             case "stocktakes" -> warehouse ? "/kho/kiem-ke/" + refId : manager ? "/quan-ly/kiem-ke/" + refId : null;
             case "reservations" -> manager ? "/quan-ly/dat-ban/lich-su?id=" + refId : null;
+            case "orders" -> cashier ? "/thu-ngan/don/" + refId : null;
             default -> null;
         };
     }

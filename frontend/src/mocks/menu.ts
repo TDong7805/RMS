@@ -204,3 +204,34 @@ export const warehouseMenuGroups: MenuGroup[] = [
     ],
   },
 ];
+/* ---------------------------------------------------------------- Khu Thu ngân (DacTa_UC_DatMon_Bep_ThuNgan) */
+
+export const cashierMenuGroups: MenuGroup[] = [
+  {
+    id: 'tn-root',
+    label: null,
+    items: [{ id: 'tn-floor', label: 'Sơ đồ bàn', icon: 'layout-grid', path: '/thu-ngan' }],
+  },
+  {
+    id: 'tn-orders',
+    label: 'BÁN HÀNG',
+    items: [
+      { id: 'tn-order-list', label: 'Đơn hàng', icon: 'clipboard-list', path: '/thu-ngan/don-hang' },
+      { id: 'tn-requests', label: 'Yêu cầu của khách', icon: 'bell', path: '/thu-ngan/yeu-cau' },
+      { id: 'tn-invoices', label: 'Hóa đơn', icon: 'wallet', path: '/thu-ngan/hoa-don' },
+    ],
+  },
+  {
+    id: 'tn-staff',
+    label: 'NHÂN SỰ',
+    items: [
+      { id: 'tn-attendance', label: 'Chấm công', icon: 'clipboard-check', path: '/thu-ngan/cham-cong' },
+      { id: 'tn-payroll', label: 'Bảng lương', icon: 'users', path: '/thu-ngan/bang-luong' },
+    ],
+  },
+  {
+    id: 'tn-system',
+    label: 'HỆ THỐNG',
+    items: [{ id: 'tn-notifications', label: 'Thông báo', icon: 'bell', path: '/thu-ngan/thong-bao', badge: { source: 'notifications', variant: 'danger' } }],
+  },
+];

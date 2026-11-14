@@ -1,4 +1,4 @@
-import { menuGroups, warehouseMenuGroups } from '@/mocks/menu';
+import { cashierMenuGroups, menuGroups, warehouseMenuGroups } from '@/mocks/menu';
 import type { AreaKey } from '@/lib/areas';
 import type { MenuResponse } from '@/types';
 
@@ -12,5 +12,5 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
  */
 export async function getMenu(area: AreaKey = 'manager'): Promise<MenuResponse> {
   await delay(120);
-  return { groups: area === 'warehouse' ? warehouseMenuGroups : menuGroups };
+  return { groups: area === 'warehouse' ? warehouseMenuGroups : area === 'cashier' ? cashierMenuGroups : menuGroups };
 }
