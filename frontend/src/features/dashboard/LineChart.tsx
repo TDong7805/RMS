@@ -76,7 +76,7 @@ export function LineChart({ data, comparing, dense = false }: LineChartProps) {
             axisLine={false}
             interval={tickInterval}
             minTickGap={12}
-            tick={{ fill: 'var(--text-muted)', fontSize: dense ? 10 : 11, fontFamily: 'JetBrains Mono' }}
+            tick={{ fill: 'var(--text-muted)', fontSize: dense ? 10 : 11, fontFamily: 'Inter Variable, Inter, sans-serif' }}
             dy={8}
           />
           <YAxis
@@ -84,7 +84,7 @@ export function LineChart({ data, comparing, dense = false }: LineChartProps) {
             axisLine={false}
             width={58}
             tickFormatter={(value: number) => formatCompactCurrency(value)}
-            tick={{ fill: 'var(--text-muted)', fontSize: 10.5, fontFamily: 'JetBrains Mono' }}
+            tick={{ fill: 'var(--text-muted)', fontSize: 10.5, fontFamily: 'Inter Variable, Inter, sans-serif' }}
           />
           <Tooltip
             content={<ChartTooltip comparing={comparing} />}

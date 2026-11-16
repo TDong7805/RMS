@@ -29,7 +29,7 @@ public class QrOrderingService {
     static final int NOTE_MAX = 200;
 
     public record TableInfo(String tableId, String tableCode, String areaName, String restaurantName, String restaurantPhone,
-                            boolean openNow, OrderView order, CustomerRequest support, CustomerRequest payment,
+                            String coverImage, boolean openNow, OrderView order, CustomerRequest support, CustomerRequest payment,
                             CustomerInvoice invoice, PaidInfo paid) {}
 
     /** Yêu cầu đang chờ của bàn (không lộ thông tin nội bộ ngoài tên nhân viên đang đến). */
@@ -50,7 +50,10 @@ public class QrOrderingService {
     public record MenuDish(String id, String name, String categoryId, long price, String description, String image,
                            String ingredients, List<String> allergens, int spicyLevel, List<String> tags, boolean soldOut) {}
 
-    public record Menu(List<MenuCategory> categories, List<MenuDish> dishes) {}
+    /** bestSellers: id các món đang bán, bán chạy nhất 7 ngày qua (theo hóa đơn đã thanh toán), nhiều nhất trước, tối đa 10. */
+    public record Menu(List<MenuCategory> categories, List<MenuDish> dishes, List<String> bestSellers) {}
+
+    static final int BEST_SELLER_LIMIT = 10;
 
     public record CartLine(String dishId, Integer qty, String note) {}
 
@@ -87,9 +90,9 @@ public class QrOrderingService {
 
     public TableInfo info(String token) {
         TableRow t = table(token);
-        var r = jdbc.sql("SELECT name, phone FROM restaurant_info WHERE id = 1")
-            .query((rs, n) -> new String[] {rs.getString("name"), rs.getString("phone")}).optional()
-            .orElse(new String[] {"Nhà hàng", ""});
+        var r = jdbc.sql("SELECT name, phone, cover_image_url FROM restaurant_info WHERE id = 1")
+            .query((rs, n) -> new String[] {rs.getString("name"), rs.getString("phone"), images.url(rs.getString("cover_image_url"))}).optional()
+            .orElse(new String[] {"Nhà hàng", "", null});
         OrderView order = core.openOrderId(t.id()).map(core::order).orElse(null);
         CustomerRequest support = requests.waitingSupport(t.id()).map(QrOrderingService::slim).orElse(null);
         CustomerRequest payment = requests.waitingPayment(t.id()).map(QrOrderingService::slim).orElse(null);
@@ -109,7 +112,7 @@ public class QrOrderingService {
                     Times.iso(com.rms.common.Db.dateTime(rs, "paid_at"))))
                 .optional().orElse(null);
         }
-        return new TableInfo(Ids.str(t.id()), t.code(), t.areaName(), r[0], r[1], core.isOpenNow(), order, support, payment,
+        return new TableInfo(Ids.str(t.id()), t.code(), t.areaName(), r[0], r[1], r[2], core.isOpenNow(), order, support, payment,
             invoice, paid);
     }
 
@@ -162,7 +165,22 @@ public class QrOrderingService {
                 Vi.trim(rs.getString("ingredients_text")), allergens.getOrDefault(rs.getLong("id"), List.of()),
                 rs.getInt("spicy_level"), tags.getOrDefault(rs.getLong("id"), List.of()), rs.getBoolean("sold_out")))
             .list();
-        return new Menu(cats, dishes);
+        return new Menu(cats, dishes, bestSellers(dishes));
+    }
+
+    /** Món bán chạy 7 ngày qua; ít hơn 3 món có số liệu thì lấy 30 ngày. Chỉ món đang có trong thực đơn. */
+    private List<String> bestSellers(List<MenuDish> dishes) {
+        java.util.Set<String> onMenu = new java.util.HashSet<>(dishes.stream().map(MenuDish::id).toList());
+        for (int days : new int[] {7, 30}) {
+            List<String> ids = jdbc.sql("""
+                    SELECT oi.dish_id FROM order_items oi JOIN invoices i ON i.order_id = oi.order_id
+                    WHERE i.status = 'paid' AND i.paid_at >= ? AND oi.status <> 'cancelled'
+                    GROUP BY oi.dish_id ORDER BY SUM(oi.quantity) DESC, oi.dish_id LIMIT 30
+                    """).param(Times.today().minusDays(days - 1).atStartOfDay())
+                .query((rs, n) -> Ids.str(rs.getLong(1))).list().stream().filter(onMenu::contains).limit(BEST_SELLER_LIMIT).toList();
+            if (ids.size() >= 3 || days == 30) return ids;
+        }
+        return List.of();
     }
 
     private record DishRow(long id, String name, long price, boolean selling, boolean soldOut) {}

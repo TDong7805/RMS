@@ -22,11 +22,13 @@ public class SettingsService {
     private static final Pattern WEBSITE = Pattern.compile("^https?://\\S+\\.\\S+");
     private static final String[] WEEKDAYS = {"Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"};
 
+    /** coverImage: ảnh bìa trang đặt món của khách (địa chỉ ảnh), null nếu chưa có. */
     public record RestaurantInfo(String name, String legalName, String taxCode, String logo, String phone,
-                                 String email, String address, String website, String updatedAt) {}
+                                 String email, String address, String website, String coverImage, String updatedAt) {}
 
+    /** coverImage: data URL khi chọn ảnh mới, địa chỉ ảnh hiện tại để giữ nguyên, rỗng để xóa. */
     public record RestaurantInfoInput(String name, String legalName, String taxCode, String logo, String phone,
-                                      String email, String address, String website) {}
+                                      String email, String address, String website, String coverImage) {}
 
     public record OpeningDay(int day, boolean open, String openTime, String closeTime) {}
 
@@ -35,18 +37,20 @@ public class SettingsService {
     private final JdbcClient jdbc;
     private final AuditService audit;
     private final CurrentUserService currentUser;
+    private final com.rms.storage.ImageStore images;
 
-    public SettingsService(JdbcClient jdbc, AuditService audit, CurrentUserService currentUser) {
+    public SettingsService(JdbcClient jdbc, AuditService audit, CurrentUserService currentUser, com.rms.storage.ImageStore images) {
         this.jdbc = jdbc;
         this.audit = audit;
         this.currentUser = currentUser;
+        this.images = images;
     }
 
     /* ------------------------------------------------------------ Thông tin nhà hàng */
 
     public RestaurantInfo getInfo() {
         return jdbc.sql("""
-                SELECT name, legal_name, tax_code, logo_url, phone, email, address, website, updated_at
+                SELECT name, legal_name, tax_code, logo_url, phone, email, address, website, cover_image_url, updated_at
                 FROM restaurant_info WHERE id = 1
                 """)
             .query((rs, n) -> new RestaurantInfo(
@@ -58,6 +62,7 @@ public class SettingsService {
                 rs.getString("email"),
                 rs.getString("address"),
                 nz(rs.getString("website")),
+                rs.getString("cover_image_url") == null ? null : images.url(rs.getString("cover_image_url")),
                 Times.iso(Db.dateTime(rs, "updated_at"))))
             .single();
     }
@@ -87,14 +92,16 @@ public class SettingsService {
         else if (website.length() > 200) errors.add("website", "Website tối đa 200 ký tự");
         errors.throwIfAny();
 
+        String currentCover = jdbc.sql("SELECT cover_image_url FROM restaurant_info WHERE id = 1").query(String.class).optional().orElse(null);
+        String cover = images.apply("restaurant", in.coverImage(), currentCover, "coverImage");
         jdbc.sql("""
                 UPDATE restaurant_info
                 SET name = ?, legal_name = ?, tax_code = ?, logo_url = ?, phone = ?, email = ?, address = ?,
-                    website = ?, updated_by = ?
+                    website = ?, cover_image_url = ?, updated_by = ?
                 WHERE id = 1
                 """)
             .params(name, nullIfBlank(Vi.collapse(in.legalName())), nullIfBlank(tax), nullIfBlank(in.logo()), phone,
-                in.email().trim(), address, nullIfBlank(website), currentUser.get().id())
+                in.email().trim(), address, nullIfBlank(website), cover, currentUser.get().id())
             .update();
         audit.log("settings", "Cập nhật thông tin nhà hàng", "Cập nhật thông tin định danh & liên hệ của " + name);
         return getInfo();

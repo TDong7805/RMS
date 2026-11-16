@@ -7,6 +7,7 @@ import ChangePasswordPage from '@/pages/ChangePasswordPage';
 import DashboardPage from '@/pages/DashboardPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import PlaceholderPage from '@/pages/PlaceholderPage';
+import { PageLoader } from '@/components/common/PageLoader';
 import ReservationsPage from '@/pages/ReservationsPage';
 import ReservationFormPage from '@/pages/ReservationFormPage';
 import TablesPage from '@/pages/TablesPage';
@@ -62,7 +63,7 @@ import PayrollDetailPage from '@/pages/thu-ngan/PayrollDetailPage';
 /** "/" khi chưa có website khách: đã đăng nhập → trang của vai trò; chưa → trang đăng nhập. */
 function HomeRedirect() {
   const { data: user, isLoading } = useAuth();
-  if (isLoading) return null;
+  if (isLoading) return <PageLoader />;
   return <Navigate to={user ? user.home : '/dang-nhap'} replace />;
 }
 

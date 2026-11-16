@@ -142,6 +142,7 @@ const OUT_OF_SCOPE = [
   '• AI tư vấn món cho khách (sẽ thêm sau vào cả trang đặt món QR và website đặt bàn).',
   '• Mang đi, giao hàng; đặt món trước khi đến nhà hàng.',
   '• Thanh toán online qua cổng (VNPay, MoMo…), khách tự thanh toán trên điện thoại.',
+  '• Tùy chọn món có giá thêm (kích cỡ, topping), calo, thời gian phục vụ dự kiến, đánh giá sao, mã khuyến mãi, phí phục vụ (có trong thiết kế Figma nhưng hệ thống chưa có dữ liệu).',
   '• Giảm giá, khuyến mãi, phụ thu, chia hóa đơn theo người; gộp nhiều bàn vào một hóa đơn.',
   '• Hoàn tiền / hủy hóa đơn đã thanh toán.',
   '• Tự trừ kho theo món đã bán dựa trên công thức định lượng; bếp gửi yêu cầu xuất kho.',
@@ -189,16 +190,19 @@ const UCS = [
   {
     id: 'UC-KH-02', actor: KH,
     name: 'Xem thực đơn',
-    desc: 'Khách xem các món đang bán theo danh mục, tìm món, xem chi tiết (ảnh, mô tả, thành phần, dị ứng, mức cay, giá) và thêm món vào giỏ. Giao diện kiểu ứng dụng đặt đồ ăn trên điện thoại: thanh danh mục cuộn ngang dính đầu trang, nút (+) trên từng món, chi tiết món mở dạng tấm trượt từ dưới lên, thanh giỏ hàng nổi ở cuối màn hình.',
+    desc: 'Khách xem các món đang bán theo danh mục, tìm, sắp xếp / lọc, xem chi tiết (ảnh, mô tả, thành phần, dị ứng, mức cay, giá) và thêm món vào giỏ. Giao diện theo thiết kế Figma của nhóm (phông Be Vietnam Pro, màu đỏ đậm, có bản sáng / tối tự theo điện thoại và nút đổi): đầu trang "Bạn đang ngồi tại – Bàn …" + nút Gọi nhân viên + nút **Món của tôi**; ảnh bìa quán (Quản lý nhà hàng tải ở Cấu hình hệ thống → Thông tin nhà hàng, chưa có thì nền đỏ có họa tiết) với ô tìm kiếm và nút **Sắp xếp & lọc**; danh mục dạng viên có ảnh (ảnh một món của danh mục, chưa có thì biểu tượng), bấm để cuộn nhanh tới mục; mục **Bán chạy**; mục **Tất cả món**; thanh nổi "[n] món | Xác nhận gọi món · [tạm tính]". Chi tiết món, giỏ món, món của tôi, thanh toán, hóa đơn là màn hình riêng (nút Quay lại của điện thoại đóng được).',
     pre: ['Đã mở trang đặt món (UC-KH-01).'],
     post: ['Không thay đổi dữ liệu; món được thêm vào giỏ (nếu khách chọn) nằm trên điện thoại của khách.'],
     input: { widths: [1700, 1100, 4400], head: ['Trường', 'Bắt buộc', 'Ghi chú'], rows: [
-      ['Danh mục', 'Không', 'Thanh danh mục cuộn ngang; mặc định **Tất cả**'],
+      ['Danh mục', 'Không', 'Viên danh mục cuộn ngang, dính đầu trang khi cuộn. Bấm một danh mục → trang **cuộn nhanh tới mục đó** trong "Tất cả món" (không ẩn món khác); **Tất cả** → về đầu danh sách. Khách tự cuộn thì viên danh mục đang xem tự sáng. Đang tìm / lọc mà bấm danh mục thì bỏ tìm / lọc rồi cuộn tới mục.'],
+      ['Sắp xếp', 'Không', 'Mặc định (theo thực đơn) · Bán chạy nhất · Giá thấp → cao · Giá cao → thấp'],
+      ['Lọc', 'Không', 'Chọn nhiều: Bán chạy · Món chay · Không cay · Có cay · Không chất gây dị ứng'],
       ['Từ khóa', 'Không', 'Tìm theo tên món, không phân biệt hoa thường, có dấu / không dấu'],
     ] },
     output: LIST_OUT([
-      ['Danh sách món', 'Thẻ món: ảnh · tên · giá · nhãn (Bán chạy, Cay, Chay…) · nút **+** thêm vào giỏ. Món **tạm hết** hiện mờ, nhãn "Tạm hết", không bấm được.'],
-      ['Chi tiết món', 'Ảnh lớn · tên · giá · mô tả · thành phần · chất gây dị ứng · mức cay · ô số lượng · ô ghi chú (ví dụ "ít cay", "không hành") · nút **Thêm vào giỏ – [thành tiền]**'],
+      ['Bán chạy', 'Hàng vuốt ngang tối đa 10 món bán chạy nhất 7 ngày qua (hạng #1, #2…), tính theo hóa đơn đã thanh toán; ít hơn 3 món có số liệu thì lấy 30 ngày; chưa có số liệu thì ẩn.'],
+      ['Tất cả món', 'Theo danh mục, mỗi món một dòng: ảnh (chưa có ảnh: biểu tượng danh mục) · tên · mô tả ngắn · nhãn (Bán chạy, mức cay, Chay, số chất dị ứng) · giá · nút **+** thêm vào giỏ (đã có trong giỏ thì hiện nút tăng / giảm). Món **tạm hết** hiện mờ, nhãn "Tạm hết", không thêm được.'],
+      ['Chi tiết món', 'Ảnh lớn · thẻ tên + giá + mô tả + danh mục / mức cay / chay · thành phần · chất gây dị ứng · **Ghi chú cho bếp** (chọn nhiều, miễn phí: Ít cay, Không hành…, kèm ô ghi chú khác) · số lượng · nút **Thêm vào giỏ – [thành tiền]**'],
     ]),
     main: [
       '1. Khách mở mục **Thực đơn**.',
@@ -213,11 +217,12 @@ const UCS = [
     ],
     exc: [
       '2a. Không có món nào đang bán: *"Thực đơn đang được cập nhật. Vui lòng liên hệ nhân viên."*',
-      '3a. Không có kết quả: *"Không tìm thấy món"* – *"Thử từ khóa khác."*',
+      '3a. Không có kết quả (tìm / lọc): *"Không có món phù hợp"* – nút **Xem tất cả món** (bỏ tìm, lọc, danh mục).',
       '5a. Món vừa chuyển tạm hết / ngừng bán: *"[Tên món] hiện đã hết"*, không thêm vào giỏ.',
     ],
     rules: [
       '• Chỉ hiện món **Đang bán** của danh mục đang bật. Món tạm hết vẫn hiện để khách biết.',
+      '• Không có kích cỡ / món thêm có giá riêng, đánh giá sao, calo hay khuyến mãi (hệ thống chưa có dữ liệu này) — yêu cầu riêng ghi vào ô ghi chú cho bếp.',
       '• Không bán combo trên trang đặt món: combo hiện có chỉ dùng cho chatbot gợi ý (chưa có giá bán).',
       '• Thông tin dị ứng, thành phần lấy đúng dữ liệu Quản lý nhà hàng khai báo; dưới phần dị ứng luôn ghi *"Vui lòng báo nhân viên nếu bạn dị ứng thực phẩm."*',
       '• Số lượng mỗi lần thêm: 1–20 phần.',

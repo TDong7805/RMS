@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2, ServerCrash } from 'lucide-react';
+import { ServerCrash } from 'lucide-react';
 import { toast } from 'sonner';
 import type { StaffRole } from '@/api/auth';
 import { Button } from '@/components/common/Button';
+import { PageLoader } from '@/components/common/PageLoader';
 import { AUTH_KEY, setSignedInUser, useAuth } from '@/lib/auth';
 import { setUnauthorizedHandler } from '@/lib/http';
 
@@ -27,11 +28,7 @@ export function RequireAuth({ roles, allowPasswordChange = false }: RequireAuthP
   const { data: user, isPending, isError, refetch, isRefetching } = useAuth();
 
   if (isPending) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-[var(--bg-page)]">
-        <Loader2 size={28} className="animate-spin text-[var(--accent)]" aria-label="Đang tải" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (isError) {

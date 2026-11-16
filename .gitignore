@@ -24,3 +24,6 @@ backups/
 # File đặc tả Word giữ riêng trên máy, không đưa lên Git
 DacTa_UC_QuanLyKho.docx
 DacTa_UC_DatMon_Bep_ThuNgan.docx
+
+# Kịch bản test thủ công (dùng riêng, không commit)
+KICH_BAN_TEST.md

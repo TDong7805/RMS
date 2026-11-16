@@ -127,8 +127,8 @@ function OverviewBody({ d, fetching }: { d: WarehouseDashboard; fetching: boolea
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={d.series} margin={{ top: 8, right: 8, bottom: 0, left: -8 }} barGap={2}>
               <CartesianGrid strokeDasharray="3 4" stroke="var(--chart-grid)" vertical={false} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={12} tick={{ fill: 'var(--text-muted)', fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-              <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(v: number) => formatCompactCurrency(v)} tick={{ fill: 'var(--text-muted)', fontSize: 10.5, fontFamily: 'JetBrains Mono' }} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={12} tick={{ fill: 'var(--text-muted)', fontSize: 11, fontFamily: 'Inter Variable, Inter, sans-serif' }} />
+              <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(v: number) => formatCompactCurrency(v)} tick={{ fill: 'var(--text-muted)', fontSize: 10.5, fontFamily: 'Inter Variable, Inter, sans-serif' }} />
               <Tooltip
                 cursor={{ fill: 'var(--bg-subtle)' }}
                 formatter={(value: number, name: string) => [formatCurrency(value), name]}

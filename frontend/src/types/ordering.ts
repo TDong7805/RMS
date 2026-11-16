@@ -46,6 +46,8 @@ export interface QrTableInfo {
   areaName: string;
   restaurantName: string;
   restaurantPhone: string;
+  /** Ảnh bìa đầu trang (Quản lý tải ở Cấu hình hệ thống), null nếu chưa có. */
+  coverImage: string | null;
   openNow: boolean;
   order: OrderView | null;
   /** Yêu cầu hỗ trợ đang chờ (Mới / Đã chuyển). */
@@ -80,6 +82,8 @@ export interface MenuDish {
 export interface QrMenu {
   categories: MenuCategory[];
   dishes: MenuDish[];
+  /** Id món bán chạy nhất 7 ngày qua (theo hóa đơn đã thanh toán), nhiều nhất trước, tối đa 10. */
+  bestSellers: string[];
 }
 
 export interface CartLine {

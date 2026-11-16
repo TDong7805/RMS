@@ -17,7 +17,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 /**
  * Trang đặt món của khách — API CÔNG KHAI (không đăng nhập), nhận diện bàn bằng mã QR:
  * GET  /api/public/qr/{token}                     thông tin bàn, nhà hàng, đang trong giờ phục vụ, đơn đang mở (nếu có)
- * GET  /api/public/qr/{token}/menu                thực đơn (món đang bán, cờ tạm hết)
+ * GET  /api/public/qr/{token}/menu                thực đơn (món đang bán, cờ tạm hết, món bán chạy 7 ngày)
  * GET  /api/public/qr/{token}/order               {order: đơn đang mở | null}
  * POST /api/public/qr/{token}/orders              gửi giỏ món {items: [{dishId, qty, note}]}
  * POST /api/public/qr/{token}/items/{id}/cancel   hủy món còn Chờ chế biến

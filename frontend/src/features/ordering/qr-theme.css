@@ -1,0 +1,62 @@
+/*
+ * Bộ màu + phông riêng của trang đặt món cho khách (QR) — theo thiết kế Figma (đỏ đậm, nền trắng / xám nhạt, bản tối).
+ * Chỉ áp dụng bên trong phần tử .qr-theme, không ảnh hưởng trang quản lý.
+ * Dùng trong class Tailwind dạng bg-[var(--qr-primary)], text-[var(--qr-muted)]…
+ */
+.qr-theme {
+  --qr-font: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --qr-primary: #a71e25;
+  --qr-primary-press: #8c161c;
+  --qr-primary-soft: #fbe9ea;
+  --qr-on-primary: #ffffff;
+  --qr-bg: #ffffff;
+  --qr-page: #f2f2f2;
+  --qr-surface: #ffffff;
+  --qr-surface-2: #f5f5f5;
+  --qr-border: #ececec;
+  --qr-text: #141414;
+  --qr-muted: #8a8a8a;
+  --qr-accent: #f59e0b;
+  --qr-success: #1f9d61;
+  --qr-success-soft: #e6f6ee;
+  --qr-warn-soft: #fff6e0;
+  --qr-warn-text: #8a5a00;
+  --qr-danger: #d92d2d;
+  --qr-danger-soft: #fdecec;
+  --qr-shadow: 0 6px 22px rgba(20, 20, 20, 0.07);
+  --qr-overlay: rgba(10, 10, 10, 0.5);
+
+  font-family: var(--qr-font);
+  color: var(--qr-text);
+  color-scheme: light;
+}
+
+.qr-theme[data-qr-mode='dark'] {
+  --qr-primary: #e2333b;
+  --qr-primary-press: #c4242c;
+  --qr-primary-soft: #3a1416;
+  --qr-bg: #0b0b0b;
+  --qr-page: #000000;
+  --qr-surface: #171717;
+  --qr-surface-2: #222222;
+  --qr-border: #2a2a2a;
+  --qr-text: #f4f4f4;
+  --qr-muted: #9b9b9b;
+  --qr-success-soft: #10291d;
+  --qr-warn-soft: #2e2512;
+  --qr-warn-text: #f3c969;
+  --qr-danger-soft: #34171a;
+  --qr-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+  --qr-overlay: rgba(0, 0, 0, 0.65);
+  color-scheme: dark;
+}
+
+/* Họa tiết nền đỏ cho ảnh bìa mặc định và tranh minh họa (khi chưa có ảnh). */
+.qr-pattern {
+  background-color: var(--qr-primary);
+  background-image:
+    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.14) 0 42px, transparent 43px),
+    radial-gradient(circle at 88% 78%, rgba(255, 255, 255, 0.1) 0 70px, transparent 71px),
+    radial-gradient(circle at 70% 12%, rgba(0, 0, 0, 0.12) 0 30px, transparent 31px),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 14px);
+}

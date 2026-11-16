@@ -433,6 +433,8 @@ export interface RestaurantInfo {
   email: string;
   address: string;
   website: string;
+  /** Ảnh bìa trang đặt món của khách (QR). Gửi data URL khi chọn ảnh mới, rỗng để xóa. */
+  coverImage: string | null;
   updatedAt: string;
 }
 

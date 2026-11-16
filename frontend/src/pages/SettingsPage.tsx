@@ -143,6 +143,13 @@ function RestaurantInfoCard() {
           {field('address', 'Địa chỉ trụ sở', { required: true, span: true })}
           {field('website', 'Website', { placeholder: 'https://', span: true })}
         </div>
+        <div className="sm:col-span-2">
+          <p className="mb-1 text-[13px] font-semibold">Ảnh bìa trang đặt món</p>
+          <p className="mb-2 text-[12.5px] text-[var(--text-muted)]">Ảnh lớn đầu trang khách thấy khi quét mã QR tại bàn (mặt tiền, không gian quán). Nên dùng ảnh ngang 16:9.</p>
+          <div className="max-w-[420px]">
+            <ImageUpload value={form.coverImage} onChange={(v) => setForm({ ...form, coverImage: v })} aspect="wide" label="Tải ảnh bìa" />
+          </div>
+        </div>
         <div className="flex justify-end gap-2 sm:col-span-2">
           <Button variant="ghost" onClick={() => query.data && load(query.data)} disabled={mutation.isPending}>Hoàn tác</Button>
           <Button type="submit" loading={mutation.isPending} leadingIcon={<Save size={15} />}>Lưu thông tin</Button>

@@ -53,8 +53,9 @@
   /* Font nạp trong main.tsx (@fontsource-variable), không phụ thuộc Google Fonts. */
   --font-sans: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI',
     sans-serif;
-  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo,
-    monospace;
+  /* Phông cho số (tiền, giờ, số lượng, mã đơn…): Inter với số đều cột (xem .font-mono trong globals.css).
+     Không dùng phông lập trình (JetBrains Mono): số 0 có chấm ở giữa, nhìn rối mắt. */
+  --font-mono: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   /* ---------- Radix / shadcn bridge (HSL triples) ---------- */
   --background: 150 14% 97%;

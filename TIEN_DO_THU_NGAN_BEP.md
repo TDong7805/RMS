@@ -170,3 +170,32 @@ Khi sửa chức năng: cập nhật file này **và** đặc tả.
   - Kỳ lương tối đa 62 ngày, chỉ chốt khi kỳ đã kết thúc.
   - Tình trạng món: Sắp hết = 1–5 phần.
 - Tài khoản nhận tiền trong dữ liệu mẫu là **giả** (Vietcombank 1234567890). Trước khi dùng thật, Quản lý phải sửa ở Cấu hình hệ thống → Thanh toán.
+
+## Chỉnh giao diện (sau đợt 3, theo yêu cầu rà từng trang)
+
+- **Màn hình chờ khi mở web** (15/11/2026): thay màn hình trắng bằng hình động kiểu Pac-Man: miệng tròn xanh lá thương hiệu đứng yên, các món (bò bít tết, hamburger, ly nước, khoai tây chiên — theo chủ đề món bò của nhóm, không dùng hình con bò) trượt vào miệng; chữ "Chờ chút, món ngon sắp lên…".
+  - Viết sẵn trong `frontend/index.html` (hiện ngay, trước khi JavaScript tải xong); áp chế độ sáng / tối đã lưu trước khi vẽ để không chớp trắng.
+  - Dùng lại cho lúc kiểm tra đăng nhập và lúc chuyển hướng trang chủ (`components/common/PageLoader.tsx`, thay vòng xoay cũ). Đổi chữ: hằng `LOADER_TEXT` và dòng chữ trong `index.html`.
+  - Chỉ hiện khi phải chờ quá **0,3 giây**, mờ dần lên. Trang tải nhanh thì không thấy màn hình chờ (tránh nháy), chỉ thấy nền cùng màu với web. Không cố tình giữ lâu hơn thời gian tải thật. Chuyển trang trong ứng dụng không hiện màn hình này.
+  - Tắt hiệu ứng khi máy bật "giảm chuyển động". Chỉ đổi giao diện, không ảnh hưởng chức năng / đặc tả.
+- **Phông chữ số** (15/11/2026): bỏ JetBrains Mono (số 0 có chấm ở giữa, rối mắt), dùng **Inter** với số đều cột cho mọi chỗ hiển thị số (tiền, giờ, số lượng, mã đơn / hóa đơn, đồng hồ bếp, trục biểu đồ).
+  - Sửa ở `styles/tokens.css` (`--font-mono`), `globals.css` (lớp `font-mono` luôn `tabular-nums`), `main.tsx` (nạp `@fontsource-variable/inter`, gỡ gói JetBrains Mono), trục biểu đồ ở Dashboard quản lý và Dashboard kho. Số trong ô bảng không xuống dòng giữa chừng (mã HĐ "HD2611-154" bị ngắt dòng khi đổi phông).
+  - Đã so sánh 5 phông: Plus Jakarta Sans có số 1 giống chữ l; Roboto Mono, DM Mono có số 0 gạch chéo. Chỉ đổi giao diện; bản in hóa đơn / phiếu lương dùng phông riêng, không đổi.
+- **Trang đặt món của khách (QR) làm lại giao diện** (15/11/2026), theo ảnh mẫu app đặt đồ ăn người dùng gửi; chức năng giữ đúng UC-KH-01..06.
+  - Bảng màu riêng cam – đỏ ấm (#FF6B2C, nền kem #FFF8F2), không dùng màu xanh của trang quản lý.
+  - Thực đơn: lời chào + ô tìm kiếm; banner tự chuyển 3 món bán chạy nhất tuần; danh mục dạng ô biểu tượng dính đầu trang khi cuộn; hàng **Món nổi bật** (bán chạy hạng 4–10); lưới món 2 cột. Món chưa có ảnh dùng ô màu theo danh mục kèm biểu tượng (biểu tượng / màu tự gán theo tên danh mục).
+  - Chi tiết món và giỏ món là **màn hình riêng toàn trang** (đường dẫn `?mon=` / `?gio=1`, nút Quay lại của điện thoại đóng được). Giỏ có nút xóa hết (hỏi lại).
+  - Thanh tab dưới: Thực đơn · Món đã gọi · Gọi nhân viên · Thanh toán (thay 2 nút ở đầu trang). Thông báo nổi của trang khách hiện ở phía dưới để không che nút.
+  - Backend: API thực đơn công khai trả thêm `bestSellers` (món bán chạy 7 ngày, ít số liệu thì 30 ngày, tối đa 10) — `QrOrderingService.menu`.
+  - Không làm theo ảnh mẫu (không có dữ liệu / ngoài phạm vi): kích cỡ / món thêm có giá, đánh giá sao, calo, khuyến mãi, phí giao hàng, Yêu thích / Hồ sơ (khách không có tài khoản). Đặc tả UC-KH-02 đã cập nhật.
+  - Trang đẹp hơn nhiều khi có ảnh món thật: Quản lý tải ảnh ở trang Món ăn (dữ liệu mẫu chưa có ảnh).
+  - Đã chạy thử trên khung iPhone: banner, danh mục, tìm kiếm, chi tiết, giỏ, gửi món (bếp nhận ngay), hủy món, gọi nhân viên, yêu cầu thanh toán — 11/11 đạt.
+- **Trang đặt món QR làm lại theo thiết kế Figma của nhóm** (16/11/2026), thay bản màu cam hôm trước. Luồng giữ đúng đặc tả (gửi món thẳng tới bếp, gọi thêm nhiều đợt, cuối bữa yêu cầu thanh toán, trả tại quầy); bỏ màn quét QR và phần sinh nhật của thiết kế.
+  - **Bộ màu + phông riêng** chỉ cho trang khách: `features/ordering/qr-theme.css` (biến `--qr-*`, đỏ đậm #A71E25, bản tối #E2333B trên nền #0B0B0B), phông **Be Vietnam Pro** (`@fontsource/be-vietnam-pro`, chọn thay Urbanist của Figma vì Urbanist không có bộ chữ tiếng Việt). Sáng / tối tự theo điện thoại, có nút đổi (lưu trên máy).
+  - Trang chính: "Bạn đang ngồi tại · Bàn …", nút Gọi nhân viên, **Món của tôi**; ảnh bìa + ô tìm kiếm + nút **Sắp xếp & lọc** (giá tăng / giảm, bán chạy; lọc bán chạy, chay, không cay, có cay, không chất dị ứng — lọc trên điện thoại); danh mục dạng viên có ảnh món (chưa có ảnh thì biểu tượng), chọn danh mục thì lọc danh sách; **Bán chạy** (thẻ dọc); **Tất cả món** (dòng); thanh nổi "[n] món | Xác nhận gọi món".
+  - Màn hình riêng: chi tiết món (ghi chú cho bếp dạng danh sách lựa chọn "Miễn phí"), giỏ món (ghi chú từng món, giỏ trống có gợi ý món bán chạy), **Đã gửi tới bếp**, **Món của tôi** (theo dõi: Đã gửi → Đang chuẩn bị → Sắp xong → Sẵn sàng → Chúc ngon miệng, theo trạng thái món thật; kèm danh sách món theo đợt, hủy món, nút Gọi nhân viên / Thanh toán), **Thanh toán** (kiểu màn Checkout: nơi dùng bữa, món, chi tiết thanh toán, hình thức, VAT), **Hóa đơn** (mã hóa đơn, mã QR chuyển khoản), **Cảm ơn**.
+  - **Ảnh bìa trang đặt món**: Quản lý tải ở Cấu hình hệ thống → Thông tin nhà hàng. `V13__anh_bia_trang_dat_mon.sql` (cột `restaurant_info.cover_image_url`), lưu qua `ImageStore` như ảnh món; API thông tin bàn công khai trả `coverImage`.
+  - **Tranh minh họa theo dõi đơn**: chờ nhóm gửi 5 tranh xuất từ Figma. Đặt file vào `frontend/public/qr/tracking/` với tên `sent.png`, `cooking.png`, `almost.png`, `ready.png`, `served.png` là tự hiện; chưa có file thì dùng minh họa đơn giản (biểu tượng trên nền đỏ).
+  - Không làm theo thiết kế (không có dữ liệu / khác UC): tùy chọn có giá thêm, calo, thời gian phục vụ dự kiến, đánh giá sao, mã khuyến mãi, phí phục vụ 10%, email nhận hóa đơn, thanh toán online, thanh toán trước khi bếp làm. Đặc tả UC-KH-02 đã cập nhật (lọc nhanh chuyển từ "phát triển sau" vào UC).
+  - Đã chạy thử trên khung iPhone (sáng + tối): ảnh bìa từ Cấu hình, phông, danh mục, sắp xếp / lọc, chi tiết, giỏ, gửi món (bếp nhận ngay), theo dõi theo trạng thái bếp, gọi nhân viên, yêu cầu thanh toán, đổi sáng / tối — đạt.
+- **Danh mục trên trang khách: bấm để cuộn tới mục** (16/11/2026, theo yêu cầu sau khi quét thử trên điện thoại): bấm viên danh mục → cuộn nhanh xuống đúng mục trong "Tất cả món" thay vì chỉ hiện món của danh mục đó; "Tất cả" → về đầu danh sách; tự cuộn thì viên danh mục tương ứng sáng (và tự trượt ngang cho thấy); đang tìm / lọc mà bấm danh mục thì bỏ tìm / lọc rồi cuộn. Đặc tả UC-KH-02 cập nhật. Đã chạy thử 6/6.

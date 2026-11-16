@@ -68,6 +68,18 @@
   }
 }
 
+@layer utilities {
+  /* Lớp font-mono của Tailwind dùng cho số: luôn số đều cột để cột tiền / giờ thẳng hàng. */
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Trong bảng: mã đơn / mã hóa đơn / số tiền không xuống dòng giữa chừng (bảng đã cuộn ngang khi hẹp). */
+  td.font-mono,
+  td .font-mono {
+    white-space: nowrap;
+  }
+}
+
 @layer components {
   .mono {
     font-family: var(--font-mono);

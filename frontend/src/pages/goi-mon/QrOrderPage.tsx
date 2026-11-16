@@ -1,21 +1,37 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import '@fontsource/be-vietnam-pro/400.css';
+import '@fontsource/be-vietnam-pro/500.css';
+import '@fontsource/be-vietnam-pro/600.css';
+import '@fontsource/be-vietnam-pro/700.css';
+import '@/features/ordering/qr-theme.css';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { BellRing, ChevronRight, ClipboardList, Receipt, Search, ShoppingBag, UtensilsCrossed, X } from 'lucide-react';
+import { ArrowRight, BellRing, ChevronRight, Clock3, Flame, Moon, Search, ShoppingBag, SlidersHorizontal, Sun, UtensilsCrossed, X } from 'lucide-react';
 import { callStaff, cancelQrItem, cancelQrRequest, getQrMenu, getQrTable, qrStreamUrl, requestPayment, sendQrOrder } from '@/api/ordering';
-import { CartSheet, DishRow, DishSheet, OrdersTab, Sheet, vnd } from '@/features/ordering/QrParts';
+import {
+  CategoryPills,
+  DishRow,
+  EMPTY_FILTER,
+  FilterSheet,
+  PopularCard,
+  Q,
+  Sheet,
+  applyMenuFilter,
+  vnd,
+  type MenuFilter,
+} from '@/features/ordering/QrParts';
+import { CartScreen, DishDetailScreen, MyOrderScreen, SentScreen } from '@/features/ordering/QrScreens';
+import { CallStaffSheet, InvoiceScreen, PaymentScreen, ThanksScreen } from '@/features/ordering/QrService';
 import { useLiveEvents } from '@/features/ordering/live';
-import { CallStaffSheet, InvoiceSheet, PaymentRequestSheet, ThanksCard } from '@/features/ordering/QrService';
 import { BusinessError, ValidationError } from '@/lib/mock';
 import { matchesKeyword } from '@/lib/normalize';
 import { cn } from '@/lib/cn';
 import type { CartLine, MenuDish, OrderItem, QrTableInfo } from '@/types';
 
-type Tab = 'menu' | 'orders';
-
 const cartKey = (token: string) => `rms-cart-${token}`;
 const lineKey = (dishId: string, note: string) => `${dishId}|${note.trim().toLowerCase()}`;
+const MODE_KEY = 'rms-qr-mode';
 
 function loadCart(token: string): CartLine[] {
   try {
@@ -26,9 +42,36 @@ function loadCart(token: string): CartLine[] {
   }
 }
 
+type ScreenKey = 'mon' | 'gio' | 'don' | 'tt' | 'hd';
+
+/** Sáng / tối: theo điện thoại cho tới khi khách tự chọn (lưu trên máy). */
+function useQrMode() {
+  const media = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  const [stored, setStored] = useState<'light' | 'dark' | null>(() => {
+    const v = localStorage.getItem(MODE_KEY);
+    return v === 'light' || v === 'dark' ? v : null;
+  });
+  const [system, setSystem] = useState<'light' | 'dark'>(media?.matches ? 'dark' : 'light');
+  useEffect(() => {
+    if (!media) return;
+    const on = (e: MediaQueryListEvent) => setSystem(e.matches ? 'dark' : 'light');
+    media.addEventListener('change', on);
+    return () => media.removeEventListener('change', on);
+  }, [media]);
+  const mode = stored ?? system;
+  const toggle = () => {
+    const next = mode === 'dark' ? 'light' : 'dark';
+    localStorage.setItem(MODE_KEY, next);
+    setStored(next);
+  };
+  return { mode, toggle };
+}
+
 /**
  * Trang đặt món của khách tại bàn (UC-KH-01..06) — mở bằng mã QR dán trên bàn, không đăng nhập.
- * Giao diện kiểu app đặt đồ ăn trên điện thoại; giỏ món lưu riêng trên máy cho tới khi gửi.
+ * Giao diện theo thiết kế Figma của nhóm: phông Be Vietnam Pro, màu đỏ đậm, có bản tối; luồng giữ đúng đặc tả
+ * (gửi món thẳng tới bếp, gọi thêm nhiều đợt, cuối bữa yêu cầu thanh toán và trả tại quầy).
+ * Các màn hình con mở bằng tham số trên đường dẫn (?mon=, ?gio=1, ?don=1, ?tt=1, ?hd=1) để nút Quay lại của điện thoại đóng được.
  */
 export default function QrOrderPage() {
   const { token = '' } = useParams<{ token: string }>();
@@ -37,24 +80,53 @@ export default function QrOrderPage() {
   const info = useQuery({ queryKey: keys.info, queryFn: () => getQrTable(token), refetchInterval: 10_000, retry: false });
   const menu = useQuery({ queryKey: keys.menu, queryFn: () => getQrMenu(token), refetchInterval: 60_000, enabled: info.isSuccess });
   useLiveEvents(info.isSuccess ? qrStreamUrl(token) : null, [keys.info, keys.menu]);
+  const { mode, toggle: toggleMode } = useQrMode();
 
-  const [tab, setTab] = useState<Tab>('menu');
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const openDishId = params.get('mon');
+  const screen = (['gio', 'don', 'tt', 'hd'] as const).find((k) => params.get(k) === '1') ?? null;
   const [cart, setCart] = useState<CartLine[]>(() => loadCart(token));
   const [keyword, setKeyword] = useState('');
-  const [activeCat, setActiveCat] = useState<string>('');
-  const [openDish, setOpenDish] = useState<MenuDish | null>(null);
-  const [cartOpen, setCartOpen] = useState(false);
+  const [activeCat, setActiveCat] = useState('all');
+  const [pendingJump, setPendingJump] = useState<string | null>(null);
+  const [filter, setFilter] = useState<MenuFilter>(EMPTY_FILTER);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [confirmSend, setConfirmSend] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [sent, setSent] = useState<{ count: number; total: number } | null>(null);
   const [cancelTarget, setCancelTarget] = useState<OrderItem | null>(null);
   const [invalid, setInvalid] = useState<Set<string>>(new Set());
   const [staffOpen, setStaffOpen] = useState(false);
   const [staffError, setStaffError] = useState('');
-  const [payOpen, setPayOpen] = useState(false);
   const [payErrors, setPayErrors] = useState<Record<string, string>>({});
-  const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [thanksSeen, setThanksSeen] = useState(() => sessionStorage.getItem(`rms-thanks-${token}`) ?? '');
-  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const listTop = useRef<HTMLDivElement>(null);
   const chipBar = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  const openScreen = useCallback(
+    (key: ScreenKey, value = '1') =>
+      setParams((p) => {
+        const n = new URLSearchParams(p);
+        (['mon', 'gio', 'don', 'tt', 'hd'] as const).forEach((k) => n.delete(k));
+        n.set(key, value);
+        return n;
+      }),
+    [setParams],
+  );
+  const closeScreen = useCallback(() => {
+    if ((window.history.state as { idx?: number } | null)?.idx) navigate(-1);
+    else
+      setParams(
+        (p) => {
+          const n = new URLSearchParams(p);
+          (['mon', 'gio', 'don', 'tt', 'hd'] as const).forEach((k) => n.delete(k));
+          return n;
+        },
+        { replace: true },
+      );
+  }, [navigate, setParams]);
 
   useEffect(() => {
     localStorage.setItem(cartKey(token), JSON.stringify(cart));
@@ -62,11 +134,7 @@ export default function QrOrderPage() {
 
   const order = info.data?.order ?? null;
   const dishes = useMemo(() => menu.data?.dishes ?? [], [menu.data]);
-  const categories = useMemo(
-    () => (menu.data?.categories ?? []).filter((c) => dishes.some((d) => d.categoryId === c.id)),
-    [menu.data, dishes],
-  );
-  const filtered = useMemo(() => dishes.filter((d) => !keyword.trim() || matchesKeyword(d.name, keyword)), [dishes, keyword]);
+  const categories = useMemo(() => (menu.data?.categories ?? []).filter((c) => dishes.some((d) => d.categoryId === c.id)), [menu.data, dishes]);
   const qtyOf = (dishId: string) => cart.filter((l) => l.dishId === dishId).reduce((s, l) => s + l.qty, 0);
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
   const cartTotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
@@ -75,8 +143,7 @@ export default function QrOrderPage() {
   // Món trong giỏ vừa tạm hết → đánh dấu để khách xóa.
   useEffect(() => {
     if (!dishes.length) return;
-    const gone = new Set(cart.filter((l) => !dishes.some((d) => d.id === l.dishId && !d.soldOut)).map((l) => l.dishId));
-    setInvalid(gone);
+    setInvalid(new Set(cart.filter((l) => !dishes.some((d) => d.id === l.dishId && !d.soldOut)).map((l) => l.dishId)));
   }, [dishes, cart]);
 
   /* ---------------- Giỏ món */
@@ -90,8 +157,8 @@ export default function QrOrderPage() {
     toast.success(`Đã thêm ${dish.name} vào giỏ`, { duration: 1500 });
   }, []);
 
-  /** Bộ tăng giảm trên dòng món: chỉnh dòng không ghi chú của món (thêm mới nếu chưa có). */
-  const setPlainQty = (dish: MenuDish, qty: number) => {
+  /** Nút tăng giảm trên thẻ món: chỉnh dòng không ghi chú của món (thêm mới nếu chưa có). */
+  const setPlainQty = (dish: MenuDish, qty: number) =>
     setCart((prev) => {
       const key = lineKey(dish.id, '');
       const others = prev.filter((l) => l.dishId === dish.id && l.key !== key).reduce((s, l) => s + l.qty, 0);
@@ -100,7 +167,6 @@ export default function QrOrderPage() {
       if (prev.some((l) => l.key === key)) return prev.map((l) => (l.key === key ? { ...l, qty: plain } : l));
       return [...prev, { key, dishId: dish.id, name: dish.name, price: dish.price, image: dish.image, qty: plain, note: '' }];
     });
-  };
 
   const changeLine = (key: string, patch: Partial<CartLine>) =>
     setCart((prev) => {
@@ -120,10 +186,10 @@ export default function QrOrderPage() {
     mutationFn: () => sendQrOrder(token, cart.map((l) => ({ dishId: l.dishId, qty: l.qty, note: l.note }))),
     onSuccess: (o) => {
       toast.success(`Đã gửi ${cartCount} món tới bếp`);
+      setSent({ count: cartCount, total: cartTotal });
       setCart([]);
       setConfirmSend(false);
-      setCartOpen(false);
-      setTab('orders');
+      closeScreen();
       qc.setQueryData(keys.info, (prev: typeof info.data) => (prev ? { ...prev, order: o } : prev));
       void qc.invalidateQueries({ queryKey: keys.menu });
     },
@@ -191,213 +257,335 @@ export default function QrOrderPage() {
     },
   });
 
-  // Thu ngân vừa lập hóa đơn → tự mở hóa đơn cho khách; vừa thanh toán xong → hiện lời cảm ơn.
+  // Thu ngân vừa lập hóa đơn → tự mở hóa đơn cho khách.
   const invoiceCode = info.data?.invoice?.code ?? '';
   const lastInvoice = useRef('');
   useEffect(() => {
-    if (invoiceCode && invoiceCode !== lastInvoice.current) {
-      setPayOpen(false);
-      setInvoiceOpen(true);
-    }
-    if (!invoiceCode) setInvoiceOpen(false);
+    if (invoiceCode && invoiceCode !== lastInvoice.current) openScreen('hd');
     lastInvoice.current = invoiceCode;
-  }, [invoiceCode]);
+  }, [invoiceCode, openScreen]);
+  // Hóa đơn không còn (đã hủy / đã thanh toán) mà màn hóa đơn đang mở → đóng.
+  useEffect(() => {
+    if (screen === 'hd' && info.data && !info.data.invoice) closeScreen();
+  }, [screen, info.data, closeScreen]);
 
   const openPayment = () => {
-    if (info.data?.invoice) setInvoiceOpen(true);
+    if (info.data?.invoice) openScreen('hd');
     else if (!order || order.items.every((i) => i.status === 'cancelled')) toast.info('Bàn chưa có món nào để thanh toán');
-    else setPayOpen(true);
+    else openScreen('tt');
   };
 
-  /* ---------------- Danh mục: bấm cuộn tới mục, cuộn trang thì đổi mục đang chọn */
+  /* ---------------- Danh mục: bấm cuộn nhanh tới mục, cuộn trang thì viên danh mục tự sáng theo */
+  const browsing = !keyword.trim() && filter.sort === 'default' && filter.tags.length === 0;
+  const scrollToCategory = useCallback((id: string) => {
+    const el = id === 'all' ? listTop.current : sectionRefs.current[id];
+    if (!el) return;
+    // Trừ chiều cao thanh danh mục dính đầu trang để tiêu đề mục không bị che.
+    const offset = id === 'all' ? 0 : (chipBar.current?.offsetHeight ?? 0) + 8;
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' });
+  }, []);
+
   useEffect(() => {
-    if (tab !== 'menu' || keyword) return;
+    if (!pendingJump || !browsing) return;
+    const id = pendingJump;
+    setPendingJump(null);
+    requestAnimationFrame(() => scrollToCategory(id));
+  }, [pendingJump, browsing, scrollToCategory]);
+
+  useEffect(() => {
+    if (!browsing) return;
     const obs = new IntersectionObserver(
       (entries) => {
         const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (visible) setActiveCat(visible.target.getAttribute('data-cat') ?? '');
+        if (visible) setActiveCat(visible.target.getAttribute('data-cat') ?? 'all');
       },
-      { rootMargin: '-140px 0px -60% 0px' },
+      { rootMargin: '-90px 0px -65% 0px' },
     );
     Object.values(sectionRefs.current).forEach((el) => el && obs.observe(el));
     return () => obs.disconnect();
-  }, [categories, tab, keyword]);
+  }, [browsing, menu.data]);
 
   useEffect(() => {
     const chip = chipBar.current?.querySelector<HTMLElement>(`[data-chip="${activeCat}"]`);
     chip?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
   }, [activeCat]);
 
-  const jumpTo = (catId: string) => {
-    setKeyword('');
-    const el = sectionRefs.current[catId];
-    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 118, behavior: 'smooth' });
-  };
-
   /* ---------------- Trạng thái lỗi / đang tải */
   if (info.isError) {
     const msg = info.error instanceof Error ? info.error.message : 'Không tải được dữ liệu';
     return (
-      <Shell>
+      <Shell mode={mode}>
         <div className="flex min-h-[80dvh] flex-col items-center justify-center px-8 text-center">
-          <UtensilsCrossed size={48} className="text-[#c4ccc8]" strokeWidth={1.3} />
-          <p className="mt-4 text-[17px] font-bold">{msg}</p>
-          <button type="button" onClick={() => void info.refetch()} className="mt-5 rounded-full border border-[#0f7b5a] px-5 py-2 text-[14px] font-semibold text-[#0f7b5a]">Thử lại</button>
+          <span className="grid h-20 w-20 place-items-center rounded-3xl bg-[var(--qr-primary-soft)] text-[var(--qr-primary)]"><UtensilsCrossed size={38} strokeWidth={1.5} /></span>
+          <p className="mt-4 text-[17px] font-semibold">{msg}</p>
+          <button type="button" onClick={() => void info.refetch()} className={cn(Q.btn, 'mt-5 px-6 py-2.5 text-[14px]')}>Thử lại</button>
         </div>
       </Shell>
     );
   }
   if (!info.data) {
     return (
-      <Shell>
-        <div className="h-[150px] animate-pulse bg-[#e8f5ee]" />
-        <div className="space-y-4 p-4">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-[88px] animate-pulse rounded-xl bg-[#f2f4f3]" />)}</div>
+      <Shell mode={mode}>
+        <div className="space-y-4 p-5 pt-6">
+          <div className="h-10 w-48 animate-pulse rounded-2xl bg-[var(--qr-surface-2)]" />
+          <div className="h-[200px] animate-pulse rounded-3xl bg-[var(--qr-surface-2)]" />
+          <div className="flex gap-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-11 w-24 animate-pulse rounded-2xl bg-[var(--qr-surface-2)]" />)}</div>
+          {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-[116px] animate-pulse rounded-[20px] bg-[var(--qr-surface-2)]" />)}
+        </div>
       </Shell>
     );
   }
 
   const t = info.data;
-  const sendBlocked = !t.openNow ? 'Nhà hàng hiện ngoài giờ phục vụ, chưa gửi món được.' : order?.locked ? 'Bàn đang chờ thanh toán, không gọi thêm món được. Vui lòng gọi nhân viên nếu cần gọi thêm.' : invalid.size ? 'Một số món trong giỏ đã hết. Vui lòng xóa các món được đánh dấu.' : null;
+  const sendBlocked = !t.openNow
+    ? 'Nhà hàng hiện ngoài giờ phục vụ, chưa gửi món được.'
+    : order?.locked
+      ? 'Bàn đang chờ thanh toán, không gọi thêm món được. Vui lòng gọi nhân viên nếu cần gọi thêm.'
+      : invalid.size
+        ? 'Một số món trong giỏ đã hết. Vui lòng xóa các món được đánh dấu.'
+        : null;
+  const allCategories = menu.data?.categories ?? [];
+  const catName = (d: { categoryId: string }) => allCategories.find((c) => c.id === d.categoryId)?.name;
+  const byId = new Map(dishes.map((d) => [d.id, d]));
+  const best = (menu.data?.bestSellers ?? []).map((id) => byId.get(id)).filter((d): d is MenuDish => Boolean(d));
+  const rankOf = new Map(best.map((d, i) => [d.id, i + 1]));
+  const openDish = openDishId ? byId.get(openDishId) ?? null : null;
+  const imageOfCategory = (id: string) => dishes.find((d) => d.categoryId === id && d.image)?.image ?? null;
+  const filtering = filter.sort !== 'default' || filter.tags.length > 0;
+  const searching = keyword.trim().length > 0;
+  const scoped = dishes.filter((d) => !searching || matchesKeyword(d.name, keyword));
+  const results = applyMenuFilter(scoped, filter, rankOf);
+  const row = (d: MenuDish) => (
+    <DishRow
+      key={d.id}
+      dish={d}
+      categoryName={catName(d)}
+      best={rankOf.has(d.id)}
+      inCart={qtyOf(d.id)}
+      onOpen={() => openScreen('mon', d.id)}
+      onAdd={() => addToCart(d, 1, '')}
+      onChangeQty={(q) => setPlainQty(d, q)}
+    />
+  );
+  /** Bấm viên danh mục: đang tìm / lọc thì bỏ tìm / lọc trước, rồi cuộn nhanh tới mục (không ẩn món khác). */
+  const pickCategory = (id: string) => {
+    setActiveCat(id);
+    if (!browsing) {
+      setKeyword('');
+      setFilter(EMPTY_FILTER);
+      setPendingJump(id);
+    } else scrollToCategory(id);
+  };
 
   return (
-    <Shell>
-      {/* Đầu trang */}
-      <header className="relative overflow-hidden bg-gradient-to-br from-[#0f7b5a] to-[#14a072] px-4 pb-5 pt-6 text-white">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" aria-hidden />
-        <p className="text-[13px] font-medium opacity-90">Chào mừng đến với</p>
-        <h1 className="text-[24px] font-extrabold leading-tight text-white">{t.restaurantName}</h1>
-        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-[13px] font-semibold">
-          Bàn {t.tableCode} · {t.areaName}
+    <Shell mode={mode}>
+      {/* Đầu trang: bàn đang ngồi, gọi nhân viên, món của tôi */}
+      <header className="flex items-center gap-2.5 px-5 pb-4 pt-5">
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate text-[12.5px] text-[var(--qr-muted)]">Bạn đang ngồi tại · {t.areaName}</p>
+          <p className="truncate text-[19px] font-semibold">Bàn {t.tableCode}</p>
         </div>
-        <div className="mt-3 flex gap-2">
-          <button type="button" onClick={() => setStaffOpen(true)} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[13px] font-semibold text-[#0f7b5a]">
-            <BellRing size={14} className={t.support ? 'animate-pulse' : ''} />
-            {t.support ? (t.support.status === 'forwarded' ? 'Nhân viên đang đến' : 'Đang chờ nhân viên') : 'Gọi nhân viên'}
-          </button>
-          <button type="button" onClick={openPayment} className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-[13px] font-semibold">
-            <Receipt size={14} />
-            {t.invoice ? 'Xem hóa đơn' : t.payment ? 'Đã yêu cầu thanh toán' : 'Thanh toán'}
-          </button>
-        </div>
+        <button type="button" aria-label={t.support ? 'Đang chờ nhân viên' : 'Gọi nhân viên'} onClick={() => setStaffOpen(true)} className={cn(Q.iconBtn, 'relative h-11 w-11 rounded-2xl', t.support && 'text-[var(--qr-primary)]')}>
+          <BellRing size={19} className={t.support ? 'animate-pulse' : ''} />
+          {t.support ? <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-[var(--qr-primary)]" /> : null}
+        </button>
+        <button type="button" onClick={() => openScreen('don')} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[var(--qr-primary)] px-4 text-[14px] font-semibold text-white">
+          <ShoppingBag size={17} />Món của tôi
+          {activeOrderCount ? <span className="grid h-5 min-w-5 place-items-center rounded-full bg-white px-1 text-[11px] font-bold text-[var(--qr-primary)]">{activeOrderCount}</span> : null}
+        </button>
       </header>
-      {!t.openNow ? <div className="bg-[#fff7ed] px-4 py-2 text-[13px] text-[#8a4b12]">Nhà hàng hiện ngoài giờ phục vụ — bạn vẫn xem được thực đơn.</div> : null}
+
+      {/* Ảnh bìa + tìm kiếm + lọc */}
+      <div className="relative">
+        <button type="button" aria-label={mode === 'dark' ? 'Chuyển sang nền sáng' : 'Chuyển sang nền tối'} onClick={toggleMode} className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-black/35 text-white backdrop-blur">
+          {mode === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+        {t.coverImage ? (
+          <div className="relative h-[210px]">
+            <img src={t.coverImage} alt={t.restaurantName} className="h-full w-full object-cover" />
+            <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/55 to-transparent px-5 pb-10 pt-4 text-white">
+              <p className="text-[12px] opacity-90">Chào mừng đến với</p>
+              <p className="text-[20px] font-bold leading-tight">{t.restaurantName}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="qr-pattern flex h-[210px] flex-col justify-center px-6 text-white">
+            <p className="text-[14px] opacity-90">Chào mừng đến với</p>
+            <p className="text-[26px] font-bold leading-tight">{t.restaurantName}</p>
+            <p className="mt-1 text-[13px] opacity-85">Gọi món ngay tại bàn — bếp nhận tức thì</p>
+          </div>
+        )}
+        <div className="absolute inset-x-5 bottom-4 flex gap-2.5">
+          <label className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl bg-[var(--qr-surface)] px-4 py-3 shadow-lg">
+            <Search size={18} className="shrink-0 text-[var(--qr-muted)]" />
+            <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Tìm món ăn, đồ uống…" className="min-w-0 flex-1 bg-transparent text-[14.5px] outline-none placeholder:text-[var(--qr-muted)]" />
+            {searching ? <button type="button" aria-label="Xóa tìm kiếm" onClick={() => setKeyword('')}><X size={16} className="text-[var(--qr-muted)]" /></button> : null}
+          </label>
+          <button type="button" aria-label="Sắp xếp và lọc" onClick={() => setFilterOpen(true)} className="relative grid w-[50px] shrink-0 place-items-center rounded-2xl bg-[var(--qr-primary)] text-white shadow-lg">
+            <SlidersHorizontal size={20} />
+            {filtering ? <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-white px-1 text-[10.5px] font-bold text-[var(--qr-primary)] shadow">{filter.tags.length + (filter.sort !== 'default' ? 1 : 0)}</span> : null}
+          </button>
+        </div>
+      </div>
+
+      {!t.openNow ? <Notice icon={<Clock3 size={15} />}>Nhà hàng hiện ngoài giờ phục vụ — bạn vẫn xem được thực đơn.</Notice> : null}
       {t.invoice ? (
-        <button type="button" onClick={() => setInvoiceOpen(true)} className="flex w-full items-center justify-between bg-[#fff7ed] px-4 py-2.5 text-left text-[13.5px] text-[#8a4b12]">
+        <button type="button" onClick={() => openScreen('hd')} className="mx-5 mt-3 flex w-[calc(100%-2.5rem)] items-center justify-between rounded-2xl bg-[var(--qr-warn-soft)] px-4 py-3 text-left text-[13.5px] text-[var(--qr-warn-text)]">
           <span>Hóa đơn <b>{t.invoice.code}</b> · {vnd(t.invoice.total)} — chờ thanh toán</span>
           <ChevronRight size={16} />
         </button>
-      ) : order?.locked ? (
-        <div className="bg-[#fff7ed] px-4 py-2 text-[13px] text-[#8a4b12]">Bàn đang chờ thanh toán.</div>
-      ) : null}
+      ) : order?.locked ? <Notice>Bàn đang chờ thanh toán.</Notice> : null}
 
-      {tab === 'menu' ? (
-        <>
-          {/* Tìm món + danh mục dính đầu */}
-          <div className="sticky top-0 z-20 bg-white shadow-[0_1px_0_#eef1ef]">
-            <div className="px-4 pt-3">
-              <label className="flex items-center gap-2 rounded-full bg-[#f2f4f3] px-3.5 py-2">
-                <Search size={16} className="text-[#8a938e]" />
-                <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Tìm món ăn, đồ uống…" className="min-w-0 flex-1 bg-transparent text-[14px] outline-none" />
-                {keyword ? <button type="button" aria-label="Xóa tìm kiếm" onClick={() => setKeyword('')}><X size={15} className="text-[#8a938e]" /></button> : null}
-              </label>
+      {/* Danh mục (dính đầu trang khi cuộn) */}
+      <div ref={listTop} />
+      <div ref={chipBar} className="sticky top-0 z-20 bg-[var(--qr-bg)]">
+        <CategoryPills categories={categories} active={activeCat} onPick={pickCategory} imageOf={imageOfCategory} />
+      </div>
+
+      <main className="px-5 pb-40">
+        {menu.isLoading ? (
+          <div className="space-y-3 pt-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-[116px] animate-pulse rounded-[20px] bg-[var(--qr-surface-2)]" />)}</div>
+        ) : dishes.length === 0 ? (
+          <p className="py-16 text-center text-[14px] text-[var(--qr-muted)]">Thực đơn đang được cập nhật. Vui lòng liên hệ nhân viên.</p>
+        ) : searching || filtering ? (
+          <section className="pt-2">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="text-[18px] font-semibold">
+                {searching ? <>Kết quả cho “<span className="text-[var(--qr-primary)]">{keyword}</span>”</> : 'Kết quả lọc'}
+              </h2>
+              <span className="text-[12.5px] text-[var(--qr-muted)]">{results.length} món</span>
             </div>
-            {!keyword ? (
-              <div ref={chipBar} className="no-scrollbar flex gap-1 overflow-x-auto px-3 pb-2 pt-2.5">
-                {categories.map((c) => (
-                  <button
-                    key={c.id}
-                    data-chip={c.id}
-                    type="button"
-                    onClick={() => jumpTo(c.id)}
-                    className={cn('shrink-0 rounded-full px-3.5 py-1.5 text-[13.5px] font-semibold transition-colors', (activeCat || categories[0]?.id) === c.id ? 'bg-[#0f7b5a] text-white' : 'text-[#4a524e]')}
-                  >
-                    {c.name}
-                  </button>
-                ))}
+            {results.length === 0 ? (
+              <div className="py-14 text-center">
+                <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[var(--qr-surface-2)] text-[var(--qr-muted)]"><Search size={28} /></span>
+                <p className="mt-3 text-[15px] font-semibold">Không có món phù hợp</p>
+                <button type="button" onClick={() => { setKeyword(''); setFilter(EMPTY_FILTER); }} className="mt-3 text-[14px] font-semibold text-[var(--qr-primary)]">Xem tất cả món</button>
               </div>
-            ) : <div className="h-2" />}
-          </div>
-
-          <main className="px-4 pb-40">
-            {menu.isLoading ? (
-              <div className="space-y-4 pt-4">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-[88px] animate-pulse rounded-xl bg-[#f2f4f3]" />)}</div>
-            ) : dishes.length === 0 ? (
-              <p className="py-16 text-center text-[14px] text-[#6b7570]">Thực đơn đang được cập nhật. Vui lòng liên hệ nhân viên.</p>
-            ) : keyword ? (
-              filtered.length === 0 ? (
-                <p className="py-16 text-center text-[14px] text-[#6b7570]">Không tìm thấy món phù hợp</p>
-              ) : (
-                <div className="divide-y divide-[#f0f2f1]">
-                  {filtered.map((d) => <DishRow key={d.id} dish={d} inCart={qtyOf(d.id)} onOpen={() => setOpenDish(d)} onAdd={() => addToCart(d, 1, '')} onChangeQty={(q) => setPlainQty(d, q)} />)}
-                </div>
-              )
             ) : (
-              categories.map((c) => (
-                <section key={c.id} data-cat={c.id} ref={(el) => { sectionRefs.current[c.id] = el; }} className="pt-4">
-                  <h2 className="text-[17px] font-bold">{c.name}</h2>
-                  <div className="divide-y divide-[#f0f2f1]">
-                    {dishes.filter((d) => d.categoryId === c.id).map((d) => (
-                      <DishRow key={d.id} dish={d} inCart={qtyOf(d.id)} onOpen={() => setOpenDish(d)} onAdd={() => addToCart(d, 1, '')} onChangeQty={(q) => setPlainQty(d, q)} />
-                    ))}
-                  </div>
-                </section>
-              ))
+              <div className="space-y-3">{results.map(row)}</div>
             )}
-          </main>
-        </>
-      ) : (
-        <main className="min-h-[60dvh] bg-[#f7f8f7] pb-28">
-          <OrdersTab order={order} onCancel={setCancelTarget} onBrowse={() => setTab('menu')} />
-        </main>
-      )}
+          </section>
+        ) : (
+          <>
+            {best.length ? (
+              <section data-cat="all" ref={(el) => { sectionRefs.current.all = el; }} className="pt-2">
+                <h2 className="mb-3 flex items-center gap-1.5 text-[18px] font-semibold"><Flame size={19} className="text-[var(--qr-accent)]" fill="currentColor" />Bán chạy</h2>
+                <div className="no-scrollbar -mx-5 flex gap-3 overflow-x-auto px-5 pb-3">
+                  {best.map((d, i) => (
+                    <PopularCard key={d.id} dish={d} categoryName={catName(d)} rank={i + 1} inCart={qtyOf(d.id)} onOpen={() => openScreen('mon', d.id)} onAdd={() => addToCart(d, 1, '')} onChangeQty={(q) => setPlainQty(d, q)} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+            <h2 className="mb-1 mt-4 text-[18px] font-semibold">Tất cả món</h2>
+            {categories.map((c) => (
+              <section key={c.id} data-cat={c.id} ref={(el) => { sectionRefs.current[c.id] = el; }} className="pt-3">
+                <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-[var(--qr-muted)]">{c.name}</p>
+                <div className="space-y-3">{dishes.filter((d) => d.categoryId === c.id).map(row)}</div>
+              </section>
+            ))}
+          </>
+        )}
+      </main>
 
-      {/* Thanh giỏ hàng nổi */}
-      {cartCount > 0 && tab === 'menu' ? (
-        <div className="fixed inset-x-0 bottom-[64px] z-30 mx-auto max-w-[480px] px-3">
-          <button type="button" onClick={() => setCartOpen(true)} className="flex w-full items-center gap-3 rounded-2xl bg-[#0f7b5a] px-4 py-3 text-white shadow-lg active:scale-[0.99]">
-            <span className="relative">
-              <ShoppingBag size={22} />
-              <span className="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-[#ff6b35] px-1 text-[11px] font-bold">{cartCount}</span>
-            </span>
-            <span className="flex-1 text-left text-[15px] font-bold">{vnd(cartTotal)}</span>
-            <span className="inline-flex items-center text-[14px] font-semibold">Xem giỏ <ChevronRight size={18} /></span>
+      {/* Thanh nổi: số món trong giỏ + Xác nhận gọi món */}
+      {cartCount > 0 ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[480px] px-5 pb-[max(16px,env(safe-area-inset-bottom))]">
+          <button type="button" onClick={() => openScreen('gio')} className="flex w-full overflow-hidden rounded-2xl bg-[var(--qr-primary)] text-[14.5px] font-semibold text-white shadow-[0_10px_30px_rgba(167,30,37,0.35)]">
+            <span className="flex items-center gap-2 bg-white/20 px-4 py-4"><ShoppingBag size={18} />{cartCount} món</span>
+            <span className="flex flex-1 items-center justify-center gap-2 px-4 py-4">Xác nhận gọi món · {vnd(cartTotal)}<ArrowRight size={18} /></span>
           </button>
         </div>
       ) : null}
 
-      {/* Thanh tab dưới cùng */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-[480px] border-t border-[#eef1ef] bg-white pb-[env(safe-area-inset-bottom)]">
-        <TabButton active={tab === 'menu'} onClick={() => setTab('menu')} icon={<UtensilsCrossed size={20} />} label="Thực đơn" />
-        <TabButton active={tab === 'orders'} onClick={() => setTab('orders')} icon={<ClipboardList size={20} />} label="Món đã gọi" badge={activeOrderCount} />
-      </nav>
+      <FilterSheet open={filterOpen} value={filter} onClose={() => setFilterOpen(false)} onApply={(f) => { setFilter(f); setFilterOpen(false); }} />
 
-      <DishSheet dish={openDish} onClose={() => setOpenDish(null)} onAdd={(d, q, n) => { addToCart(d, q, n); setOpenDish(null); }} />
-      <CartSheet
-        open={cartOpen}
-        lines={cart}
-        invalid={invalid}
-        sending={send.isPending}
-        onClose={() => setCartOpen(false)}
-        onChange={changeLine}
-        onRemove={(key) => setCart((prev) => prev.filter((l) => l.key !== key))}
-        onSend={() => setConfirmSend(true)}
-        disabledReason={sendBlocked}
-      />
-      <Sheet open={confirmSend} onClose={() => setConfirmSend(false)} title="Gửi đặt món?">
-        <div className="space-y-4 p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
-          <p className="text-[14.5px] text-[#4a524e]">{cartCount} món · tạm tính <b>{vnd(cartTotal)}</b>. Món đã gửi chỉ hủy được khi bếp chưa bắt đầu chế biến.</p>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setConfirmSend(false)} className="flex-1 rounded-xl border border-[#dfe4e1] py-3 text-[15px] font-semibold">Xem lại</button>
-            <button type="button" disabled={send.isPending} onClick={() => send.mutate()} className="flex-1 rounded-xl bg-[#0f7b5a] py-3 text-[15px] font-bold text-white disabled:opacity-50">{send.isPending ? 'Đang gửi…' : 'Gửi'}</button>
+      {openDish ? (
+        <DishDetailScreen
+          key={openDish.id}
+          dish={openDish}
+          categoryName={catName(openDish)}
+          best={rankOf.get(openDish.id)}
+          onBack={closeScreen}
+          onAdd={(d, q, n) => {
+            addToCart(d, q, n);
+            closeScreen();
+          }}
+        />
+      ) : null}
+      {screen === 'gio' ? (
+        <CartScreen
+          table={t.tableCode}
+          lines={cart}
+          invalid={invalid}
+          sending={send.isPending}
+          suggestions={best.slice(0, 6)}
+          categoryOf={(id) => { const d = byId.get(id); return d ? catName(d) : undefined; }}
+          qtyOf={qtyOf}
+          onBack={closeScreen}
+          onChange={changeLine}
+          onRemove={(key) => setCart((prev) => prev.filter((l) => l.key !== key))}
+          onClear={() => setConfirmClear(true)}
+          onSend={() => setConfirmSend(true)}
+          onOpenDish={(d) => openScreen('mon', d.id)}
+          onAddDish={(d) => addToCart(d, 1, '')}
+          disabledReason={sendBlocked}
+        />
+      ) : null}
+      {screen === 'don' ? (
+        <MyOrderScreen
+          table={t.tableCode}
+          order={order}
+          support={t.support}
+          payment={t.payment}
+          hasInvoice={Boolean(t.invoice)}
+          onBack={closeScreen}
+          onCancel={setCancelTarget}
+          onStaff={() => setStaffOpen(true)}
+          onPayment={openPayment}
+        />
+      ) : null}
+      {screen === 'tt' ? (
+        <PaymentScreen
+          restaurant={t.restaurantName}
+          table={t.tableCode}
+          area={t.areaName}
+          order={order}
+          waiting={t.payment}
+          sending={payRequest.isPending || cancelReq.isPending}
+          errors={payErrors}
+          onBack={closeScreen}
+          onSend={(body) => payRequest.mutate(body)}
+          onCancel={(id) => cancelReq.mutate(id)}
+        />
+      ) : null}
+      {screen === 'hd' && t.invoice ? <InvoiceScreen invoice={t.invoice} table={t.tableCode} preferTransfer={t.payment?.paymentMethod === 'transfer'} onBack={closeScreen} /> : null}
+      {sent ? <SentScreen count={sent.count} total={sent.total} onMenu={() => setSent(null)} onTrack={() => { setSent(null); openScreen('don'); }} /> : null}
+
+      <Sheet open={confirmClear} onClose={() => setConfirmClear(false)} title="Xóa hết giỏ món?">
+        <div className="space-y-4 px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-1">
+          <p className="text-[14.5px] text-[var(--qr-muted)]">Tất cả {cartCount} món trong giỏ sẽ bị xóa (chưa gửi tới bếp).</p>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setConfirmClear(false)} className={cn(Q.btnGhost, 'flex-1')}>Giữ lại</button>
+            <button type="button" onClick={() => { setCart([]); setConfirmClear(false); }} className={cn(Q.btnDanger, 'flex-1')}>Xóa hết</button>
+          </div>
+        </div>
+      </Sheet>
+      <Sheet open={confirmSend} onClose={() => setConfirmSend(false)} title="Gửi gọi món?">
+        <div className="space-y-4 px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-1">
+          <p className="text-[14.5px] text-[var(--qr-muted)]">{cartCount} món · tạm tính <b className="text-[var(--qr-primary)]">{vnd(cartTotal)}</b>. Món đã gửi chỉ hủy được khi bếp chưa bắt đầu chế biến.</p>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setConfirmSend(false)} className={cn(Q.btnGhost, 'flex-1')}>Xem lại</button>
+            <button type="button" disabled={send.isPending} onClick={() => send.mutate()} className={cn(Q.btn, 'flex-1')}>{send.isPending ? 'Đang gửi…' : 'Gửi'}</button>
           </div>
         </div>
       </Sheet>
       <Sheet open={Boolean(cancelTarget)} onClose={() => setCancelTarget(null)} title="Hủy món?">
-        <div className="space-y-4 p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
-          <p className="text-[14.5px] text-[#4a524e]">{cancelTarget ? `${cancelTarget.name} × ${cancelTarget.qty} sẽ bị hủy.` : ''}</p>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setCancelTarget(null)} className="flex-1 rounded-xl border border-[#dfe4e1] py-3 text-[15px] font-semibold">Đóng</button>
-            <button type="button" disabled={cancel.isPending} onClick={() => cancelTarget && cancel.mutate(cancelTarget)} className="flex-1 rounded-xl bg-[#c62828] py-3 text-[15px] font-bold text-white disabled:opacity-50">Hủy món</button>
+        <div className="space-y-4 px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-1">
+          <p className="text-[14.5px] text-[var(--qr-muted)]">{cancelTarget ? `${cancelTarget.name} × ${cancelTarget.qty} sẽ bị hủy.` : ''}</p>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setCancelTarget(null)} className={cn(Q.btnGhost, 'flex-1')}>Đóng</button>
+            <button type="button" disabled={cancel.isPending} onClick={() => cancelTarget && cancel.mutate(cancelTarget)} className={cn(Q.btnDanger, 'flex-1')}>Hủy món</button>
           </div>
         </div>
       </Sheet>
@@ -410,19 +598,8 @@ export default function QrOrderPage() {
         onSend={(type, content) => staffCall.mutate({ type, content })}
         onCancel={(id) => cancelReq.mutate(id)}
       />
-      <PaymentRequestSheet
-        open={payOpen}
-        onClose={() => setPayOpen(false)}
-        order={order}
-        waiting={t.payment}
-        sending={payRequest.isPending || cancelReq.isPending}
-        errors={payErrors}
-        onSend={(body) => payRequest.mutate(body)}
-        onCancel={(id) => cancelReq.mutate(id)}
-      />
-      <InvoiceSheet open={invoiceOpen} onClose={() => setInvoiceOpen(false)} invoice={t.invoice} preferTransfer={t.payment?.paymentMethod === 'transfer'} />
       {t.paid && !order && thanksSeen !== t.paid.code ? (
-        <ThanksCard
+        <ThanksScreen
           code={t.paid.code}
           total={t.paid.total}
           onClose={() => {
@@ -435,21 +612,15 @@ export default function QrOrderPage() {
   );
 }
 
-/** Khung trang: cột giữa rộng tối đa như màn hình điện thoại, nền trắng cố định (không theo chế độ tối của trang quản lý). */
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-dvh bg-[#eef1ef] text-[#1b1f1d] [color-scheme:light]">
-      <div className="relative mx-auto min-h-dvh max-w-[480px] bg-white shadow-[0_0_40px_rgba(0,0,0,0.06)]">{children}</div>
-    </div>
-  );
+function Notice({ children, icon }: { children: ReactNode; icon?: ReactNode }) {
+  return <div className="mx-5 mt-3 flex items-center gap-2 rounded-2xl bg-[var(--qr-warn-soft)] px-4 py-3 text-[13px] text-[var(--qr-warn-text)]">{icon}{children}</div>;
 }
 
-function TabButton({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }) {
+/** Khung trang: cột giữa rộng tối đa như màn hình điện thoại; bộ màu / phông riêng (.qr-theme), sáng hoặc tối. */
+function Shell({ children, mode }: { children: ReactNode; mode: 'light' | 'dark' }) {
   return (
-    <button type="button" onClick={onClick} className={cn('relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11.5px] font-semibold', active ? 'text-[#0f7b5a]' : 'text-[#8a938e]')}>
-      {icon}
-      {label}
-      {badge ? <span className="absolute left-1/2 top-1 ml-2 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#ff6b35] px-1 text-[10.5px] font-bold text-white">{badge}</span> : null}
-    </button>
+    <div className="qr-theme min-h-dvh bg-[var(--qr-page)]" data-qr-mode={mode}>
+      <div className="relative mx-auto min-h-dvh max-w-[480px] bg-[var(--qr-bg)]">{children}</div>
+    </div>
   );
 }
