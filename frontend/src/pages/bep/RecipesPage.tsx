@@ -46,11 +46,11 @@ export default function RecipesPage() {
   return (
     <KitchenShell>
       <div className="mx-auto grid max-w-[1300px] gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <section className="flex min-h-0 flex-col rounded-xl border border-white/10 bg-[#151d1a] lg:h-[calc(100dvh-100px)]">
-          <div className="space-y-2 border-b border-white/10 p-3">
-            <h1 className="text-[18px] font-extrabold text-white">Công thức định lượng</h1>
+        <section className="flex min-h-0 flex-col rounded-xl border border-[var(--k-line)] bg-[var(--k-surface)] lg:h-[calc(100dvh-100px)]">
+          <div className="space-y-2 border-b border-[var(--k-line)] p-3">
+            <h1 className="text-[18px] font-extrabold text-[var(--k-text)]">Công thức định lượng</h1>
             <label className={cn(kInput, 'flex items-center gap-2')}>
-              <Search size={15} className="text-white/40" />
+              <Search size={15} className="text-[var(--k-muted)]" />
               <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Tìm món…" className="min-w-0 flex-1 bg-transparent outline-none" aria-label="Tìm món" />
             </label>
             <div className="flex gap-2">
@@ -58,32 +58,32 @@ export default function RecipesPage() {
                 <option value="">Tất cả danh mục</option>
                 {(list.data?.categories ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <button type="button" aria-pressed={onlyMissing} onClick={() => setOnlyMissing((v) => !v)} className={cn(kBtnGhost, onlyMissing && 'bg-[#f59e0b]/25 text-[#fbbf24]')}>
+              <button type="button" aria-pressed={onlyMissing} onClick={() => setOnlyMissing((v) => !v)} className={cn(kBtnGhost, onlyMissing && 'bg-[var(--k-cook-soft)] text-[var(--k-cook)]')}>
                 Chưa có ({missingCount})
               </button>
             </div>
           </div>
           <ul className="min-h-0 flex-1 overflow-y-auto p-1.5">
             {!list.data ? (
-              Array.from({ length: 8 }).map((_, i) => <li key={i} className="m-1 h-12 animate-pulse rounded-lg bg-white/5" />)
+              Array.from({ length: 8 }).map((_, i) => <li key={i} className="m-1 h-12 animate-pulse rounded-lg bg-[var(--k-fill)]" />)
             ) : dishes.length === 0 ? (
-              <li className="p-6 text-center text-[13.5px] text-white/50">Không có món phù hợp.</li>
+              <li className="p-6 text-center text-[13.5px] text-[var(--k-muted)]">Không có món phù hợp.</li>
             ) : (
               dishes.map((d) => (
                 <li key={d.id}>
                   <button
                     type="button"
                     onClick={() => go(d.id)}
-                    className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/5', d.id === dishId && 'bg-white/10')}
+                    className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-[var(--k-fill)]', d.id === dishId && 'bg-[var(--k-fill-2)]')}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14.5px] font-semibold text-white">{d.name}</span>
-                      <span className="text-[12px] text-white/50">{d.categoryName}{d.status === 'stopped' ? ' · Ngừng bán' : ''}</span>
+                      <span className="block truncate text-[14.5px] font-semibold text-[var(--k-text)]">{d.name}</span>
+                      <span className="text-[12px] text-[var(--k-muted)]">{d.categoryName}{d.status === 'stopped' ? ' · Ngừng bán' : ''}</span>
                     </span>
                     {d.ingredientCount ? (
-                      <span className="shrink-0 rounded bg-[#10b981]/15 px-2 py-0.5 text-[12px] font-semibold text-[#34d399]">{d.ingredientCount} NL</span>
+                      <span className="shrink-0 rounded bg-[var(--k-brand-soft)] px-2 py-0.5 text-[12px] font-semibold text-[var(--k-brand)]">{d.ingredientCount} NL</span>
                     ) : (
-                      <span className="shrink-0 rounded bg-[#f59e0b]/20 px-2 py-0.5 text-[11.5px] font-semibold text-[#fbbf24]">Chưa có công thức</span>
+                      <span className="shrink-0 rounded bg-[var(--k-cook-soft)] px-2 py-0.5 text-[11.5px] font-semibold text-[var(--k-cook)]">Chưa có công thức</span>
                     )}
                   </button>
                 </li>
@@ -92,13 +92,13 @@ export default function RecipesPage() {
           </ul>
         </section>
 
-        <section className="rounded-xl border border-white/10 bg-[#151d1a] p-4">
+        <section className="rounded-xl border border-[var(--k-line)] bg-[var(--k-surface)] p-4">
           {dishId ? (
             <RecipeEditor key={dishId} dishId={dishId} onDirty={setDirty} />
           ) : (
-            <div className="grid h-full min-h-[300px] place-items-center text-center text-white/50">
+            <div className="grid h-full min-h-[300px] place-items-center text-center text-[var(--k-muted)]">
               <div>
-                <BookOpen size={40} className="mx-auto mb-3 text-white/25" />
+                <BookOpen size={40} className="mx-auto mb-3 text-[var(--k-muted)] opacity-60" />
                 Chọn một món ở danh sách bên trái để xem / khai báo công thức.
               </div>
             </div>
@@ -206,8 +206,8 @@ function RecipeEditor({ dishId, onDirty }: { dishId: string; onDirty: (v: boolea
     else save.mutate();
   };
 
-  if (recipe.isError) return <p className="py-16 text-center text-white/60">Không tìm thấy món.</p>;
-  if (!recipe.data) return <div className="h-64 animate-pulse rounded-lg bg-white/5" />;
+  if (recipe.isError) return <p className="py-16 text-center text-[var(--k-muted)]">Không tìm thấy món.</p>;
+  if (!recipe.data) return <div className="h-64 animate-pulse rounded-lg bg-[var(--k-fill)]" />;
   const r = recipe.data;
   const set = (key: string, patch: Partial<Line>) => setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
@@ -215,19 +215,19 @@ function RecipeEditor({ dishId, onDirty }: { dishId: string; onDirty: (v: boolea
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-[20px] font-extrabold text-white">{r.name}</h2>
-          <p className="text-[13px] text-white/55">{r.categoryName} · giá bán {money(r.price)}{r.status === 'stopped' ? ' · Ngừng bán' : ''}</p>
+          <h2 className="text-[20px] font-extrabold text-[var(--k-text)]">{r.name}</h2>
+          <p className="text-[13px] text-[var(--k-muted)]">{r.categoryName} · giá bán {money(r.price)}{r.status === 'stopped' ? ' · Ngừng bán' : ''}</p>
         </div>
         <div className="flex gap-2">
           <button type="button" className={kBtnGhost} disabled={!dirty || save.isPending} onClick={() => { setLines(toLines(r)); setErrors({}); }}>Hủy thay đổi</button>
           <button type="button" className={kBtnPrimary} disabled={save.isPending || !dirty} onClick={submit}><Save size={15} />Lưu công thức</button>
         </div>
       </div>
-      <p className="text-[12.5px] text-white/50">Định lượng cho <b className="text-white/80">một phần</b> món, theo đơn vị kho của nguyên liệu (ví dụ 0,08 kg).</p>
+      <p className="text-[12.5px] text-[var(--k-muted)]">Định lượng cho <b className="text-[var(--k-text)]">một phần</b> món, theo đơn vị kho của nguyên liệu (ví dụ 0,08 kg).</p>
 
-      <div className="overflow-x-auto rounded-lg border border-white/10">
+      <div className="overflow-x-auto rounded-lg border border-[var(--k-line)]">
         <table className="w-full min-w-[640px] text-[14px]">
-          <thead className="bg-white/5 text-left text-[12.5px] text-white/60">
+          <thead className="bg-[var(--k-fill)] text-left text-[12.5px] text-[var(--k-muted)]">
             <tr>
               <th className="px-3 py-2 font-semibold">Nguyên liệu</th>
               <th className="w-[150px] px-3 py-2 font-semibold">Định lượng / phần</th>
@@ -238,20 +238,20 @@ function RecipeEditor({ dishId, onDirty }: { dishId: string; onDirty: (v: boolea
           </thead>
           <tbody>
             {lines.length === 0 ? (
-              <tr><td colSpan={5} className="px-3 py-6 text-center text-white/50">Chưa có nguyên liệu. Bấm “Thêm nguyên liệu”.</td></tr>
+              <tr><td colSpan={5} className="px-3 py-6 text-center text-[var(--k-muted)]">Chưa có nguyên liệu. Bấm “Thêm nguyên liệu”.</td></tr>
             ) : (
               lines.map((l, i) => {
                 const o = byId.get(l.ingredientId);
                 const eIng = errors[`lines.${i}.ingredientId`];
                 const eQty = errors[`lines.${i}.qty`];
                 return (
-                  <tr key={l.key} className="border-t border-white/10 align-top">
+                  <tr key={l.key} className="border-t border-[var(--k-line)] align-top">
                     <td className="px-3 py-2">
                       <select
                         aria-label={`Nguyên liệu dòng ${i + 1}`}
                         value={l.ingredientId}
                         onChange={(e) => set(l.key, { ingredientId: e.target.value })}
-                        className={cn(kInput, 'w-full', eIng && 'border-[#f87171]')}
+                        className={cn(kInput, 'w-full', eIng && 'border-[var(--k-danger)]')}
                       >
                         <option value="">Chọn nguyên liệu…</option>
                         {o?.inactive ? <option value={o.id}>{o.name} (ngừng sử dụng)</option> : null}
@@ -261,7 +261,7 @@ function RecipeEditor({ dishId, onDirty }: { dishId: string; onDirty: (v: boolea
                           </option>
                         ))}
                       </select>
-                      {eIng ? <p className="mt-1 text-[12px] text-[#f87171]">{eIng}</p> : null}
+                      {eIng ? <p className="mt-1 text-[12px] text-[var(--k-danger)]">{eIng}</p> : null}
                     </td>
                     <td className="px-3 py-2">
                       <input
@@ -269,14 +269,14 @@ function RecipeEditor({ dishId, onDirty }: { dishId: string; onDirty: (v: boolea
                         value={l.qty}
                         inputMode="decimal"
                         onChange={(e) => set(l.key, { qty: e.target.value.replace(/[^\d.,]/g, '') })}
-                        className={cn(kInput, 'w-full font-mono', eQty && 'border-[#f87171]')}
+                        className={cn(kInput, 'w-full font-mono', eQty && 'border-[var(--k-danger)]')}
                       />
-                      {eQty ? <p className="mt-1 text-[12px] text-[#f87171]">{eQty}</p> : null}
+                      {eQty ? <p className="mt-1 text-[12px] text-[var(--k-danger)]">{eQty}</p> : null}
                     </td>
-                    <td className="px-3 py-2 pt-3.5 text-white/70">{o?.unit ?? '—'}</td>
-                    <td className="px-3 py-2 pt-3.5 text-right font-mono text-white/80">{o?.avgCost == null ? '—' : money(lineCost(l))}</td>
+                    <td className="px-3 py-2 pt-3.5 text-[var(--k-muted)]">{o?.unit ?? '—'}</td>
+                    <td className="px-3 py-2 pt-3.5 text-right font-mono text-[var(--k-text)]">{o?.avgCost == null ? '—' : money(lineCost(l))}</td>
                     <td className="px-1 py-2">
-                      <button type="button" aria-label={`Bỏ dòng ${i + 1}`} onClick={() => setLines((prev) => prev.filter((x) => x.key !== l.key))} className="grid h-9 w-9 place-items-center rounded-lg text-white/60 hover:bg-white/10 hover:text-[#f87171]">
+                      <button type="button" aria-label={`Bỏ dòng ${i + 1}`} onClick={() => setLines((prev) => prev.filter((x) => x.key !== l.key))} className="grid h-9 w-9 place-items-center rounded-lg text-[var(--k-muted)] hover:bg-[var(--k-fill-2)] hover:text-[var(--k-danger)]">
                         <Trash2 size={15} />
                       </button>
                     </td>
@@ -292,8 +292,8 @@ function RecipeEditor({ dishId, onDirty }: { dishId: string; onDirty: (v: boolea
           <Plus size={15} />Thêm nguyên liệu
         </button>
         <div className="text-right text-[14px]">
-          <p>Giá vốn ước tính / phần: <b className="font-mono text-[18px] text-[#34d399]">{money(total)}</b></p>
-          <p className="text-[12.5px] text-white/55">
+          <p>Giá vốn ước tính / phần: <b className="font-mono text-[18px] text-[var(--k-brand)]">{money(total)}</b></p>
+          <p className="text-[12.5px] text-[var(--k-muted)]">
             {r.price > 0 ? `${((total / r.price) * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}% giá bán` : ''} · tham khảo theo giá vốn bình quân hiện tại
           </p>
         </div>
@@ -305,11 +305,11 @@ function RecipeEditor({ dishId, onDirty }: { dishId: string; onDirty: (v: boolea
           footer={
             <>
               <button type="button" className={kBtnGhost} onClick={() => setConfirmClear(false)}>Hủy</button>
-              <button type="button" className={cn(kBtnPrimary, 'bg-[#ef4444] text-white hover:bg-[#f87171]')} disabled={save.isPending} onClick={() => save.mutate()}>Xóa công thức</button>
+              <button type="button" className={cn(kBtnPrimary, 'bg-[var(--k-danger)] text-white hover:bg-[var(--k-danger)]')} disabled={save.isPending} onClick={() => save.mutate()}>Xóa công thức</button>
             </>
           }
         >
-          Món <b className="text-white">{r.name}</b> sẽ trở về “Chưa có công thức” và không còn ước tính được số phần.
+          Món <b className="text-[var(--k-text)]">{r.name}</b> sẽ trở về “Chưa có công thức” và không còn ước tính được số phần.
         </KitchenDialog>
       ) : null}
     </div>

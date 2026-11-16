@@ -62,3 +62,22 @@ export function beep(times = 2): void {
     osc.stop(start + 0.2);
   }
 }
+
+/** Âm báo món bị hủy / đổi: hai nốt trầm đi xuống, khác âm báo món mới. */
+export function beepCancel(): void {
+  if (!audioCtx || audioCtx.state !== 'running') return;
+  const ctx = audioCtx;
+  [523, 392, 330].forEach((freq, i) => {
+    const start = ctx.currentTime + i * 0.2;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.4, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.19);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + 0.2);
+  });
+}

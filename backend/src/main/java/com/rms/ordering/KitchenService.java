@@ -26,15 +26,21 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class KitchenService {
     static final int UNDO_MINUTES = 30;
+    static final int CHANGED_MINUTES = 10;
     static final Map<String, String> CANCEL_REASONS = Map.of(
         "out_of_stock", "Hết nguyên liệu", "bad_quality", "Nguyên liệu không đạt", "other", "Khác");
 
     public record KItem(String id, String orderId, String orderCode, String tableId, String tableCode, String areaName,
                         int batchNo, String dishId, String dishName, String categoryId, String categoryName, int qty,
-                        String note, String status, String createdAt, String startedAt, String completedAt) {}
+                        String note, String status, String createdAt, String startedAt, String completedAt,
+                        String recalledAt, String cancelSource, String cancelledAt) {}
 
-    public record Queue(List<KItem> items, List<KItem> recent, int pendingCount, int cookingCount, int doneToday,
-                        int soldOutCount) {}
+    /** changed: món khách / thu ngân vừa hủy (10 phút) để bếp thấy nhãn ĐÃ ĐỔI; avgMinutesToday: thời gian ra món TB hôm nay. */
+    public record Queue(List<KItem> items, List<KItem> recent, List<KItem> changed, int pendingCount, int cookingCount,
+                        int doneToday, int soldOutCount, Double avgMinutesToday, List<Category> categories) {}
+
+    /** Danh mục món đang dùng — để mỗi màn hình bếp chọn danh mục mình phụ trách. */
+    public record Category(String id, String name) {}
 
     public record SoldOutDish(String id, String name, String categoryName, boolean soldOut, String soldOutBy, int pendingCount) {}
 
@@ -64,7 +70,7 @@ public class KitchenService {
     private static final String ITEM_SELECT = """
         SELECT oi.id, oi.order_id, o.code AS order_code, t.id AS table_id, t.code AS table_code, a.name AS area_name,
                oi.batch_no, oi.dish_id, oi.dish_name, c.id AS cat_id, c.name AS cat_name, oi.quantity, oi.note, oi.status,
-               oi.created_at, oi.started_at, oi.completed_at
+               oi.created_at, oi.started_at, oi.completed_at, oi.recalled_at, oi.cancel_source, oi.cancelled_at
         FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
         JOIN dining_tables t ON t.id = o.table_id
@@ -83,7 +89,8 @@ public class KitchenService {
                 Ids.str(rs.getLong("table_id")), rs.getString("table_code"), rs.getString("area_name"), rs.getInt("batch_no"),
                 Ids.str(rs.getLong("dish_id")), rs.getString("dish_name"), Ids.str(rs.getLong("cat_id")), rs.getString("cat_name"),
                 rs.getInt("quantity"), Vi.trim(rs.getString("note")), rs.getString("status"), iso(Db.dateTime(rs, "created_at")),
-                iso(Db.dateTime(rs, "started_at")), iso(Db.dateTime(rs, "completed_at"))))
+                iso(Db.dateTime(rs, "started_at")), iso(Db.dateTime(rs, "completed_at")), iso(Db.dateTime(rs, "recalled_at")),
+                rs.getString("cancel_source"), iso(Db.dateTime(rs, "cancelled_at"))))
             .list();
     }
 
@@ -92,12 +99,21 @@ public class KitchenService {
         List<KItem> active = items("WHERE o.status = 'open' AND oi.status IN ('pending','cooking') ORDER BY oi.created_at, oi.id");
         List<KItem> recent = items("WHERE oi.status = 'done' AND oi.completed_at >= ? ORDER BY oi.completed_at DESC LIMIT 30",
             Times.now().minusMinutes(UNDO_MINUTES));
+        List<KItem> changed = items("""
+            WHERE o.status = 'open' AND oi.status = 'cancelled' AND oi.cancel_source IN ('customer','cashier')
+              AND oi.cancelled_at >= ? AND oi.started_at IS NULL ORDER BY oi.cancelled_at DESC
+            """, Times.now().minusMinutes(CHANGED_MINUTES));
         int pending = (int) active.stream().filter(i -> "pending".equals(i.status())).count();
         int doneToday = jdbc.sql("SELECT COUNT(*) FROM order_items WHERE completed_at >= ?").param(Times.today().atStartOfDay())
             .query(Integer.class).single();
         int soldOut = jdbc.sql("SELECT COUNT(*) FROM dishes WHERE status = 'selling' AND sold_out_date = ?").param(Times.today())
             .query(Integer.class).single();
-        return new Queue(active, recent, pending, active.size() - pending, doneToday, soldOut);
+        Double avg = jdbc.sql("SELECT AVG(TIMESTAMPDIFF(SECOND, created_at, completed_at)) / 60 FROM order_items WHERE completed_at >= ?")
+            .param(Times.today().atStartOfDay()).query(Double.class).list().stream().filter(java.util.Objects::nonNull).findFirst().orElse(null);
+        List<Category> cats = jdbc.sql("SELECT id, name FROM dish_categories WHERE is_active = 1 ORDER BY sort_order, name")
+            .query((rs, n) -> new Category(Ids.str(rs.getLong("id")), rs.getString("name"))).list();
+        return new Queue(active, recent, changed, pending, active.size() - pending, doneToday, soldOut,
+            avg == null ? null : Math.round(avg * 10) / 10.0, cats);
     }
 
     public OrderView order(String orderIdText) {
@@ -182,7 +198,8 @@ public class KitchenService {
         if (r.completedAt() != null && r.completedAt().isBefore(Times.now().minusMinutes(UNDO_MINUTES))) {
             throw new BusinessException("Chỉ hoàn tác được trong " + UNDO_MINUTES + " phút sau khi hoàn thành");
         }
-        jdbc.sql("UPDATE order_items SET status = 'cooking', completed_at = NULL, kitchen_user_id = NULL WHERE id = ?").param(r.id()).update();
+        jdbc.sql("UPDATE order_items SET status = 'cooking', completed_at = NULL, kitchen_user_id = NULL, recalled_at = ? WHERE id = ?")
+            .params(Times.now(), r.id()).update();
         publish(List.of(r));
         return queue();
     }

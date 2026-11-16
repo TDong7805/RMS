@@ -116,15 +116,24 @@ export interface KitchenItem {
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
+  /** Bếp hoàn tác "Đã xong" → món quay lại hàng chờ (nhãn GỌI LẠI). */
+  recalledAt: string | null;
+  cancelSource: 'customer' | 'cashier' | 'kitchen' | null;
+  cancelledAt: string | null;
 }
 
 export interface KitchenQueue {
   items: KitchenItem[];
   recent: KitchenItem[];
+  /** Món khách / thu ngân vừa hủy (10 phút) — nhãn ĐÃ ĐỔI. */
+  changed: KitchenItem[];
   pendingCount: number;
   cookingCount: number;
   doneToday: number;
   soldOutCount: number;
+  /** Thời gian ra món trung bình hôm nay (phút), chưa có món xong thì null. */
+  avgMinutesToday: number | null;
+  categories: { id: string; name: string }[];
 }
 
 export type KitchenCancelReason = 'out_of_stock' | 'bad_quality' | 'other';

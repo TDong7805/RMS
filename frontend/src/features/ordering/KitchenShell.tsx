@@ -3,8 +3,10 @@ import { NavLink } from 'react-router-dom';
 import { BookOpen, ChefHat, ClipboardList, LogOut, PackageSearch, X } from 'lucide-react';
 import { useAuth, useLogout } from '@/lib/auth';
 import { cn } from '@/lib/cn';
+import { useKdsSettings } from './kdsSettings';
+import './kds-theme.css';
 
-/* Khung các trang phụ của Bếp (kiểm tra nguyên liệu, công thức): cùng nền tối với màn hình bếp, không dùng khung trang quản lý. */
+/* Khung các trang phụ của Bếp (kiểm tra nguyên liệu, công thức): cùng bộ màu với màn hình bếp (sáng / tối theo cài đặt của máy). */
 
 const TABS = [
   { to: '/bep', label: 'Hàng chờ', icon: ClipboardList, end: true },
@@ -15,18 +17,16 @@ const TABS = [
 export function KitchenShell({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   const { data: user } = useAuth();
   const logout = useLogout();
+  const [settings] = useKdsSettings();
   return (
-    <div className="flex min-h-dvh flex-col bg-[#0d1210] text-[#e9efec] [color-scheme:dark]">
-      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-3 border-b border-white/10 bg-[#121916] px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <ChefHat size={26} className="text-[#34d399]" />
-          <span className="text-[20px] font-extrabold tracking-wide">BẾP</span>
-        </div>
+    <div className="kds flex min-h-dvh flex-col" data-kds-mode={settings.mode}>
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-3 border-b border-[var(--k-line)] bg-[var(--k-header)] px-4 py-2.5">
+        <KitchenBrand />
         <KitchenNav />
         <div className="ml-auto flex items-center gap-2">
           {actions}
-          <span className="hidden text-[13px] text-white/60 md:inline">{user?.fullName}</span>
-          <button type="button" aria-label="Đăng xuất" title="Đăng xuất" onClick={() => logout.mutate()} className="grid h-9 w-9 place-items-center rounded-lg bg-white/10 hover:bg-white/15">
+          <span className="hidden text-[13px] text-[var(--k-muted)] md:inline">{user?.fullName}</span>
+          <button type="button" aria-label="Đăng xuất" title="Đăng xuất" onClick={() => logout.mutate()} className={kIconBtn}>
             <LogOut size={16} />
           </button>
         </div>
@@ -36,15 +36,27 @@ export function KitchenShell({ children, actions }: { children: ReactNode; actio
   );
 }
 
+export function KitchenBrand({ children }: { children?: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[var(--k-brand)] text-[var(--k-on-brand)]"><ChefHat size={20} /></span>
+      <span className="text-[19px] font-extrabold tracking-wide">BẾP</span>
+      {children}
+    </div>
+  );
+}
+
 export function KitchenNav() {
   return (
-    <nav className="flex gap-1 rounded-lg bg-white/5 p-0.5 text-[14px] font-semibold" aria-label="Trang của bếp">
+    <nav className="flex gap-1 rounded-lg bg-[var(--k-fill)] p-0.5 text-[14px] font-semibold" aria-label="Trang của bếp">
       {TABS.map(({ to, label, icon: Icon, end }) => (
         <NavLink
           key={to}
           to={to}
           end={end}
-          className={({ isActive }) => cn('inline-flex items-center gap-1.5 rounded-md px-3 py-1.5', isActive ? 'bg-white text-[#0d1210]' : 'text-white/75 hover:bg-white/10')}
+          className={({ isActive }) =>
+            cn('inline-flex items-center gap-1.5 rounded-md px-3 py-1.5', isActive ? 'bg-[var(--k-invert-bg)] text-[var(--k-invert-text)]' : 'text-[var(--k-muted)] hover:bg-[var(--k-fill-2)]')
+          }
         >
           <Icon size={15} />
           {label}
@@ -54,23 +66,25 @@ export function KitchenNav() {
   );
 }
 
-/* ---------------------------------------------------------------- Ô nhập / nút / hộp thoại kiểu nền tối */
+/* ---------------------------------------------------------------- Ô nhập / nút / hộp thoại theo bộ màu bếp */
 
-export const kInput = 'rounded-lg border border-white/15 bg-[#1a2420] px-3 py-1.5 text-[14px] text-[#e9efec] outline-none placeholder:text-white/35 focus:border-[#34d399]';
+export const kInput =
+  'rounded-lg border border-[var(--k-line)] bg-[var(--k-surface)] px-3 py-1.5 text-[14px] text-[var(--k-text)] outline-none placeholder:text-[var(--k-muted)] focus:border-[var(--k-brand)]';
 export const kBtn = 'inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[14px] font-semibold disabled:opacity-50';
-export const kBtnPrimary = `${kBtn} bg-[#10b981] text-[#06231a] hover:bg-[#34d399]`;
-export const kBtnGhost = `${kBtn} bg-white/10 hover:bg-white/15`;
+export const kBtnPrimary = `${kBtn} bg-[var(--k-brand-strong)] text-[var(--k-on-brand)] hover:bg-[var(--k-brand)]`;
+export const kBtnGhost = `${kBtn} bg-[var(--k-fill)] hover:bg-[var(--k-fill-2)]`;
+export const kIconBtn = 'grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--k-fill)] hover:bg-[var(--k-fill-2)]';
 
 export function KitchenDialog({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="w-full max-w-[440px] rounded-xl border border-white/10 bg-[#151d1a] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[var(--k-overlay)] p-4" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="w-full max-w-[440px] rounded-xl border border-[var(--k-line)] bg-[var(--k-surface)] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[var(--k-line)] px-4 py-3">
           <p className="text-[16px] font-bold">{title}</p>
-          <button type="button" aria-label="Đóng" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg bg-white/10"><X size={15} /></button>
+          <button type="button" aria-label="Đóng" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--k-fill)]"><X size={15} /></button>
         </div>
-        <div className="px-4 py-3 text-[14px] text-white/80">{children}</div>
-        {footer ? <div className="flex justify-end gap-2 border-t border-white/10 px-4 py-3">{footer}</div> : null}
+        <div className="px-4 py-3 text-[14px]">{children}</div>
+        {footer ? <div className="flex justify-end gap-2 border-t border-[var(--k-line)] px-4 py-3">{footer}</div> : null}
       </div>
     </div>
   );

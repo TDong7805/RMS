@@ -1,0 +1,81 @@
+/*
+ * Bộ màu riêng của khu Bếp (màn hình bếp, kiểm tra nguyên liệu, công thức).
+ * Mỗi máy tự chọn nền sáng / tối (lưu trong máy, mặc định sáng) — xem kdsSettings.ts.
+ * Dùng trong Tailwind dạng bg-[var(--k-surface)]; màu biến không dùng được hậu tố độ mờ (/20) nên có sẵn các màu "soft".
+ */
+.kds {
+  --k-bg: #eef1f4;
+  --k-header: #ffffff;
+  --k-surface: #ffffff;
+  --k-surface-2: #f6f8fa;
+  --k-fill: rgba(15, 23, 42, 0.06);
+  --k-fill-2: rgba(15, 23, 42, 0.11);
+  --k-line: rgba(15, 23, 42, 0.12);
+  --k-text: #0f172a;
+  --k-muted: #64748b;
+  --k-invert-bg: #0f172a;
+  --k-invert-text: #ffffff;
+  --k-brand: #059669;
+  --k-brand-strong: #047857;
+  --k-brand-soft: #d1fae5;
+  --k-on-brand: #ffffff;
+  --k-new: #2563eb;
+  --k-new-soft: #e0ebff;
+  --k-on-new: #ffffff;
+  --k-cook: #d97706;
+  --k-cook-soft: #fef3c7;
+  --k-on-cook: #ffffff;
+  --k-danger: #dc2626;
+  --k-danger-soft: #fee2e2;
+  --k-recall: #7c3aed;
+  --k-recall-soft: #ede9fe;
+  --k-note-bg: #fde047;
+  --k-note-text: #1a1700;
+  --k-overlay: rgba(15, 23, 42, 0.45);
+  --k-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 2px 8px rgba(15, 23, 42, 0.06);
+  background: var(--k-bg);
+  color: var(--k-text);
+  color-scheme: light;
+}
+
+.kds[data-kds-mode='dark'] {
+  --k-bg: #0d1210;
+  --k-header: #121916;
+  --k-surface: #18211d;
+  --k-surface-2: #141c19;
+  --k-fill: rgba(255, 255, 255, 0.07);
+  --k-fill-2: rgba(255, 255, 255, 0.13);
+  --k-line: rgba(255, 255, 255, 0.11);
+  --k-text: #e9efec;
+  --k-muted: rgba(233, 239, 236, 0.58);
+  --k-invert-bg: #e9efec;
+  --k-invert-text: #0d1210;
+  --k-brand: #34d399;
+  --k-brand-strong: #10b981;
+  --k-brand-soft: rgba(16, 185, 129, 0.16);
+  --k-on-brand: #06231a;
+  --k-new: #60a5fa;
+  --k-new-soft: rgba(59, 130, 246, 0.16);
+  --k-on-new: #0a1a33;
+  --k-cook: #fbbf24;
+  --k-cook-soft: rgba(245, 158, 11, 0.16);
+  --k-on-cook: #1a1305;
+  --k-danger: #f87171;
+  --k-danger-soft: rgba(239, 68, 68, 0.16);
+  --k-recall: #c4b5fd;
+  --k-recall-soft: rgba(139, 92, 246, 0.2);
+  --k-overlay: rgba(0, 0, 0, 0.6);
+  --k-shadow: none;
+  color-scheme: dark;
+}
+
+/* Món mới đến: nháy viền vài giây. */
+@keyframes kds-flash {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 0 4px var(--k-brand); }
+}
+.kds-flash { animation: kds-flash 1s ease-in-out 6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kds-flash { animation: none; box-shadow: 0 0 0 3px var(--k-brand); }
+}

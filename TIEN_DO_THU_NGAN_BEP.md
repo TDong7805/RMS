@@ -199,3 +199,11 @@ Khi sửa chức năng: cập nhật file này **và** đặc tả.
   - Không làm theo thiết kế (không có dữ liệu / khác UC): tùy chọn có giá thêm, calo, thời gian phục vụ dự kiến, đánh giá sao, mã khuyến mãi, phí phục vụ 10%, email nhận hóa đơn, thanh toán online, thanh toán trước khi bếp làm. Đặc tả UC-KH-02 đã cập nhật (lọc nhanh chuyển từ "phát triển sau" vào UC).
   - Đã chạy thử trên khung iPhone (sáng + tối): ảnh bìa từ Cấu hình, phông, danh mục, sắp xếp / lọc, chi tiết, giỏ, gửi món (bếp nhận ngay), theo dõi theo trạng thái bếp, gọi nhân viên, yêu cầu thanh toán, đổi sáng / tối — đạt.
 - **Danh mục trên trang khách: bấm để cuộn tới mục** (16/11/2026, theo yêu cầu sau khi quét thử trên điện thoại): bấm viên danh mục → cuộn nhanh xuống đúng mục trong "Tất cả món" thay vì chỉ hiện món của danh mục đó; "Tất cả" → về đầu danh sách; tự cuộn thì viên danh mục tương ứng sáng (và tự trượt ngang cho thấy); đang tìm / lọc mà bấm danh mục thì bỏ tìm / lọc rồi cuộn. Đặc tả UC-KH-02 cập nhật. Đã chạy thử 6/6.
+- **Màn hình bếp làm lại kiểu KDS** (16/11/2026, theo bố cục Lightspeed + tính năng học từ Toast, không dùng logo / tên thương hiệu):
+  - Mỗi bàn một thẻ, trong thẻ chia đợt gọi (đợt mới nhất ở trên, nhãn "Mới gọi thêm"), mỗi đợt có đồng hồ riêng; sọc màu theo trạng thái (xanh dương còn món mới, cam đang làm).
+  - Dải lọc Tất cả / Mới / Đang làm và viên danh mục kèm số; cách xem Theo món giữ nguyên.
+  - Nút ⚙ cài đặt lưu trên từng máy (`rms-kds-settings`): nền sáng (mặc định) / tối, số cột, cỡ chữ, tối đa 4 mốc màu cảnh báo (mặc định 10/20/30 phút), danh mục màn này phụ trách (trạm). Trang Kiểm tra nguyên liệu, Công thức dùng cùng bộ màu (`kds-theme.css`).
+  - Nhãn ĐÃ ĐỔI (khách / thu ngân hủy trong 10 phút, âm báo riêng + thông báo) và GỌI LẠI (bếp trả lại món đã xong) — migration **V14** thêm `order_items.recalled_at`.
+  - Nút "Đã xong (n)" thay dải "Vừa hoàn thành": trả lại từng món / cả đợt. "TB hôm nay" = thời gian ra món trung bình.
+  - Phím tắt: số chọn thẻ, ← →, Space = bắt đầu, Enter = xong, Esc.
+  - API `/api/bep/queue` thêm `changed`, `avgMinutesToday`, `categories`; món thêm `recalledAt`, `cancelSource`, `cancelledAt`. Đặc tả UC-BEP-01, 03 cập nhật. Đã chạy thử 24/24.
