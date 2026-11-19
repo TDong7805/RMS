@@ -13,10 +13,10 @@ export function BrandMark() {
         className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[var(--accent)] font-mono text-[15px] font-bold text-[var(--accent-contrast)]"
         aria-hidden
       >
-        GL
+        RB
       </span>
       <span className="min-w-0">
-        <span className="block text-[15px] font-bold leading-5 text-[var(--text-primary)]">Green Lotus</span>
+        <span className="block text-[15px] font-bold leading-5 text-[var(--text-primary)]">Royal Beef</span>
         <span className="block text-[11px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
           Restaurant Manager
         </span>
@@ -39,7 +39,7 @@ function HeroPanel({ tab }: { tab: HeroTab }) {
   if (tab === 'overview') {
     return (
       <>
-        <p className={EYEBROW}>Green Lotus · Quận 1</p>
+        <p className={EYEBROW}>Royal Beef · Quận 1</p>
         <h2 className="mt-3 whitespace-nowrap text-[40px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--text-primary)] xl:text-[52px]">
           Chào mừng trở lại.
         </h2>
@@ -112,7 +112,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <div className="mx-auto flex w-full max-w-[380px] flex-1 flex-col justify-center py-8">{children}</div>
 
           <footer className="text-center text-[12px] text-[var(--text-muted)] lg:text-left">
-            © {new Date().getFullYear()} Green Lotus · Hệ thống quản lý và vận hành nhà hàng
+            © {new Date().getFullYear()} Royal Beef · Hệ thống quản lý và vận hành nhà hàng
           </footer>
         </section>
 

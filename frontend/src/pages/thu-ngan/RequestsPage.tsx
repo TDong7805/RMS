@@ -1,36 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { BellRing, Check, Clock3, Forward, Receipt, X } from 'lucide-react';
-import { AppShell } from '@/components/layout/AppShell';
+import { BellRing, Check, Clock3, Radio, Receipt, X } from 'lucide-react';
+import { CashierShell } from '@/features/ordering/CashierShell';
 import { Card } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { BlockError, EmptyState } from '@/components/common/EmptyState';
-import { Field, SelectInput } from '@/components/common/Form';
-import { Modal } from '@/components/common/Modal';
 import { PageHeader, PageTabs, TableSkeleton } from '@/components/common/PageParts';
-import { cancelRequest, CASHIER_STREAM, completeRequest, forwardRequest, getRequests, getStaffOptions } from '@/api/ordering';
+import { cancelRequest, CASHIER_STREAM, completeRequest, forwardRequest, getRequests } from '@/api/ordering';
 import { beep, useLiveEvents } from '@/features/ordering/live';
 import { PAY_METHOD_LABEL } from '@/features/ordering/CashierDialogs';
-import { REQUEST_TYPE_LABEL } from '@/features/ordering/QrService';
+import { REQUEST_TYPE_LABEL } from '@/features/ordering/requestLabels';
 import { minutesSince, REQUEST_STATUS } from '@/features/ordering/cashierParts';
 import { formatDateTime } from '@/lib/labels';
 import { cn } from '@/lib/cn';
-import type { ServiceRequest } from '@/types';
 
 type Tab = 'waiting' | 'done' | 'cancelled';
 const KEY = (tab: Tab) => ['thu-ngan', 'requests', tab] as const;
 
-/** UC-TN-06: yêu cầu của khách (Gọi nhân viên, Yêu cầu thanh toán) — chuyển cho nhân viên, hoàn thành, hủy. */
+/** UC-TN-06: yêu cầu của khách (Gọi nhân viên, Yêu cầu thanh toán) — báo nhân viên (bộ đàm), hoàn thành, hủy. */
 export default function RequestsPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>('waiting');
   const list = useQuery({ queryKey: KEY(tab), queryFn: () => getRequests(tab), refetchInterval: 10_000 });
   useLiveEvents(CASHIER_STREAM, [['thu-ngan', 'requests'], ['thu-ngan', 'floor']]);
-  const [forwarding, setForwarding] = useState<ServiceRequest | null>(null);
+  const [params, setParams] = useSearchParams();
+  const focusId = params.get('id') ?? '';
+  const [flashId, setFlashId] = useState('');
   const [, tick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => tick((x) => x + 1), 30_000);
@@ -46,6 +45,20 @@ export default function RequestsPage() {
     seen.current = ids;
   }, [list.data, tab]);
 
+  // Mở từ thông báo / sơ đồ bàn (?id=…): cuộn tới yêu cầu đó và cho dòng sáng nhấp nháy.
+  useEffect(() => {
+    if (!focusId || !list.data) return;
+    if (!list.data.items.some((r) => r.id === focusId)) {
+      if (tab === 'waiting') setTab('done'); // yêu cầu đã xử lý → tìm ở tab Hoàn thành
+      return;
+    }
+    document.querySelector(`[data-request="${focusId}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setFlashId(focusId);
+    setParams({}, { replace: true });
+    const t = window.setTimeout(() => setFlashId(''), 3500);
+    return () => window.clearTimeout(t);
+  }, [focusId, list.data, tab, setParams]);
+
   const after = (msg: string) => () => {
     toast.success(msg);
     void qc.invalidateQueries({ queryKey: ['thu-ngan', 'requests'] });
@@ -57,9 +70,10 @@ export default function RequestsPage() {
   };
   const done = useMutation({ mutationFn: completeRequest, onSuccess: after('Đã hoàn thành yêu cầu'), onError });
   const cancel = useMutation({ mutationFn: cancelRequest, onSuccess: after('Đã hủy yêu cầu'), onError });
+  const forward = useMutation({ mutationFn: forwardRequest, onSuccess: after('Đã ghi nhận: nhân viên đang đến bàn'), onError });
 
   return (
-    <AppShell meta={{ label: 'Yêu cầu của khách' }}>
+    <CashierShell>
       <div className="min-w-0 space-y-4">
         <PageHeader title="Yêu cầu của khách" description="Khách bấm Gọi nhân viên / Yêu cầu thanh toán trên trang đặt món. Yêu cầu chờ quá 5 phút được tô đỏ." />
         <PageTabs<Tab>
@@ -85,7 +99,7 @@ export default function RequestsPage() {
                 const wait = minutesSince(r.createdAt);
                 const late = tab === 'waiting' && wait >= 5;
                 return (
-                  <li key={r.id} className={cn('flex flex-wrap items-center gap-3 px-5 py-3.5', late && 'bg-[var(--danger-soft)]')}>
+                  <li key={r.id} data-request={r.id} className={cn('flex flex-wrap items-center gap-3 px-5 py-3.5', late && 'bg-[var(--danger-soft)]', flashId === r.id && 'rms-flash')}>
                     <div className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-full', r.type === 'payment' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'bg-[var(--warning-soft)] text-[var(--warning)]')}>
                       {r.type === 'payment' ? <Receipt size={18} /> : <BellRing size={18} />}
                     </div>
@@ -104,7 +118,7 @@ export default function RequestsPage() {
                         <Clock3 size={12} className="mr-1 inline" />
                         {formatDateTime(r.createdAt)}
                         {tab === 'waiting' ? <span className={cn('ml-1', late && 'font-semibold text-[var(--danger)]')}>· chờ {wait} phút</span> : null}
-                        {r.assignedName ? ` · Phụ trách: ${r.assignedName}` : ''}
+                        {r.forwardedAt ? ` · Đã báo NV ${formatDateTime(r.forwardedAt)}` : ''}
                         {r.doneAt ? ` · Xong ${formatDateTime(r.doneAt)}` : ''}
                       </p>
                     </div>
@@ -118,9 +132,11 @@ export default function RequestsPage() {
                           ) : null
                         ) : (
                           <>
-                            <Button size="sm" variant="outline" leadingIcon={<Forward size={15} />} onClick={() => setForwarding(r)}>
-                              {r.status === 'forwarded' ? 'Chuyển lại' : 'Chuyển'}
-                            </Button>
+                            {r.status === 'new' ? (
+                              <Button size="sm" variant="outline" leadingIcon={<Radio size={15} />} loading={forward.isPending && forward.variables === r.id} onClick={() => forward.mutate(r.id)} title="Bấm sau khi đã gọi bộ đàm cho nhân viên phục vụ — khách thấy “Nhân viên đang đến”">
+                                Đã báo nhân viên
+                              </Button>
+                            ) : null}
                             <Button size="sm" leadingIcon={<Check size={15} />} loading={done.isPending && done.variables === r.id} onClick={() => done.mutate(r.id)}>Hoàn thành</Button>
                           </>
                         )}
@@ -136,49 +152,6 @@ export default function RequestsPage() {
           )}
         </Card>
       </div>
-      <ForwardDialog request={forwarding} onClose={() => setForwarding(null)} onDone={after('Đã chuyển yêu cầu')} onError={onError} />
-    </AppShell>
-  );
-}
-
-function ForwardDialog({ request, onClose, onDone, onError }: { request: ServiceRequest | null; onClose: () => void; onDone: () => void; onError: (e: unknown) => void }) {
-  const staff = useQuery({ queryKey: ['thu-ngan', 'staff'], queryFn: getStaffOptions, enabled: Boolean(request), staleTime: 60_000 });
-  const [staffId, setStaffId] = useState('');
-  useEffect(() => setStaffId(''), [request]);
-  const m = useMutation({
-    mutationFn: () => forwardRequest(request!.id, staffId),
-    onSuccess: () => {
-      onDone();
-      onClose();
-    },
-    onError: (e) => {
-      onError(e);
-      onClose();
-    },
-  });
-  return (
-    <Modal
-      open={Boolean(request)}
-      onOpenChange={(o) => !o && onClose()}
-      size="sm"
-      title={request ? `Chuyển yêu cầu – bàn ${request.tableCode}` : ''}
-      description={request ? `${REQUEST_TYPE_LABEL[request.type]}${request.content ? ` · ${request.content}` : ''}` : undefined}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>Đóng</Button>
-          <Button disabled={!staffId} loading={m.isPending} onClick={() => m.mutate()}>Chuyển</Button>
-        </>
-      }
-    >
-      <Field label="Nhân viên phụ trách" required hint="Nhân viên không đăng nhập — thu ngân báo trực tiếp (gọi, bộ đàm).">
-        <SelectInput
-          value={staffId}
-          onChange={(e) => setStaffId(e.target.value)}
-          placeholder="Chọn nhân viên"
-          options={(staff.data ?? []).map((s) => ({ value: s.id, label: `${s.name} – ${s.roleName}` }))}
-          aria-label="Nhân viên phụ trách"
-        />
-      </Field>
-    </Modal>
+    </CashierShell>
   );
 }

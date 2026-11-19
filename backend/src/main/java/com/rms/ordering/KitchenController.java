@@ -22,6 +22,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * POST  /api/bep/items/start               {ids} Chờ chế biến → Đang chế biến
  * POST  /api/bep/items/complete            {ids} → Đã xong
  * POST  /api/bep/items/{id}/undo           hoàn tác Hoàn thành (trong 30 phút, chưa mang ra)
+ * POST  /api/bep/items/serve              {ids} Đã xong → Đã mang ra (nhân viên phục vụ đã lấy món ở quầy)
  * POST  /api/bep/items/{id}/cancel         {reason: out_of_stock|bad_quality|other, note, markSoldOut}
  * GET   /api/bep/orders/{id}               chi tiết đơn của bàn
  * GET   /api/bep/dishes                    món đang bán + cờ tạm hết hôm nay
@@ -51,6 +52,11 @@ public class KitchenController {
     @PostMapping("/api/bep/items/complete")
     public Queue complete(@RequestBody IdsInput in) {
         return service.complete(in);
+    }
+
+    @PostMapping("/api/bep/items/serve")
+    public Queue serve(@RequestBody IdsInput in) {
+        return service.serve(in);
     }
 
     @PostMapping("/api/bep/items/{id}/undo")

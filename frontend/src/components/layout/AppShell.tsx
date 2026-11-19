@@ -105,12 +105,12 @@ export function AppShell({ meta, children }: AppShellProps) {
         className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[var(--accent)] font-mono text-[14px] font-bold text-[var(--accent-contrast)]"
         aria-hidden
       >
-        GL
+        RB
       </span>
       {collapsed ? null : (
         <span className="min-w-0">
           <span className="block truncate text-[14.5px] font-bold leading-5 text-[var(--text-primary)]">
-            Green Lotus
+            Royal Beef
           </span>
           <span className="block truncate text-[11px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
             {area === 'manager' ? 'Restaurant Manager' : AREA_LABEL[area]}

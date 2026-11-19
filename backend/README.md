@@ -78,7 +78,7 @@ Mỗi phân hệ gồm `XxxController` (định nghĩa endpoint) và `XxxService
 | Frontend | Chạy riêng bằng `npm run dev` | Đóng gói chung trong `rms.jar` |
 | Thiếu `DB_USER` / `DB_PASSWORD` | Dùng mặc định `root` / rỗng | Dừng ngay khi khởi động, báo thiếu biến |
 
-Cách đóng gói và đưa lên máy chủ: [TRIEN_KHAI.md](../TRIEN_KHAI.md).
+Cách đóng gói và đưa lên máy chủ: [docs/trien-khai/TRIEN_KHAI.md](../docs/trien-khai/TRIEN_KHAI.md).
 
 ## Quy ước API (frontend phụ thuộc vào các quy ước này)
 
@@ -126,11 +126,11 @@ Hiện mọi API khác dưới `/api/**` chỉ dành cho Quản lý nhà hàng.
 | Quản lý món ăn: danh sách, tìm/lọc, thêm, sửa (kèm ảnh), đổi trạng thái bán, xóa; danh mục | ✅ |
 | Chatbot AI — thực đơn cho AI (thẻ, bật gợi ý, đồng bộ) và combo gợi ý | ✅ |
 | Chatbot AI — cấu hình trợ lý, FAQ, câu hỏi chưa giải đáp | ✅ |
-| Chatbot AI — lịch sử hội thoại, thống kê | ⏳ còn dữ liệu giả, chờ phân hệ Khách hàng (xem [DU_LIEU_GIA.md](../DU_LIEU_GIA.md)) |
+| Chatbot AI — lịch sử hội thoại, thống kê | ⏳ còn dữ liệu giả, chờ phân hệ Khách hàng (xem [DU_LIEU_GIA.md](../docs/du-lieu/DU_LIEU_GIA.md)) |
 | Quản lý ca làm việc: thêm, sửa, xóa ca; phân công / hủy phân công, chặn trùng lịch | ✅ |
 | Quản lý bài viết: thêm, sửa (ảnh bìa), xuất bản / ẩn, xóa, tìm kiếm | ✅ |
-| Thông báo, Dashboard | ⏳ còn dữ liệu giả (xem [DU_LIEU_GIA.md](../DU_LIEU_GIA.md)) |
-| Sẵn sàng triển khai: Flyway, phiên lưu trong MySQL, profile dev/prod, đóng gói một file jar, tài khoản quản lý đầu tiên | ✅ (xem [TRIEN_KHAI.md](../TRIEN_KHAI.md)) |
+| Thông báo, Dashboard | ⏳ còn dữ liệu giả (xem [DU_LIEU_GIA.md](../docs/du-lieu/DU_LIEU_GIA.md)) |
+| Sẵn sàng triển khai: Flyway, phiên lưu trong MySQL, profile dev/prod, đóng gói một file jar, tài khoản quản lý đầu tiên | ✅ (xem [docs/trien-khai/TRIEN_KHAI.md](../docs/trien-khai/TRIEN_KHAI.md)) |
 
 ## Dữ liệu của actor khác
 

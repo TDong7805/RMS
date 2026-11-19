@@ -163,7 +163,7 @@ export function ReservationFormPage() {
             <Card padded className="h-fit xl:sticky xl:top-[132px]">
               <p className="overline">Xem trước form của khách</p>
               <div className="mt-3 space-y-3 rounded-item border border-[var(--border)] bg-[var(--bg-subtle)] p-4">
-                <p className="text-[15px] font-bold">Đặt bàn tại Green Lotus</p>
+                <p className="text-[15px] font-bold">Đặt bàn tại Royal Beef</p>
                 <PreviewInput label="Họ tên *" />
                 <PreviewInput label="Số điện thoại *" />
                 {form.requireEmail ? <PreviewInput label="Email *" /> : null}

@@ -7,32 +7,33 @@
 // Giá lấy theo liên kết nhà cung cấp trong V7_1 (đúng giá đang áp dụng ở ngày đặt).
 import { writeFileSync } from 'node:fs';
 
-// [mã NL, đơn vị mua, hệ số]
+// [mã NL, đơn vị mua, hệ số] — khớp liên kết nhà cung cấp trong gen-v7_1.mjs
 const LINK = {
-  NL001: ['kg', 1], NL005: ['khay', 10], NL007: ['kg', 1], NL008: ['kg', 1], NL009: ['kg', 1], NL011: ['kg', 1],
-  NL012: ['kg', 1], NL013: ['kg', 1], NL014: ['bó', 1], NL015: ['bao', 25], NL016: ['kg', 1], NL018: ['lít', 1],
-  NL019: ['thùng', 12], NL020: ['can', 5], NL021: ['kg', 1], NL022: ['thùng', 24], NL023: ['thùng', 24], NL024: ['thùng', 24],
+  NL002: ['kg', 1], NL003: ['kg', 1], NL009: ['kg', 1], NL001: ['kg', 1], NL004: ['kg', 1], NL005: ['kg', 1],
+  NL006: ['kg', 1], NL015: ['kg', 1], NL016: ['kg', 1], NL017: ['kg', 1], NL018: ['bó', 1], NL020: ['bao', 25],
+  NL021: ['kg', 1], NL022: ['khay', 30], NL024: ['thùng', 12], NL025: ['can', 5], NL026: ['thùng', 24], NL027: ['thùng', 6],
 };
 
-// Mỗi phiếu: lines [mã NL, SL đặt, đơn giá]; receipts [{day, qty: {mã: SL}}]
+// Mỗi phiếu: lines [mã NL, SL đặt, đơn giá (giá đang áp dụng ở ngày đặt)]; receipts [{day, qty: {mã: SL}}]
+// Không nhận hàng cho nguyên liệu đang demo Sắp hết / Hết hàng (NL001, NL005, NL010, NL017, NL022) để giữ trạng thái đó.
 const POS = [
-  { sup: 'NCC004', day: -28, expected: -27, name: 'Mua nước giải khát tuần 1', tax: 10, lines: [['NL022', 4, 228000], ['NL023', 3, 132000], ['NL024', 4, 360000]],
-    receipts: [{ day: -27, qty: { NL022: 4, NL023: 3, NL024: 4 }, note: 'Anh Phát giao, hóa đơn 0012345' }] },
-  { sup: 'NCC001', day: -21, expected: -20, name: 'Mua hải sản cuối tuần', other: 30000, lines: [['NL007', 5, 210000], ['NL008', 8, 60000]],
-    receipts: [{ day: -20, qty: { NL007: 5, NL008: 8 } }] },
-  { sup: 'NCC003', day: -16, expected: -15, name: 'Mua rau củ đầu tuần', lines: [['NL014', 20, 8000], ['NL016', 10, 15000], ['NL012', 6, 28000]],
-    receipts: [{ day: -15, qty: { NL014: 20, NL016: 6, NL012: 6 }, note: 'Bún giao thiếu 4 kg' }],
-    close: { day: -12, reason: 'short', note: 'Nhà cung cấp báo hết bún, không giao phần còn lại' } },
-  { sup: 'NCC005', day: -14, expected: -13, name: 'Mua gia vị tháng', discount: 50000, tax: 8, lines: [['NL019', 1, 540000], ['NL020', 3, 210000], ['NL021', 5, 22500]],
-    receipts: [{ day: -13, qty: { NL019: 1, NL020: 3, NL021: 5 } }] },
-  { sup: 'NCC004', day: -10, expected: -9, name: 'Mua bia bổ sung', lines: [['NL024', 2, 360000]],
+  { sup: 'NCC004', day: -28, expected: -27, name: 'Mua bia & vang tuần 1', tax: 10, lines: [['NL026', 2, 1248000], ['NL027', 1, 2520000]],
+    receipts: [{ day: -27, qty: { NL026: 2, NL027: 1 }, note: 'Anh Phát giao, hóa đơn 0012345' }] },
+  { sup: 'NCC001', day: -21, expected: -20, name: 'Nhập bò Úc cuối tuần', other: 50000, lines: [['NL002', 3, 780000], ['NL003', 5, 650000], ['NL009', 4, 420000]],
+    receipts: [{ day: -20, qty: { NL002: 3, NL003: 5, NL009: 4 }, note: 'Hàng lạnh, nhiệt độ khi nhận 2°C' }] },
+  { sup: 'NCC003', day: -16, expected: -15, name: 'Mua rau củ đầu tuần', lines: [['NL018', 20, 8000], ['NL021', 10, 16000], ['NL016', 6, 28000]],
+    receipts: [{ day: -15, qty: { NL018: 20, NL021: 6, NL016: 6 }, note: 'Bún bò giao thiếu 4 kg' }],
+    close: { day: -12, reason: 'short', note: 'Nhà cung cấp báo hết bún bò, không giao phần còn lại' } },
+  { sup: 'NCC005', day: -14, expected: -13, name: 'Mua gia vị tháng', discount: 50000, tax: 8, lines: [['NL024', 1, 540000], ['NL025', 3, 210000], ['NL006', 1, 220000]],
+    receipts: [{ day: -13, qty: { NL024: 1, NL025: 3, NL006: 1 } }] },
+  { sup: 'NCC004', day: -10, expected: -9, name: 'Mua bia bổ sung', lines: [['NL026', 1, 1248000]],
     cancel: { day: -9, reason: 'wrong', note: 'Trùng với phiếu đã đặt qua điện thoại' } },
-  { sup: 'NCC002', day: -7, expected: -5, name: 'Mua thịt, gạo, sữa', lines: [['NL009', 6, 160000], ['NL015', 1, 800000], ['NL018', 10, 36000]],
-    receipts: [{ day: -5, qty: { NL009: 6, NL015: 1 }, note: 'Sữa hẹn giao sau' }], late: true },
-  { sup: 'NCC003', day: -2, expected: 1, name: 'Mua rau, đậu hũ', lines: [['NL005', 3, 80000], ['NL013', 2, 40000], ['NL011', 4, 35000]] },
-  { sup: 'NCC001', day: 0, expected: null, name: 'Mua tôm sú', draft: true, lines: [['NL001', 5, 280000]], note: 'Chờ báo giá tôm tuần này' },
+  { sup: 'NCC002', day: -7, expected: -5, name: 'Mua bắp bò, gạo, trứng', lines: [['NL004', 8, 260000], ['NL020', 1, 800000], ['NL022', 2, 105000]],
+    receipts: [{ day: -5, qty: { NL004: 8, NL020: 1 }, note: 'Trứng hẹn giao sau' }], late: true },
+  { sup: 'NCC003', day: -2, expected: 1, name: 'Mua rau, bánh phở', lines: [['NL005', 10, 18000], ['NL017', 2, 40000], ['NL015', 4, 35000]] },
+  { sup: 'NCC001', day: 0, expected: null, name: 'Nhập thăn bò Úc', draft: true, lines: [['NL001', 5, 520000]], note: 'Chờ báo giá bò tuần này' },
 ];
-const DIRECT = { day: -9, source: 'Chợ Bến Thành', note: 'Mua gấp cho tiệc tối', lines: [['NL012', 'kg', 3, 30000], ['NL011', 'kg', 2, 38000]] };
+const DIRECT = { day: -9, source: 'Chợ Bến Thành', note: 'Mua gấp cho tiệc tối', lines: [['NL016', 'kg', 3, 30000], ['NL015', 'kg', 2, 38000]] };
 
 const out = [];
 const w = (s = '') => out.push(s);

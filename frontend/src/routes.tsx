@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { useAuth } from '@/lib/auth';
@@ -8,11 +9,15 @@ import DashboardPage from '@/pages/DashboardPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import PlaceholderPage from '@/pages/PlaceholderPage';
 import { PageLoader } from '@/components/common/PageLoader';
+
+/* Trang đặt món của khách tải riêng (có thư viện chuyển động / tranh động), không làm nặng trang quản lý. */
+const QrOrderPage = lazy(() => import('@/pages/goi-mon/QrOrderPage'));
 import ReservationsPage from '@/pages/ReservationsPage';
 import ReservationFormPage from '@/pages/ReservationFormPage';
 import TablesPage from '@/pages/TablesPage';
 import DishesPage from '@/pages/DishesPage';
 import DishFormPage from '@/pages/DishFormPage';
+import SetMenuPage from '@/pages/SetMenuPage';
 import ShiftsPage from '@/pages/ShiftsPage';
 import PostsPage from '@/pages/PostsPage';
 import PostFormPage from '@/pages/PostFormPage';
@@ -37,7 +42,6 @@ import { IssueDetailPage, IssueFormPage, IssuesPage } from '@/pages/kho/IssuesPa
 import { StocktakeApprovalDetailPage, StocktakeApprovalsPage, StocktakeDetailPage, StocktakesPage } from '@/pages/kho/StocktakesPage';
 import { DebtDetailPage, DebtsPage } from '@/pages/kho/DebtsPage';
 import WarehouseDashboardPage from '@/pages/kho/WarehouseDashboardPage';
-import QrOrderPage from '@/pages/goi-mon/QrOrderPage';
 import KitchenDisplayPage from '@/pages/bep/KitchenDisplayPage';
 import StockCheckPage from '@/pages/bep/StockCheckPage';
 import RecipesPage from '@/pages/bep/RecipesPage';
@@ -77,7 +81,7 @@ export function AppRoutes() {
     <Routes>
       <Route path="/dang-nhap" element={<LoginPage />} />
       {/* Trang đặt món của khách tại bàn: mở bằng mã QR, không đăng nhập */}
-      <Route path="/goi-mon/:token" element={<QrOrderPage />} />
+      <Route path="/goi-mon/:token" element={<Suspense fallback={<PageLoader />}><QrOrderPage /></Suspense>} />
 
       <Route element={<RequireAuth allowPasswordChange />}>
         <Route path="/doi-mat-khau" element={<ChangePasswordPage />} />
@@ -154,6 +158,7 @@ export function AppRoutes() {
         {/* Quản lý món ăn */}
         <Route path="/quan-ly/mon-an" element={<DishesPage />} />
         <Route path="/quan-ly/mon-an/them" element={<DishFormPage />} />
+        <Route path="/quan-ly/mon-an/set-menu" element={<SetMenuPage />} />
         <Route path="/quan-ly/mon-an/:id/sua" element={<DishFormPage />} />
 
         {/* Quản lý nhân viên */}

@@ -21,6 +21,7 @@ import {
   updateRestaurantInfo,
 } from '@/api/settings';
 import { PaymentSettingsCard } from '@/features/management/PaymentSettingsCard';
+import { OrderingSettingsCard } from '@/features/management/OrderingSettingsCard';
 import { qk, useBackups, useOpeningHours, useRestaurantInfo } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { cn } from '@/lib/cn';
@@ -55,7 +56,10 @@ export function SettingsPage() {
         {tab === 'info' ? (
           <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
             <RestaurantInfoCard />
-            <OpeningHoursCard />
+            <div className="min-w-0 space-y-4">
+              <OpeningHoursCard />
+              <OrderingSettingsCard />
+            </div>
           </div>
         ) : null}
         {tab === 'payment' ? <PaymentSettingsCard /> : null}

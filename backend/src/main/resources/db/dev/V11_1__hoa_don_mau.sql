@@ -6,7 +6,9 @@
    - Đơn hoàn tất đều có hóa đơn ĐÃ THANH TOÁN: tiền mặt (kèm tiền khách đưa) / thẻ / chuyển khoản,
      1/13 hóa đơn trả hai hình thức; vài hóa đơn xuất VAT. 8 đơn hoàn tất của V3_1 cũng được lập hóa đơn.
    - Yêu cầu của khách đã xử lý (lịch sử) + 2 yêu cầu đang chờ hôm nay: T03 gọi nhân viên, VIP01 yêu cầu thanh toán.
-   - Tài khoản nhận tiền mẫu (để thử mã QR chuyển khoản): Vietcombank 1234567890 – NHA HANG GREEN LOTUS (không có thật).
+   - Tài khoản nhận tiền mẫu (để thử mã QR chuyển khoản): Vietcombank 1234567890 – NHA HANG ROYAL BEEF (không có thật).
+   - Món bán chạy (gọi nhiều hơn): Phở bò, Bò lúc lắc, Ribeye, Striploin, Lẩu bò nhúng giấm, Bún bò Huế, Cơm bò lúc lắc, Burger.
+     Món giá cao (từ 300.000đ: bít tết, lẩu, Tomahawk…) mỗi dòng chỉ 1 phần.
    Mã đơn / mã hóa đơn theo tháng (DH2610-012, HD2610-012) và cộng dồn vào doc_sequences.
    ===================================================================== */
 
@@ -21,7 +23,12 @@ DROP TABLE IF EXISTS seed_v11_table;
 DROP TABLE IF EXISTS seed_v11_order;
 
 CREATE TABLE seed_v11_dish (idx INT PRIMARY KEY, dish_id BIGINT UNSIGNED, name VARCHAR(120), price DECIMAL(14,2));
-INSERT INTO seed_v11_dish SELECT ROW_NUMBER() OVER (ORDER BY d.code), d.id, d.name, d.price FROM dishes d WHERE d.status = 'selling';
+-- 8 món đầu danh sách được gọi nhiều hơn (xem câu INSERT order_items) → đưa các món bán chạy lên đầu.
+INSERT INTO seed_v11_dish
+SELECT ROW_NUMBER() OVER (ORDER BY FIELD(d.code, 'MA022','MA013','MA008','MA006','MA018','MA023','MA026','MA029') = 0,
+                                   FIELD(d.code, 'MA022','MA013','MA008','MA006','MA018','MA023','MA026','MA029'), d.code),
+       d.id, d.name, d.price
+FROM dishes d WHERE d.status = 'selling';
 SET @dn = (SELECT COUNT(*) FROM seed_v11_dish);
 
 CREATE TABLE seed_v11_table (idx INT PRIMARY KEY, table_id BIGINT UNSIGNED);
@@ -89,7 +96,7 @@ UPDATE seed_v11_order s JOIN orders o ON o.code = s.code SET s.order_id = o.id;
 -- 2–5 dòng món; 8 món đầu bảng mã được gọi nhiều hơn (để có nhóm bán chạy rõ ràng).
 INSERT INTO order_items (order_id, batch_no, dish_id, dish_name, unit_price, quantity, status, added_via, created_at,
                          started_at, completed_at, served_at, cancel_source, cancel_reason, cancelled_at)
-SELECT s.order_id, 1, sd.dish_id, sd.name, sd.price, 1 + (s.n + j.i) % 3, IF(s.cancelled, 'cancelled', 'served'), 'customer',
+SELECT s.order_id, 1, sd.dish_id, sd.name, sd.price, IF(sd.price >= 300000, 1, 1 + (s.n + j.i) % 3), IF(s.cancelled, 'cancelled', 'served'), 'customer',
        s.created_at,
        IF(s.cancelled, NULL, s.created_at + INTERVAL 4 MINUTE),
        IF(s.cancelled, NULL, s.created_at + INTERVAL 18 MINUTE),
@@ -185,7 +192,7 @@ FROM dining_tables t JOIN orders o ON o.table_id = t.id AND o.status = 'open' WH
 UPDATE system_settings SET setting_value = '970436' WHERE setting_key = 'payment.bank_bin';
 UPDATE system_settings SET setting_value = 'Vietcombank' WHERE setting_key = 'payment.bank_name';
 UPDATE system_settings SET setting_value = '1234567890' WHERE setting_key = 'payment.account_no';
-UPDATE system_settings SET setting_value = 'NHA HANG GREEN LOTUS' WHERE setting_key = 'payment.account_name';
+UPDATE system_settings SET setting_value = 'NHA HANG ROYAL BEEF' WHERE setting_key = 'payment.account_name';
 
 DROP TABLE seed_v11_dish;
 DROP TABLE seed_v11_table;

@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as Popover from '@radix-ui/react-popover';
-import { AlertTriangle, Pencil, Plus, RefreshCw, Tags, Trash2 } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Tags } from 'lucide-react';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { BlockError, EmptyState } from '@/components/common/EmptyState';
-import { ChipSelect, Field, SearchInput, TextArea, TextInput, Toggle, ToggleRow } from '@/components/common/Form';
-import { ConfirmDialog, Modal } from '@/components/common/Modal';
+import { ChipSelect, SearchInput, Toggle } from '@/components/common/Form';
 import { DataTable, TableSkeleton, Td, Th } from '@/components/common/PageParts';
-import { deleteCombo, saveCombo, syncChatbotMenu, updateDishAi } from '@/api/chatbot';
+import { syncChatbotMenu, updateDishAi } from '@/api/chatbot';
 import { qk, useAiTags, useCategories, useChatbotMenu, useCombos } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { formatCurrency } from '@/lib/format';
 import { formatDateTime } from '@/lib/labels';
 import { matchesKeyword } from '@/lib/normalize';
-import type { Combo, ComboInput, Dish } from '@/types';
+import type { Dish } from '@/types';
 
 /** Luồng B — Quản lý thực đơn cho AI: đồng bộ món, combo gợi ý, gắn thẻ phân loại. */
 export function ChatbotMenuTab() {
@@ -22,8 +22,7 @@ export function ChatbotMenuTab() {
   const combosQuery = useCombos();
   const { data: categories = [] } = useCategories();
   const [keyword, setKeyword] = useState('');
-  const [comboModal, setComboModal] = useState<{ open: boolean; combo: Combo | null }>({ open: false, combo: null });
-  const [comboDelete, setComboDelete] = useState<Combo | null>(null);
+  const navigate = useNavigate();
 
   const dishes = useMemo(() => menu.data?.dishes ?? [], [menu.data]);
   const catName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
@@ -36,11 +35,6 @@ export function ChatbotMenuTab() {
   });
   const aiMutation = useApiMutation((v: { id: string; aiEnabled?: boolean; aiTags?: string[] }) => updateDishAi(v.id, v), {
     invalidate: [[...qk.chatbot, 'menu'], qk.dishes],
-  });
-  const deleteComboMutation = useApiMutation((c: Combo) => deleteCombo(c.id), {
-    invalidate: [[...qk.chatbot, 'combos']],
-    success: 'Đã xóa combo',
-    onSuccess: () => setComboDelete(null),
   });
 
   return (
@@ -115,56 +109,28 @@ export function ChatbotMenuTab() {
 
       <Card padded>
         <CardHeader
-          title="Combo gợi ý kết hợp"
-          description="AI đề xuất combo phù hợp số người hoặc nhu cầu; khách vẫn tự xác nhận từng món."
-          actions={<Button size="sm" variant="outline" leadingIcon={<Plus size={14} />} onClick={() => setComboModal({ open: true, combo: null })}>Thêm combo</Button>}
+          title="Set menu (AI gợi ý)"
+          description="Chatbot gợi ý các set đang bật theo số người / nhu cầu. Thêm, sửa set ở Quản lý món ăn → Set menu."
+          actions={<Button size="sm" variant="outline" onClick={() => navigate('/quan-ly/mon-an/set-menu')}>Quản lý set</Button>}
         />
         {combosQuery.isLoading ? (
           <TableSkeleton rows={2} />
         ) : !combosQuery.data?.length ? (
-          <EmptyState className="mt-3" title="Chưa có combo gợi ý" />
+          <EmptyState className="mt-3" title="Chưa có set nào" />
         ) : (
-          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {combosQuery.data.map((c) => {
-              const items = c.dishIds.map((id) => dishes.find((d) => d.id === id)).filter((d): d is Dish => Boolean(d));
-              return (
-                <div key={c.id} className="rounded-item border border-[var(--border)] p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-semibold">{c.name}</p>
-                      <p className="text-[12px] text-[var(--text-muted)]">{c.note || '—'}</p>
-                    </div>
-                    {!c.active ? <Badge variant="neutral">Tắt</Badge> : null}
-                  </div>
-                  <ul className="mt-2 space-y-0.5 text-[13px]">
-                    {items.map((d) => (
-                      <li key={d.id} className="flex justify-between gap-2"><span className="truncate">{d.name}</span><span className="font-mono text-[var(--text-muted)]">{formatCurrency(d.price)}</span></li>
-                    ))}
-                  </ul>
-                  <div className="mt-2 flex items-center justify-between border-t border-[var(--border)] pt-2">
-                    <span className="font-mono text-[13px] font-semibold">{formatCurrency(items.reduce((s, d) => s + d.price, 0))}</span>
-                    <div className="flex gap-0.5">
-                      <Button size="sm" variant="ghost" aria-label={`Sửa ${c.name}`} onClick={() => setComboModal({ open: true, combo: c })}><Pencil size={14} /></Button>
-                      <Button size="sm" variant="ghost" aria-label={`Xóa ${c.name}`} onClick={() => setComboDelete(c)}><Trash2 size={14} /></Button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <ul className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {combosQuery.data.map((c) => (
+              <li key={c.id} className="flex items-center justify-between gap-2 rounded-item border border-[var(--border)] px-3 py-2 text-[13px]">
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold">{c.name}</span>
+                  <span className="block truncate text-[12px] text-[var(--text-muted)]">{c.note || '—'}</span>
+                </span>
+                {!c.active ? <Badge variant="neutral">Tắt</Badge> : c.price != null ? <span className="shrink-0 font-mono">{formatCurrency(c.price)}</span> : null}
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
-
-      <ComboModal state={comboModal} dishes={dishes} onClose={() => setComboModal({ open: false, combo: null })} />
-      <ConfirmDialog
-        open={Boolean(comboDelete)}
-        onOpenChange={(o) => !o && setComboDelete(null)}
-        title="Xóa combo?"
-        description={`Combo “${comboDelete?.name}” sẽ không còn được AI gợi ý.`}
-        confirmLabel="Xóa"
-        loading={deleteComboMutation.isPending}
-        onConfirm={() => comboDelete && deleteComboMutation.mutate(comboDelete)}
-      />
     </div>
   );
 }
@@ -198,70 +164,5 @@ function TagEditor({ dish, onSave }: { dish: Dish; onSave: (tags: string[]) => v
         </Popover.Portal>
       </Popover.Root>
     </div>
-  );
-}
-
-function ComboModal({ state, dishes, onClose }: { state: { open: boolean; combo: Combo | null }; dishes: Dish[]; onClose: () => void }) {
-  const [form, setForm] = useState<ComboInput>({ name: '', dishIds: [], note: '', active: true });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [kw, setKw] = useState('');
-
-  useEffect(() => {
-    if (!state.open) return;
-    const c = state.combo;
-    setForm(c ? { name: c.name, dishIds: [...c.dishIds], note: c.note, active: c.active } : { name: '', dishIds: [], note: '', active: true });
-    setErrors({});
-    setKw('');
-  }, [state]);
-
-  const mutation = useApiMutation((input: ComboInput) => saveCombo(state.combo?.id ?? null, input), {
-    invalidate: [[...qk.chatbot, 'combos']],
-    success: state.combo ? 'Đã cập nhật combo' : 'Đã thêm combo gợi ý',
-    onFieldErrors: setErrors,
-    onSuccess: onClose,
-  });
-
-  const selling = dishes.filter((d) => d.status === 'selling' && matchesKeyword(d.name, kw));
-  const total = dishes.filter((d) => form.dishIds.includes(d.id)).reduce((s, d) => s + d.price, 0);
-
-  return (
-    <Modal
-      open={state.open}
-      onOpenChange={(o) => !o && onClose()}
-      size="md"
-      title={state.combo ? 'Sửa combo gợi ý' : 'Thêm combo gợi ý'}
-      footer={
-        <>
-          <span className="mr-auto text-[13px] text-[var(--text-muted)]">{form.dishIds.length} món · <span className="font-mono font-semibold text-[var(--text-primary)]">{formatCurrency(total)}</span></span>
-          <Button variant="ghost" onClick={onClose}>Hủy</Button>
-          <Button loading={mutation.isPending} onClick={() => mutation.mutate(form)}>Lưu</Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <Field label="Tên combo" htmlFor="cb-name" required error={errors.name}>
-          <TextInput id="cb-name" value={form.name} invalid={Boolean(errors.name)} onChange={(e) => { setForm({ ...form, name: e.target.value }); setErrors({}); }} />
-        </Field>
-        <Field label="Khi nào AI nên gợi ý" htmlFor="cb-note">
-          <TextArea id="cb-note" rows={2} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="VD: khách đi nhóm 4 người, có trẻ nhỏ" />
-        </Field>
-        <Field label="Món trong combo" required error={errors.dishIds}>
-          <SearchInput value={kw} onChange={setKw} placeholder="Lọc món đang bán…" />
-          <div className="mt-2 max-h-[220px] space-y-0.5 overflow-y-auto rounded-item border border-[var(--border)] p-1.5">
-            {selling.map((d) => {
-              const checked = form.dishIds.includes(d.id);
-              return (
-                <label key={d.id} className="flex cursor-pointer items-center gap-2.5 rounded-[9px] px-2 py-1.5 hover:bg-[var(--bg-subtle)]">
-                  <input type="checkbox" checked={checked} onChange={() => { setErrors({}); setForm({ ...form, dishIds: checked ? form.dishIds.filter((x) => x !== d.id) : [...form.dishIds, d.id] }); }} className="h-4 w-4 accent-[var(--accent)]" />
-                  <span className="flex-1 text-[13.5px]">{d.name}</span>
-                  <span className="font-mono text-[12px] text-[var(--text-muted)]">{formatCurrency(d.price)}</span>
-                </label>
-              );
-            })}
-          </div>
-        </Field>
-        <ToggleRow title="Đang áp dụng" checked={form.active} onChange={(v) => setForm({ ...form, active: v })} />
-      </div>
-    </Modal>
   );
 }

@@ -210,16 +210,8 @@ export const cashierMenuGroups: MenuGroup[] = [
   {
     id: 'tn-root',
     label: null,
-    items: [{ id: 'tn-floor', label: 'Sơ đồ bàn', icon: 'layout-grid', path: '/thu-ngan' }],
-  },
-  {
-    id: 'tn-orders',
-    label: 'BÁN HÀNG',
-    items: [
-      { id: 'tn-order-list', label: 'Đơn hàng', icon: 'clipboard-list', path: '/thu-ngan/don-hang' },
-      { id: 'tn-requests', label: 'Yêu cầu của khách', icon: 'bell', path: '/thu-ngan/yeu-cau' },
-      { id: 'tn-invoices', label: 'Hóa đơn', icon: 'wallet', path: '/thu-ngan/hoa-don' },
-    ],
+    // Khu Văn phòng (chấm công, bảng lương, thông báo). Việc trong ca (sơ đồ bàn, đơn, yêu cầu, hóa đơn) ở khu POS toàn màn hình.
+    items: [{ id: 'tn-floor', label: 'Về quầy thu ngân', icon: 'layout-grid', path: '/thu-ngan' }],
   },
   {
     id: 'tn-staff',

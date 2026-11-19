@@ -11,6 +11,7 @@ import {
   kitchenCancelItem,
   setDishSoldOut,
   startItems,
+  kitchenServeItems,
   undoItem,
 } from '@/api/ordering';
 import { beep, beepCancel, unlockAudio, useLiveEvents } from '@/features/ordering/live';
@@ -253,7 +254,7 @@ export default function KitchenDisplayPage() {
             <Timer size={15} className="text-[var(--k-muted)]" />TB hôm nay <b className="font-mono">{avg == null ? '—' : `${avg.toLocaleString('vi-VN', { maximumFractionDigits: 1 })} phút`}</b>
           </span>
           <button type="button" onClick={() => setPanel('done')} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--k-fill)] px-3 py-1.5 text-[14px] font-semibold hover:bg-[var(--k-fill-2)]">
-            <CircleCheckBig size={16} className="text-[var(--k-brand)]" />Đã xong <span className="font-mono">({queue.data?.recent.length ?? 0})</span>
+            <CircleCheckBig size={16} className="text-[var(--k-brand)]" />Chờ lấy <span className="font-mono">({queue.data?.recent.length ?? 0})</span>
           </button>
           <button type="button" onClick={() => setPanel('soldOut')} className="rounded-lg bg-[var(--k-fill)] px-3 py-1.5 text-[14px] font-semibold hover:bg-[var(--k-fill-2)]">
             Món tạm hết{queue.data?.soldOutCount ? <span className="ml-1.5 rounded-full bg-[var(--k-danger)] px-1.5 font-mono text-[12px] text-white">{queue.data.soldOutCount}</span> : null}
@@ -483,6 +484,7 @@ function ItemRow({ item: i, onStart, onComplete, onCancel }: { item: KitchenItem
       <div className="min-w-0 flex-1">
         <p className="text-[17px] font-semibold leading-snug">{i.dishName}</p>
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+          {i.setName ? <span className="rounded bg-[var(--k-fill)] px-1.5 text-[11.5px] font-bold text-[var(--k-muted)]" title="Món thuộc set khách gọi">SET · {i.setName.replace(/^Set /, '')}</span> : null}
           {cooking ? <span className="rounded bg-[var(--k-cook)] px-1.5 text-[11.5px] font-bold text-[var(--k-on-cook)]">ĐANG LÀM</span> : null}
           {i.recalledAt ? <span className="rounded bg-[var(--k-recall)] px-1.5 text-[11.5px] font-bold text-white" title={`Bếp trả lại lúc ${hhmm(i.recalledAt)}`}>GỌI LẠI</span> : null}
           {i.note ? <span className="rounded bg-[var(--k-note-bg)] px-1.5 text-[13.5px] font-bold text-[var(--k-note-text)]">{i.note}</span> : null}
@@ -560,7 +562,10 @@ function Panel({ title, onClose, children, wide }: { title: string; onClose: () 
   );
 }
 
-/** Phiếu vừa xong (30 phút): trả lại "chưa xong" khi bấm nhầm (món quay lại hàng chờ với nhãn GỌI LẠI). */
+/**
+ * Món đã xong đang chờ nhân viên phục vụ lấy ở quầy: bấm **Đã lấy** khi món rời bếp (khách thấy "Đã mang ra");
+ * bấm xong nhầm thì **Trả lại** (trong 30 phút) — món quay lại hàng chờ với nhãn GỌI LẠI.
+ */
 function DonePanel({ recent, onDone, onError, onClose }: { recent: KitchenItem[]; onDone: (q: KitchenQueue) => void; onError: (e: unknown) => void; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const groups = useMemo(() => {
@@ -581,22 +586,35 @@ function DonePanel({ recent, onDone, onError, onClose }: { recent: KitchenItem[]
       setBusy(false);
     }
   };
+  const serve = async (list: KitchenItem[]) => {
+    setBusy(true);
+    try {
+      onDone(await kitchenServeItems(list.map((i) => i.id)));
+      toast.success(list.length > 1 ? `${list[0].tableCode}: đã lấy ${list.length} món` : `${list[0].tableCode}: đã lấy ${list[0].dishName}`);
+    } catch (e) {
+      onError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const canRecall = (i: KitchenItem) => !i.completedAt || Date.now() - new Date(i.completedAt).getTime() < 30 * 60_000;
   return (
-    <Panel title={`Đã xong · ${recent.length} món`} onClose={onClose}>
-      <p className="px-4 pt-3 text-[13px] text-[var(--k-muted)]">Các món bếp bấm xong trong 30 phút gần nhất (chưa mang ra). Bấm nhầm thì <b>Trả lại</b> — món quay lại hàng chờ với nhãn GỌI LẠI.</p>
+    <Panel title={`Chờ lấy · ${recent.length} món`} onClose={onClose}>
+      <p className="px-4 pt-3 text-[13px] text-[var(--k-muted)]">Món đã xong, chờ nhân viên phục vụ đến quầy lấy. Bấm <b>Đã lấy</b> khi món rời bếp — khách thấy "Đã mang ra". Bấm xong nhầm thì <b>Trả lại</b> (trong 30 phút).</p>
       <div className="flex-1 overflow-y-auto p-4">
-        {groups.length === 0 ? <p className="py-10 text-center text-[var(--k-muted)]">Chưa có món nào xong trong 30 phút qua</p> : null}
+        {groups.length === 0 ? <p className="py-10 text-center text-[var(--k-muted)]">Không có món nào đang chờ lấy</p> : null}
         {groups.map(([key, list]) => (
           <div key={key} className="mb-3 overflow-hidden rounded-xl border border-[var(--k-line)]">
             <div className="flex items-center gap-2 bg-[var(--k-surface-2)] px-3 py-2">
               <p className="flex-1 text-[15px]"><b className="text-[17px]">{list[0].tableCode}</b> <span className="text-[var(--k-muted)]">· Đợt {list[0].batchNo} · {list[0].orderCode}</span></p>
-              {list.length > 1 ? <button type="button" disabled={busy} onClick={() => void recall(list)} className="inline-flex items-center gap-1 rounded-md bg-[var(--k-fill-2)] px-2 py-1 text-[12.5px] font-semibold disabled:opacity-50"><RotateCcw size={13} />Trả lại cả đợt</button> : null}
+              {list.length > 1 ? <button type="button" disabled={busy} onClick={() => void serve(list)} className="inline-flex items-center gap-1 rounded-md bg-[var(--k-brand-strong)] px-2.5 py-1 text-[13px] font-semibold text-[var(--k-on-brand)] disabled:opacity-50"><CircleCheckBig size={14} />Đã lấy cả đợt</button> : null}
             </div>
             {list.map((i) => (
               <div key={i.id} className="flex items-center gap-3 border-t border-[var(--k-line)] px-3 py-2 text-[15px]">
                 <span className="min-w-0 flex-1"><b className="font-mono">{i.qty}</b> {i.dishName}</span>
                 <span className="font-mono text-[13px] text-[var(--k-muted)]">xong {hhmm(i.completedAt)}</span>
-                <button type="button" disabled={busy} onClick={() => void recall([i])} className="inline-flex items-center gap-1 rounded-md bg-[var(--k-fill-2)] px-2 py-1 text-[12.5px] font-semibold disabled:opacity-50"><RotateCcw size={13} />Trả lại</button>
+                {canRecall(i) ? <button type="button" disabled={busy} onClick={() => void recall([i])} className="inline-flex items-center gap-1 rounded-md bg-[var(--k-fill-2)] px-2 py-1 text-[12.5px] font-semibold disabled:opacity-50"><RotateCcw size={13} />Trả lại</button> : null}
+                <button type="button" disabled={busy} onClick={() => void serve([i])} className="inline-flex items-center gap-1 rounded-md bg-[var(--k-brand-strong)] px-2.5 py-1 text-[13px] font-semibold text-[var(--k-on-brand)] disabled:opacity-50"><CircleCheckBig size={14} />Đã lấy</button>
               </div>
             ))}
           </div>

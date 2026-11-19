@@ -25,13 +25,17 @@ public class OrderCore {
 
     public record TableRow(long id, String code, String areaName, long areaId, int seats, String status, String qrToken) {}
 
+    /** setId / setName: món con của một set khách gọi (null = món gọi lẻ). price của món con là phần giá set đã chia. */
     public record Item(String id, String dishId, String name, long price, int qty, String note, String status, int batchNo,
                        String createdAt, String startedAt, String completedAt, String servedAt, String cancelSource,
-                       String cancelReason, String cancelledBy) {}
+                       String cancelReason, String cancelledBy, String setId, String setName) {}
+
+    /** Set khách đã gọi trong đơn: price = giá set lúc gọi; activeTotal = tổng các món con chưa hủy (bằng price nếu không hủy món nào). */
+    public record SetLine(String id, String name, long price, long activeTotal) {}
 
     public record OrderView(String id, String code, String tableId, String tableCode, String areaName, String status,
                             boolean locked, String createdAt, long subtotal, int pendingCount, int readyCount,
-                            List<Item> items) {}
+                            List<Item> items, List<SetLine> sets) {}
 
     private final JdbcClient jdbc;
 
@@ -81,6 +85,23 @@ public class OrderCore {
             .optional().orElse(true);
     }
 
+    /** Lần mở cửa kế tiếp (khi đang ngoài giờ) để trang khách ghi "mở lại lúc …"; không có ngày nào mở trong 7 ngày tới thì null. */
+    public LocalDateTime nextOpenAt() {
+        LocalDateTime now = Times.now();
+        record Day(boolean open, LocalTime from) {}
+        java.util.Map<Integer, Day> days = new java.util.HashMap<>();
+        jdbc.sql("SELECT day_of_week, is_open, open_time FROM opening_hours").query((rs, n) -> days.put(rs.getInt("day_of_week"),
+            new Day(rs.getBoolean("is_open"), Db.time(rs, "open_time")))).list();
+        for (int i = 0; i <= 7; i++) {
+            java.time.LocalDate d = now.toLocalDate().plusDays(i);
+            Day day = days.get(d.getDayOfWeek() == DayOfWeek.SUNDAY ? 0 : d.getDayOfWeek().getValue());
+            if (day == null || !day.open() || day.from() == null) continue;
+            LocalDateTime at = d.atTime(day.from());
+            if (at.isAfter(now)) return at;
+        }
+        return null;
+    }
+
     /* ------------------------------------------------------------------ Đơn và món */
 
     public Optional<Long> openOrderId(long tableId) {
@@ -96,15 +117,29 @@ public class OrderCore {
 
     public List<Item> items(long orderId) {
         return jdbc.sql("""
-                SELECT oi.*, cu.full_name AS cancelled_name
+                SELECT oi.*, cu.full_name AS cancelled_name, os.set_name
                 FROM order_items oi LEFT JOIN users cu ON cu.id = oi.cancelled_by
+                LEFT JOIN order_sets os ON os.id = oi.order_set_id
                 WHERE oi.order_id = ? ORDER BY oi.batch_no DESC, oi.id
                 """).param(orderId)
             .query((rs, n) -> new Item(Ids.str(rs.getLong("id")), Ids.str(rs.getLong("dish_id")), rs.getString("dish_name"),
                 rs.getBigDecimal("unit_price").longValue(), rs.getInt("quantity"), Vi.trim(rs.getString("note")),
                 rs.getString("status"), rs.getInt("batch_no"), iso(Db.dateTime(rs, "created_at")),
                 iso(Db.dateTime(rs, "started_at")), iso(Db.dateTime(rs, "completed_at")), iso(Db.dateTime(rs, "served_at")),
-                rs.getString("cancel_source"), rs.getString("cancel_reason"), rs.getString("cancelled_name")))
+                rs.getString("cancel_source"), rs.getString("cancel_reason"), rs.getString("cancelled_name"),
+                rs.getObject("order_set_id") == null ? null : Ids.str(rs.getLong("order_set_id")), rs.getString("set_name")))
+            .list();
+    }
+
+    public List<SetLine> sets(long orderId) {
+        return jdbc.sql("""
+                SELECT os.id, os.set_name, os.set_price,
+                       COALESCE(SUM(CASE WHEN oi.status <> 'cancelled' THEN oi.unit_price * oi.quantity END), 0) AS active_total
+                FROM order_sets os LEFT JOIN order_items oi ON oi.order_set_id = os.id
+                WHERE os.order_id = ? GROUP BY os.id, os.set_name, os.set_price ORDER BY os.id
+                """).param(orderId)
+            .query((rs, n) -> new SetLine(Ids.str(rs.getLong("id")), rs.getString("set_name"), rs.getBigDecimal("set_price").longValue(),
+                rs.getBigDecimal("active_total").longValue()))
             .list();
     }
 
@@ -124,7 +159,7 @@ public class OrderCore {
         int pending = (int) items.stream().filter(i -> "pending".equals(i.status()) || "cooking".equals(i.status())).count();
         int ready = (int) items.stream().filter(i -> "done".equals(i.status())).count();
         return new OrderView(Ids.str(h.id()), h.code(), Ids.str(t.id()), t.code(), t.areaName(), h.status(), isLocked(orderId),
-            Times.iso(h.createdAt()), subtotal, pending, ready, items);
+            Times.iso(h.createdAt()), subtotal, pending, ready, items, sets(orderId));
     }
 
     /** Bàn của một món (để phát sự kiện tới đúng trang khách). */

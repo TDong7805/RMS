@@ -4,7 +4,8 @@
    Flyway chỉ chạy file này ở profile "dev" (mặc định khi chạy mvn spring-boot:run / IDE).
    Khi chạy thật (profile "prod") thư mục db/dev không được nạp → CSDL chỉ có dữ liệu nền.
 
-   Nội dung: tài khoản mẫu, khu vực & bàn, món ăn, nguyên liệu & tồn đầu kỳ, nhà cung cấp, ca làm,
+   Nhà hàng mẫu: Royal Beef — bò Úc hiện đại kèm món Việt (thực đơn 38 món ở V3_1).
+   Nội dung: tài khoản mẫu, khu vực & bàn, danh mục món, nguyên liệu & tồn đầu kỳ, nhà cung cấp, ca làm,
    FAQ, và dữ liệu mô phỏng các actor CHƯA được xây dựng (lịch đặt bàn của Khách hàng...).
    Ngày giờ tính tương đối theo lúc file được chạy (lần đầu khởi động trên CSDL trống).
    Muốn có lại dữ liệu "hôm nay": xóa CSDL rms_db rồi chạy lại backend.
@@ -20,11 +21,11 @@ SET time_zone = '+07:00';
 /* ---------------------------------------------------------------- Tài khoản mẫu */
 -- Mật khẩu mẫu "Rms@2026" (bcrypt). nam.hoang (phục vụ) có mật khẩu nhưng vẫn bị chặn đăng nhập theo vai trò.
 INSERT INTO users (username, password_hash, must_change_password, full_name, email, phone, role_id, hourly_rate) VALUES
- ('tuan.nguyen', '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Nguyễn Anh Tuấn',   'tuan.nguyen@greenlotus.vn', '0901000002', (SELECT id FROM roles WHERE code='manager'),   0),
- ('linh.tran',   '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Trần Thùy Linh',    'linh.tran@greenlotus.vn',   '0901000003', (SELECT id FROM roles WHERE code='cashier'),   30000),
- ('hung.pham',   '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Phạm Quốc Hùng',    'hung.pham@greenlotus.vn',   '0901000004', (SELECT id FROM roles WHERE code='kitchen'),   35000),
- ('thao.bui',    '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Bùi Phương Thảo',   'thao.bui@greenlotus.vn',    '0901000005', (SELECT id FROM roles WHERE code='warehouse'), 32000),
- ('nam.hoang',   '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Hoàng Gia Nam',     'nam.hoang@greenlotus.vn',   '0901000006', (SELECT id FROM roles WHERE code='waiter'),    25000);
+ ('tuan.nguyen', '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Nguyễn Anh Tuấn',   'tuan.nguyen@royalbeef.vn', '0901000002', (SELECT id FROM roles WHERE code='manager'),   0),
+ ('linh.tran',   '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Trần Thùy Linh',    'linh.tran@royalbeef.vn',   '0901000003', (SELECT id FROM roles WHERE code='cashier'),   30000),
+ ('hung.pham',   '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Phạm Quốc Hùng',    'hung.pham@royalbeef.vn',   '0901000004', (SELECT id FROM roles WHERE code='kitchen'),   35000),
+ ('thao.bui',    '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Bùi Phương Thảo',   'thao.bui@royalbeef.vn',    '0901000005', (SELECT id FROM roles WHERE code='warehouse'), 32000),
+ ('nam.hoang',   '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', 0, 'Hoàng Gia Nam',     'nam.hoang@royalbeef.vn',   '0901000006', (SELECT id FROM roles WHERE code='waiter'),    25000);
 
 /* ---------------------------------------------------------------- Khu vực, bàn */
 INSERT INTO areas (name, description, sort_order) VALUES
@@ -51,63 +52,25 @@ FROM (
 ) t JOIN areas a ON a.name = t.area;
 
 /* ---------------------------------------------------------------- Thực đơn */
+-- Danh mục; món ăn (38 món + 1 món theo mùa đang ngừng bán) ở V3_1__mon_an_mau.sql.
 INSERT INTO dish_categories (name, sort_order) VALUES
- ('Khai vị',1), ('Món chính',2), ('Lẩu',3), ('Cơm & mì',4), ('Tráng miệng',5), ('Đồ uống',6);
-
-INSERT INTO dishes (code, name, category_id, price, description, ingredients_text, spicy_level)
-SELECT x.code, x.name, c.id, x.price, x.descr, x.ing, x.spicy
-FROM (
-  SELECT 'MA001' code, 'Gỏi cuốn tôm thịt' name, 'Khai vị' cat, 35000 price, 'Cuốn tươi mát, phù hợp mở đầu bữa ăn.' descr, 'Tôm, thịt ba chỉ, bún, rau sống, bánh tráng; chấm tương đậu phộng' ing, 0 spicy UNION ALL
-  SELECT 'MA002', 'Đậu hũ non sốt nấm', 'Khai vị', 59000, 'Món chay mềm mịn, sốt nấm đậm đà.', 'Đậu hũ non, nấm đông cô, nấm rơm, hành lá', 0 UNION ALL
-  SELECT 'MA003', 'Cá kho tộ', 'Món chính', 125000, 'Cá kho đậm vị miền Tây trong niêu đất.', 'Cá basa, nước màu, tiêu, ớt, hành', 2 UNION ALL
-  SELECT 'MA004', 'Gà nướng mật ong', 'Món chính', 145000, 'Gà nướng thơm mùi sả, mật ong.', 'Đùi gà, mật ong, tỏi, sả, ớt', 1 UNION ALL
-  SELECT 'MA005', 'Lẩu Thái hải sản', 'Lẩu', 395000, 'Phần cho 3–4 người.', 'Tôm, mực, nghêu, cá, nấm, sả, lá chanh, ớt, nước cốt dừa', 3 UNION ALL
-  SELECT 'MA006', 'Lẩu nấm chay', 'Lẩu', 295000, 'Lẩu nấm thanh đạm.', 'Nấm đông cô, nấm kim châm, nấm đùi gà, đậu hũ, rau củ', 0 UNION ALL
-  SELECT 'MA007', 'Cơm chiên cá mặn', 'Cơm & mì', 95000, NULL, 'Cơm, cá mặn, trứng, hành lá, đậu que', 0 UNION ALL
-  SELECT 'MA008', 'Chè hạt sen long nhãn', 'Tráng miệng', 45000, NULL, 'Hạt sen, long nhãn, đường phèn', 0 UNION ALL
-  SELECT 'MA009', 'Trà sen vàng', 'Đồ uống', 49000, NULL, 'Trà xanh, hạt sen, kem sữa', 0
-) x JOIN dish_categories c ON c.name = x.cat;
-
-INSERT INTO dish_allergens (dish_id, allergen_id)
-SELECT d.id, a.id FROM dishes d JOIN allergens a ON
-     (d.code = 'MA001' AND a.name IN ('Hải sản có vỏ','Đậu phộng'))
-  OR (d.code = 'MA002' AND a.name IN ('Đậu nành'))
-  OR (d.code = 'MA003' AND a.name IN ('Cá'))
-  OR (d.code = 'MA005' AND a.name IN ('Hải sản có vỏ','Cá','Sữa'))
-  OR (d.code = 'MA006' AND a.name IN ('Đậu nành'))
-  OR (d.code = 'MA007' AND a.name IN ('Cá','Trứng'))
-  OR (d.code = 'MA009' AND a.name IN ('Sữa'));
-
-INSERT INTO dish_ai_tags (dish_id, tag_id)
-SELECT d.id, t.id FROM dishes d JOIN ai_tags t ON
-     (d.code = 'MA001' AND t.name IN ('Bán chạy','Món nhẹ'))
-  OR (d.code = 'MA002' AND t.name IN ('Chay','Ít cay'))
-  OR (d.code = 'MA004' AND t.name IN ('Bán chạy','Trẻ em thích'))
-  OR (d.code = 'MA005' AND t.name IN ('Cay','Nhóm 4 người'))
-  OR (d.code = 'MA006' AND t.name IN ('Chay','Ít cay','Nhóm 4 người'));
+ ('Khai vị',1), ('Bít tết Úc',2), ('Bò nướng & áp chảo',3), ('Lẩu bò',4), ('Món nước',5),
+ ('Cơm, mì & burger',6), ('Tráng miệng',7), ('Đồ uống',8);
 
 /* ---------------------------------------------------------------- Kho */
 INSERT INTO ingredients (code, name, unit, min_level, avg_cost) VALUES
- ('NL001', 'Tôm sú tươi',    'kg',  6,   280000),
- ('NL002', 'Thịt ba chỉ',    'kg',  5,   140000),
- ('NL003', 'Cá basa phi lê', 'kg',  5,   90000),
- ('NL004', 'Đùi gà',         'kg',  8,   75000),
- ('NL005', 'Đậu hũ non',     'hộp', 20,  8000),
- ('NL006', 'Nấm đông cô',    'kg',  2,   220000);
+ ('NL001', 'Thăn ngoại bò Úc (striploin)', 'kg', 5, 520000),
+ ('NL002', 'Thăn nội bò Úc (tenderloin)',  'kg', 3, 780000),
+ ('NL003', 'Ribeye bò Úc',                 'kg', 5, 690000),
+ ('NL004', 'Bắp bò',                       'kg', 6, 260000),
+ ('NL005', 'Bánh phở tươi',                'kg', 8, 18000),
+ ('NL006', 'Nấm đông cô',                  'kg', 1, 220000);
 
-INSERT INTO dish_ingredients (dish_id, ingredient_id, quantity)
-SELECT d.id, i.id, x.qty FROM (
-  SELECT 'MA001' dish, 'NL001' ing, 0.080 qty UNION ALL
-  SELECT 'MA001', 'NL002', 0.060 UNION ALL
-  SELECT 'MA002', 'NL005', 1.000 UNION ALL
-  SELECT 'MA002', 'NL006', 0.030 UNION ALL
-  SELECT 'MA003', 'NL003', 0.350 UNION ALL
-  SELECT 'MA004', 'NL004', 0.400
-) x JOIN dishes d ON d.code = x.dish JOIN ingredients i ON i.code = x.ing;
+-- Công thức định lượng của món ở V7_1 (sau khi đủ nguyên liệu).
 
 INSERT INTO suppliers (code, name, phone, address) VALUES
- ('NCC01', 'Hải sản Phú Quốc',              '0912000111', 'Chợ Bình Điền, Quận 8, TP.HCM'),
- ('NCC02', 'Công ty Thực phẩm Đại Phát',    '0912000222', 'KCN Tân Bình, TP.HCM');
+ ('NCC01', 'Công ty Thịt bò nhập khẩu Úc Châu', '0912000111', 'KCN Tân Tạo, Bình Tân, TP.HCM'),
+ ('NCC02', 'Công ty Thực phẩm Đại Phát',        '0912000222', 'KCN Tân Bình, TP.HCM');
 
 -- Tồn đầu kỳ: nhập qua sổ kho để trigger tự cập nhật stock_qty.
 -- LƯU Ý (MySQL lỗi 1442): câu INSERT vào stock_transactions KHÔNG được đọc bảng ingredients,
@@ -116,8 +79,8 @@ INSERT INTO suppliers (code, name, phone, address) VALUES
 CREATE TEMPORARY TABLE tmp_opening_stock AS
 SELECT i.id AS ingredient_id, i.avg_cost, x.qty
 FROM (
-  SELECT 'NL001' code, 12 qty UNION ALL SELECT 'NL002', 10 UNION ALL SELECT 'NL003', 4 UNION ALL
-  SELECT 'NL004', 15 UNION ALL SELECT 'NL005', 40 UNION ALL SELECT 'NL006', 3
+  SELECT 'NL001' code, 12 qty UNION ALL SELECT 'NL002', 8 UNION ALL SELECT 'NL003', 10 UNION ALL
+  SELECT 'NL004', 15 UNION ALL SELECT 'NL005', 30 UNION ALL SELECT 'NL006', 3
 ) x JOIN ingredients i ON i.code = x.code;
 
 INSERT INTO stock_transactions (ingredient_id, txn_type, quantity_change, unit_cost, reason, created_by)
@@ -190,7 +153,7 @@ ORDER BY r.code;
 INSERT IGNORE INTO users (username, password_hash, must_change_password, full_name, email, phone, role_id, status,
                           hourly_rate, created_at, last_login_at)
 SELECT s.username, '$2a$10$JQ5j69tw/M7NIcGr6zTRTu1.4EdEALcihYDgiqQyg2dzz4bmMuRbq', s.must_change, s.full_name,
-       CONCAT(s.username, '@greenlotus.vn'), s.phone, r.id, s.status, s.rate,
+       CONCAT(s.username, '@royalbeef.vn'), s.phone, r.id, s.status, s.rate,
        NOW() - INTERVAL s.created_days DAY,
        IF(s.login_days IS NULL, NULL, NOW() - INTERVAL s.login_days DAY - INTERVAL 3 HOUR)
 FROM (

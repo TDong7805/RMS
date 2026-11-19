@@ -7,32 +7,32 @@
 // Sắp hết / Hết hàng của V7_1.
 import { writeFileSync } from 'node:fs';
 
-// [ngày, lý do, ghi chú, [[mã NL, SL]]]
+// [ngày, lý do, ghi chú, [[mã NL, SL]]] — chỉ nguyên liệu còn dư tồn (không đụng NL001, NL005, NL010, NL017, NL022)
 const ISSUES = [
-  [-10, 'kitchen', '', [['NL022', 24], ['NL015', 8], ['NL020', 3]]],
-  [-8, 'kitchen', '', [['NL023', 24], ['NL024', 24], ['NL007', 2]]],
-  [-7, 'damaged', 'Thùng nước suối bị móp, rò rỉ', [['NL023', 6]]],
-  [-6, 'kitchen', '', [['NL009', 2], ['NL015', 6], ['NL021', 1.5]]],
-  [-4, 'kitchen', '', [['NL022', 24], ['NL024', 24], ['NL018', 2]]],
-  [-3, 'expired', 'Bún tươi quá hạn sử dụng', [['NL016', 3]]],
-  [-2, 'kitchen', '', [['NL008', 4], ['NL011', 2], ['NL012', 3]]],
-  [-1, 'other', 'Biếu đối tác dùng thử', [['NL024', 6]]],
-  [0, 'kitchen', '', [['NL015', 5], ['NL020', 2], ['NL019', 2]]],
+  [-10, 'kitchen', '', [['NL026', 24], ['NL020', 8], ['NL025', 3]]],
+  [-8, 'kitchen', '', [['NL014', 12], ['NL004', 3], ['NL013', 2]]],
+  [-7, 'damaged', 'Thùng bia vỡ 3 chai khi vận chuyển', [['NL026', 3]]],
+  [-6, 'kitchen', '', [['NL009', 2], ['NL020', 6], ['NL024', 1]]],
+  [-4, 'kitchen', '', [['NL026', 24], ['NL019', 6], ['NL023', 0.5]]],
+  [-3, 'expired', 'Bún bò quá hạn sử dụng', [['NL021', 2]]],
+  [-2, 'kitchen', '', [['NL008', 1], ['NL015', 1], ['NL016', 2]]],
+  [-1, 'other', 'Biếu đối tác dùng thử', [['NL027', 1]]],
+  [0, 'kitchen', '', [['NL020', 5], ['NL025', 2], ['NL024', 1]]],
 ];
 
 // Phiếu kiểm kê: [ngày lập, trạng thái, lý do từ chối, ghi chú, [[mã NL, chênh lệch, lý do, ghi chú]]]
 const STOCKTAKES = [
-  [-12, 'approved', null, 'Kiểm kê rau củ giữa tháng', [['NL014', -4, 'natural', ''], ['NL012', -0.5, 'damaged', 'Dập nát'], ['NL011', 0, null, '']]],
-  [-3, 'rejected', 'Đếm lại dầu ăn, chênh lệch quá lớn', 'Kiểm kê gia vị', [['NL020', -3, 'lost', ''], ['NL019', 0, null, '']]],
-  [-1, 'pending', null, 'Kiểm kê đồ khô cuối tuần', [['NL015', -2, 'natural', ''], ['NL021', 0.5, 'wrong_entry', 'Nhập thiếu lần trước'], ['NL006', 0, null, '']]],
+  [-12, 'approved', null, 'Kiểm kê rau củ giữa tháng', [['NL018', -4, 'natural', ''], ['NL016', -0.5, 'damaged', 'Dập nát'], ['NL015', 0, null, '']]],
+  [-3, 'rejected', 'Đếm lại dầu ăn, chênh lệch quá lớn', 'Kiểm kê gia vị', [['NL025', -3, 'lost', ''], ['NL024', 0, null, '']]],
+  [-1, 'pending', null, 'Kiểm kê đồ khô cuối tuần', [['NL020', -2, 'natural', ''], ['NL006', 0.1, 'wrong_entry', 'Nhập thiếu lần trước'], ['NL014', 0, null, '']]],
 ];
 
-// Thanh toán: [số thứ tự phiếu mua trong V8_1 theo mã tạo (PM…), ngày, số tiền, phương thức, mã tham chiếu]
-// Dùng tên phiếu để tìm (tên trong V8_1 là duy nhất).
+// Thanh toán: [tên phiếu mua trong V8_1 (duy nhất), ngày, số tiền, phương thức, mã tham chiếu]
+// Phiếu 1: (2×1.248.000 + 2.520.000) × 1,1 = 5.517.600. Phiếu 4: (1.390.000 − 50.000) × 1,08 = 1.447.200.
 const PAYMENTS = [
-  ['Mua nước giải khát tuần 1', -25, 3022800, 'transfer', 'VCB 0123456'],
-  ['Mua hải sản cuối tuần', -19, 1000000, 'cash', ''],
-  ['Mua gia vị tháng', -12, 1331100, 'transfer', 'ACB 7788991'],
+  ['Mua bia & vang tuần 1', -25, 5517600, 'transfer', 'VCB 0123456'],
+  ['Nhập bò Úc cuối tuần', -19, 5000000, 'transfer', 'VCB 0123789'],
+  ['Mua gia vị tháng', -12, 1447200, 'transfer', 'ACB 7788991'],
   ['Mua rau củ đầu tuần', -11, 200000, 'cash', ''],
 ];
 

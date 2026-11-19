@@ -20,6 +20,17 @@ export interface OrderItem {
   cancelSource: CancelSource | null;
   cancelReason: string | null;
   cancelledBy: string | null;
+  /** Món con của một set khách gọi (null = món gọi lẻ); price của món con là phần giá set đã chia. */
+  setId: string | null;
+  setName: string | null;
+}
+
+/** Set khách đã gọi trong đơn: price = giá set lúc gọi; activeTotal = tổng món con chưa hủy. */
+export interface OrderSetLine {
+  id: string;
+  name: string;
+  price: number;
+  activeTotal: number;
 }
 
 export interface OrderView {
@@ -36,6 +47,7 @@ export interface OrderView {
   pendingCount: number;
   readyCount: number;
   items: OrderItem[];
+  sets: OrderSetLine[];
 }
 
 /* ---------------------------------------------------------------- Trang đặt món (QR) */
@@ -49,6 +61,8 @@ export interface QrTableInfo {
   /** Ảnh bìa đầu trang (Quản lý tải ở Cấu hình hệ thống), null nếu chưa có. */
   coverImage: string | null;
   openNow: boolean;
+  /** Ngoài giờ: lần mở cửa kế tiếp (ISO), không có thì null. */
+  reopenAt: string | null;
   order: OrderView | null;
   /** Yêu cầu hỗ trợ đang chờ (Mới / Đã chuyển). */
   support: CustomerRequest | null;
@@ -63,6 +77,8 @@ export interface QrTableInfo {
 export interface MenuCategory {
   id: string;
   name: string;
+  /** Ảnh minh họa danh mục (món tách nền); null = hiện chữ cái đầu. */
+  image: string | null;
 }
 
 export interface MenuDish {
@@ -77,23 +93,74 @@ export interface MenuDish {
   spicyLevel: number;
   tags: string[];
   soldOut: boolean;
+  /** Món thuộc nhóm (vd. Nước ngọt có ga) → hiện chung một thẻ; variantLabel = tên ở khung chọn loại. */
+  groupId: string | null;
+  variantLabel: string | null;
+}
+
+/** Nhóm món: một thẻ trên thực đơn, bấm vào chọn loại. dishIds theo thứ tự hiển thị. */
+export interface QrMenuGroup {
+  id: string;
+  name: string;
+  categoryId: string;
+  description: string;
+  image: string | null;
+  dishIds: string[];
+}
+
+export interface MenuSetItem {
+  /** Món mặc định (món cho đổi loại: loại đang còn hàng). */
+  dishId: string;
+  name: string;
+  qty: number;
+  /** Khách được đổi sang loại khác cùng nhóm (vd. nước ngọt). */
+  allowVariant: boolean;
+  groupId: string | null;
+}
+
+/** Set đang bán được lúc này (đang bật, trong giờ bán, mọi món còn phục vụ). */
+export interface MenuSet {
+  id: string;
+  name: string;
+  description: string;
+  image: string | null;
+  price: number;
+  /** Tổng giá gọi lẻ. */
+  originalPrice: number;
+  sellFrom: string | null;
+  sellTo: string | null;
+  items: MenuSetItem[];
 }
 
 export interface QrMenu {
   categories: MenuCategory[];
   dishes: MenuDish[];
-  /** Id món bán chạy nhất 7 ngày qua (theo hóa đơn đã thanh toán), nhiều nhất trước, tối đa 10. */
+  groups: QrMenuGroup[];
+  sets: MenuSet[];
+  /** Bán chạy 7 ngày qua, nhiều nhất trước, tối đa 10: id món, hoặc "g" + id nhóm (cộng chung các loại). */
   bestSellers: string[];
+}
+
+/** Một món con của set trong giỏ (đã chọn loại, độ chín…). */
+export interface CartSetPart {
+  dishId: string;
+  name: string;
+  qty: number;
+  note: string;
 }
 
 export interface CartLine {
   key: string;
+  /** Món lẻ: id món. Set: id món đầu tiên (chỉ để hiển thị) — dùng setId để phân biệt. */
   dishId: string;
   name: string;
   price: number;
   image: string | null;
   qty: number;
   note: string;
+  /** Có giá trị khi dòng là set. */
+  setId?: string;
+  parts?: CartSetPart[];
 }
 
 /* ---------------------------------------------------------------- Bếp */
@@ -120,6 +187,8 @@ export interface KitchenItem {
   recalledAt: string | null;
   cancelSource: 'customer' | 'cashier' | 'kitchen' | null;
   cancelledAt: string | null;
+  /** Món con của set (bếp vẫn làm từng món) — hiện nhãn tên set. */
+  setName: string | null;
 }
 
 export interface KitchenQueue {
@@ -158,8 +227,8 @@ export interface FloorTable {
   x: number;
   y: number;
   status: 'available' | 'reserved' | 'occupied' | 'inactive';
-  order: { id: string; code: string; openedAt: string; subtotal: number; pendingCount: number; readyCount: number; locked: boolean } | null;
-  reservation: { time: string; customerName: string; guests: number } | null;
+  order: { id: string; code: string; openedAt: string; subtotal: number; pendingCount: number; readyCount: number; locked: boolean; guests: number | null; lateCount: number } | null;
+  reservation: { id: string; time: string; customerName: string; guests: number } | null;
   supportRequest: boolean;
   paymentRequest: boolean;
 }
@@ -175,6 +244,16 @@ export interface ReadyItem {
   completedAt: string;
 }
 
+export interface FloorReservation {
+  id: string;
+  time: string;
+  customerName: string;
+  phone: string;
+  guests: number;
+  tableCode: string | null;
+  status: 'pending' | 'confirmed' | 'seated';
+}
+
 export interface CashierFloor {
   cols: number;
   rows: number;
@@ -186,6 +265,9 @@ export interface CashierFloor {
   revenueToday: number;
   requestCount: number;
   unpaidCount: number;
+  reservations: FloorReservation[];
+  /** Món chờ quá số phút này → bàn "Quá giờ". */
+  lateMinutes: number;
 }
 
 /* ---------------------------------------------------------------- Đợt 2: yêu cầu, hóa đơn, thanh toán */
@@ -210,6 +292,8 @@ export interface InvoiceLine {
   price: number;
   qty: number;
   amount: number;
+  /** Dòng set: danh sách món trong set; null = món gọi lẻ. */
+  detail: string | null;
 }
 
 export interface CustomerRequest {
@@ -257,17 +341,13 @@ export interface RequestList {
   waitingCount: number;
 }
 
-export interface StaffOption {
-  id: string;
-  name: string;
-  roleName: string;
-}
-
 export interface CashierOrderDetail {
   order: OrderView;
   closedAt: string | null;
   requests: ServiceRequest[];
   invoice: { id: string; code: string; status: InvoiceStatus; total: number } | null;
+  /** Số khách thu ngân nhập (null = chưa nhập). */
+  guests: number | null;
 }
 
 export type CashierCancelReason = 'changed_mind' | 'wrong_order' | 'left' | 'other';
@@ -279,7 +359,7 @@ export interface MoveTarget {
   areaName: string;
   seats: number;
   status: 'available' | 'reserved';
-  reservation: { time: string; customerName: string; guests: number } | null;
+  reservation: { id: string; time: string; customerName: string; guests: number } | null;
 }
 
 export type OrderListStatus = '' | 'open' | 'awaiting_payment' | 'completed' | 'cancelled';

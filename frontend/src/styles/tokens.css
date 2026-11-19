@@ -1,4 +1,5 @@
-:root {
+:root,
+[data-theme='light'] {
   /* ---------- Surfaces ---------- */
   --bg-page: #f6f8f7;
   --bg-surface: #ffffff;

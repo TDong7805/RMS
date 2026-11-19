@@ -37,7 +37,8 @@ public class InvoiceService {
     static final Set<String> METHODS = Set.of("cash", "card", "transfer", "ewallet");
     static final int MAX_RANGE_DAYS = 31;
 
-    public record Line(String name, long price, int qty, long amount) {}
+    /** detail: các món trong set (null = món gọi lẻ). Set có món con bị hủy thì price = tổng phần còn lại. */
+    public record Line(String name, long price, int qty, long amount, String detail) {}
 
     public record Payment(String method, long amount, Long cashGiven, Long change, String transactionRef, String paidAt,
                           String receivedBy) {}
@@ -99,16 +100,40 @@ public class InvoiceService {
     /* ------------------------------------------------------------------ Đọc */
 
     private List<Line> lines(long orderId) {
-        return jdbc.sql("""
-                SELECT dish_name, unit_price, SUM(quantity) AS qty FROM order_items
-                WHERE order_id = ? AND status <> 'cancelled'
-                GROUP BY dish_id, dish_name, unit_price ORDER BY MIN(id)
+        record Row(long firstId, Line line) {}
+        List<Row> rows = new java.util.ArrayList<>(jdbc.sql("""
+                SELECT MIN(id) AS first_id, dish_name, unit_price, SUM(quantity) AS qty FROM order_items
+                WHERE order_id = ? AND status <> 'cancelled' AND order_set_id IS NULL
+                GROUP BY dish_id, dish_name, unit_price
                 """).param(orderId)
             .query((rs, n) -> {
                 long price = money(rs.getBigDecimal("unit_price"));
                 int qty = rs.getInt("qty");
-                return new Line(rs.getString("dish_name"), price, qty, price * qty);
-            }).list();
+                return new Row(rs.getLong("first_id"), new Line(rs.getString("dish_name"), price, qty, price * qty, null));
+            }).list());
+        // Set: một dòng mỗi loại set (cùng tên, cùng số tiền còn lại, cùng món), số lượng = số set; món con bị hủy hết thì bỏ.
+        record SetRow(long firstId, String name, long amount, String detail) {}
+        List<SetRow> sets = jdbc.sql("""
+                SELECT MIN(oi.id) AS first_id, os.set_name, SUM(oi.unit_price * oi.quantity) AS amount,
+                       GROUP_CONCAT(CONCAT(oi.dish_name, IF(oi.quantity > 1, CONCAT(' x', oi.quantity), '')) ORDER BY oi.id SEPARATOR ', ') AS detail
+                FROM order_sets os JOIN order_items oi ON oi.order_set_id = os.id
+                WHERE os.order_id = ? AND oi.status <> 'cancelled'
+                GROUP BY os.id, os.set_name
+                """).param(orderId)
+            .query((rs, n) -> new SetRow(rs.getLong("first_id"), rs.getString("set_name"), money(rs.getBigDecimal("amount")),
+                rs.getString("detail")))
+            .list();
+        java.util.Map<String, Row> merged = new java.util.LinkedHashMap<>();
+        for (SetRow r : sets) {
+            String key = r.name() + "|" + r.amount() + "|" + r.detail();
+            Row old = merged.get(key);
+            int qty = old == null ? 1 : old.line().qty() + 1;
+            long first = old == null ? r.firstId() : Math.min(old.firstId(), r.firstId());
+            merged.put(key, new Row(first, new Line(r.name(), r.amount(), qty, r.amount() * qty, r.detail())));
+        }
+        rows.addAll(merged.values());
+        rows.sort(java.util.Comparator.comparingLong(Row::firstId));
+        return rows.stream().map(Row::line).toList();
     }
 
     public Restaurant restaurant() {

@@ -43,33 +43,48 @@ public class DishService {
     static final int TEXT_MAX = 500;
     static final long PRICE_MAX = 100_000_000L;
     static final String IMAGE_FOLDER = "dishes";
+    static final String CATEGORY_IMAGE_FOLDER = "categories";
 
     public record Dish(String id, String code, String name, String categoryId, long price, String description,
                        String image, String status, String ingredients, List<String> allergens, int spicyLevel,
                        List<String> aiTags, boolean aiEnabled, boolean usedInOrders, String createdAt,
-                       String updatedAt, String statusUpdatedAt) {}
+                       String updatedAt, String statusUpdatedAt, String groupId, String variantLabel) {}
 
+    /** groupId: nhóm món (null = đứng riêng); variantLabel: tên loại hiện ở khung chọn của nhóm (bỏ trống = tên món). */
     public record DishInput(String name, String categoryId, BigDecimal price, String description, String image,
-                            String status, String ingredients, List<String> allergens, Integer spicyLevel) {}
+                            String status, String ingredients, List<String> allergens, Integer spicyLevel,
+                            String groupId, String variantLabel) {}
 
-    public record Category(String id, String name, boolean active, int sortOrder, int dishCount) {}
+    /** Nhóm món: gộp nhiều món cùng loại thành một thẻ trên trang gọi món (mỗi loại vẫn là món riêng). */
+    public record DishGroup(String id, String name, String categoryId, String description, String image, int sortOrder,
+                            int dishCount) {}
 
-    public record CategoryInput(String name, Boolean active) {}
+    /** image: null = giữ ảnh hiện tại, "" = bỏ ảnh, data URL = ảnh mới. */
+    public record DishGroupInput(String name, String categoryId, String description, String image) {}
+
+    static final int GROUP_NAME_MAX = 80;
+    static final int VARIANT_MAX = 40;
+    static final String GROUP_IMAGE_FOLDER = "groups";
+
+    public record Category(String id, String name, boolean active, int sortOrder, int dishCount, String image) {}
+
+    /** image: null = giữ ảnh hiện tại (vd. chỉ bật / tắt), "" = bỏ ảnh, data URL = ảnh mới. */
+    public record CategoryInput(String name, Boolean active, String image) {}
 
     /** Một dòng bảng dishes (chưa kèm dị nguyên / thẻ AI). */
     private record Row(long id, String code, String name, long categoryId, long price, String description,
                        String imageKey, String status, String ingredients, int spicyLevel, boolean aiEnabled,
                        boolean usedInOrders, java.time.LocalDateTime createdAt, java.time.LocalDateTime updatedAt,
-                       java.time.LocalDateTime statusUpdatedAt) {}
+                       java.time.LocalDateTime statusUpdatedAt, Long groupId, String variantLabel) {}
 
-    private record Cat(long id, String name, boolean active) {}
+    private record Cat(long id, String name, boolean active, String imageKey) {}
 
     private record Clean(String name, long categoryId, long price, String description, String status,
-                         String ingredients, List<Long> allergenIds, int spicyLevel) {}
+                         String ingredients, List<Long> allergenIds, int spicyLevel, Long groupId, String variantLabel) {}
 
     private static final String SELECT = """
         SELECT d.id, d.code, d.name, d.category_id, d.price, d.description, d.image_url, d.status, d.ingredients_text,
-               d.spicy_level, d.ai_enabled, d.created_at, d.updated_at, d.status_updated_at,
+               d.spicy_level, d.ai_enabled, d.created_at, d.updated_at, d.status_updated_at, d.group_id, d.variant_label,
                EXISTS (SELECT 1 FROM order_items oi WHERE oi.dish_id = d.id) AS used_in_orders
         FROM dishes d
         """;
@@ -132,7 +147,8 @@ public class DishService {
             rs.getBigDecimal("price").longValue(), Objects.toString(rs.getString("description"), ""),
             rs.getString("image_url"), rs.getString("status"), Objects.toString(rs.getString("ingredients_text"), ""),
             rs.getInt("spicy_level"), rs.getBoolean("ai_enabled"), rs.getBoolean("used_in_orders"),
-            Db.dateTime(rs, "created_at"), Db.dateTime(rs, "updated_at"), Db.dateTime(rs, "status_updated_at"));
+            Db.dateTime(rs, "created_at"), Db.dateTime(rs, "updated_at"), Db.dateTime(rs, "status_updated_at"),
+            rs.getObject("group_id") == null ? null : rs.getLong("group_id"), rs.getString("variant_label"));
     }
 
     /** Gắn dị nguyên và thẻ AI cho các dòng (2 câu truy vấn cho cả danh sách, không truy vấn từng món). */
@@ -153,7 +169,8 @@ public class DishService {
         return r -> new Dish(Ids.str(r.id()), r.code(), r.name(), Ids.str(r.categoryId()), r.price(), r.description(),
             images.url(r.imageKey()), r.status(), r.ingredients(), allergens.getOrDefault(r.id(), List.of()),
             r.spicyLevel(), tags.getOrDefault(r.id(), List.of()), r.aiEnabled(), r.usedInOrders(),
-            Times.iso(r.createdAt()), Times.iso(r.updatedAt()), Times.iso(r.statusUpdatedAt()));
+            Times.iso(r.createdAt()), Times.iso(r.updatedAt()), Times.iso(r.statusUpdatedAt()),
+            r.groupId() == null ? null : Ids.str(r.groupId()), r.variantLabel());
     }
 
     private static String notFound() {
@@ -168,12 +185,12 @@ public class DishService {
         String code = nextCode();
         String imageKey = images.apply(IMAGE_FOLDER, in.image(), null, "image");
         jdbc.sql("""
-                INSERT INTO dishes (code, name, category_id, price, description, image_url, status, ingredients_text,
-                                    spicy_level, ai_enabled)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO dishes (code, name, category_id, group_id, variant_label, price, description, image_url, status,
+                                    ingredients_text, spicy_level, ai_enabled)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)
-            .params(code, c.name(), c.categoryId(), c.price(), emptyToNull(c.description()), imageKey, c.status(),
-                emptyToNull(c.ingredients()), c.spicyLevel(), "selling".equals(c.status()))
+            .params(code, c.name(), c.categoryId(), c.groupId(), c.variantLabel(), c.price(), emptyToNull(c.description()),
+                imageKey, c.status(), emptyToNull(c.ingredients()), c.spicyLevel(), "selling".equals(c.status()))
             .update();
         long id = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
         saveAllergens(id, c.allergenIds());
@@ -189,12 +206,12 @@ public class DishService {
         String imageKey = images.apply(IMAGE_FOLDER, in.image(), current.imageKey(), "image");
         // status_updated_at và tắt AI khi ngừng bán do trigger trg_dish_status_time lo.
         jdbc.sql("""
-                UPDATE dishes SET name = ?, category_id = ?, price = ?, description = ?, image_url = ?, status = ?,
-                                  ingredients_text = ?, spicy_level = ?
+                UPDATE dishes SET name = ?, category_id = ?, group_id = ?, variant_label = ?, price = ?, description = ?,
+                                  image_url = ?, status = ?, ingredients_text = ?, spicy_level = ?
                 WHERE id = ?
                 """)
-            .params(c.name(), c.categoryId(), c.price(), emptyToNull(c.description()), imageKey, c.status(),
-                emptyToNull(c.ingredients()), c.spicyLevel(), id)
+            .params(c.name(), c.categoryId(), c.groupId(), c.variantLabel(), c.price(), emptyToNull(c.description()),
+                imageKey, c.status(), emptyToNull(c.ingredients()), c.spicyLevel(), id)
             .update();
         saveAllergens(id, c.allergenIds());
         String priceNote = current.price() != c.price()
@@ -261,8 +278,18 @@ public class DishService {
                 .optional();
             dup.ifPresent(d -> v.add("name", "Đã có món \"" + d[1] + "\" (" + d[0] + ") trong danh mục này"));
         }
+        Long groupId = Ids.parseOrNull(in.groupId());
+        if (!Vi.blank(in.groupId()) && groupId == null) v.add("groupId", "Nhóm món không tồn tại");
+        if (groupId != null) {
+            Long groupCat = jdbc.sql("SELECT category_id FROM dish_groups WHERE id = ?").param(groupId).query(Long.class).optional().orElse(null);
+            if (groupCat == null) v.add("groupId", "Nhóm món không tồn tại");
+            else if (cat != null && groupCat != cat.id()) v.add("groupId", "Nhóm món phải cùng danh mục với món");
+        }
+        String variant = Vi.collapse(in.variantLabel());
+        if (variant.length() > VARIANT_MAX) v.add("variantLabel", "Tên loại tối đa " + VARIANT_MAX + " ký tự");
         v.throwIfAny();
-        return new Clean(name, cat.id(), price, description, status, ingredients, allergenIds, spicy);
+        return new Clean(name, cat.id(), price, description, status, ingredients, allergenIds, spicy, groupId,
+            groupId == null || variant.isEmpty() ? null : variant);
     }
 
     private void saveAllergens(long dishId, List<Long> allergenIds) {
@@ -317,12 +344,12 @@ public class DishService {
 
     public List<Category> categories() {
         return jdbc.sql("""
-                SELECT c.id, c.name, c.is_active, c.sort_order,
+                SELECT c.id, c.name, c.is_active, c.sort_order, c.image_url,
                        (SELECT COUNT(*) FROM dishes d WHERE d.category_id = c.id) AS dish_count
                 FROM dish_categories c ORDER BY c.sort_order, c.id
                 """)
             .query((rs, n) -> new Category(Ids.str(rs.getLong("id")), rs.getString("name"), rs.getBoolean("is_active"),
-                rs.getInt("sort_order"), rs.getInt("dish_count")))
+                rs.getInt("sort_order"), rs.getInt("dish_count"), images.url(rs.getString("image_url"))))
             .list();
     }
 
@@ -339,16 +366,19 @@ public class DishService {
             .params(name, id == null ? 0 : id).query(Long.class).single() > 0;
         if (dup) throw new ValidationException("name", "Tên danh mục đã tồn tại");
 
+        String imageKey = in.image() == null ? (current == null ? null : current.imageKey())
+            : images.apply(CATEGORY_IMAGE_FOLDER, in.image(), current == null ? null : current.imageKey(), "image");
         if (current == null) {
             jdbc.sql("""
-                    INSERT INTO dish_categories (name, is_active, sort_order)
-                    SELECT ?, ?, COALESCE(MAX(sort_order), 0) + 1 FROM dish_categories
-                    """).params(name, active).update();
+                    INSERT INTO dish_categories (name, is_active, sort_order, image_url)
+                    SELECT ?, ?, COALESCE(MAX(sort_order), 0) + 1, ? FROM dish_categories
+                    """).params(name, active, imageKey).update();
             id = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
             audit.log("dish", "Thêm danh mục", name, "dish_categories", id);
         } else {
-            jdbc.sql("UPDATE dish_categories SET name = ?, is_active = ? WHERE id = ?").params(name, active, id).update();
+            jdbc.sql("UPDATE dish_categories SET name = ?, is_active = ?, image_url = ? WHERE id = ?").params(name, active, imageKey, id).update();
             String note = current.active() == active ? "" : (active ? " (bật)" : " (tắt)");
+            if (!java.util.Objects.equals(current.imageKey(), imageKey)) note += imageKey == null ? " (bỏ ảnh)" : " (đổi ảnh)";
             String rename = current.name().equals(name) ? "" : current.name() + " → ";
             audit.log("dish", "Cập nhật danh mục", rename + name + note, "dish_categories", id);
         }
@@ -357,9 +387,84 @@ public class DishService {
     }
 
     private Cat category(long id) {
-        return jdbc.sql("SELECT id, name, is_active FROM dish_categories WHERE id = ?").param(id)
-            .query((rs, n) -> new Cat(rs.getLong("id"), rs.getString("name"), rs.getBoolean("is_active")))
+        return jdbc.sql("SELECT id, name, is_active, image_url FROM dish_categories WHERE id = ?").param(id)
+            .query((rs, n) -> new Cat(rs.getLong("id"), rs.getString("name"), rs.getBoolean("is_active"), rs.getString("image_url")))
             .optional().orElse(null);
+    }
+
+    /* ------------------------------------------------------------------ Nhóm món */
+
+    public List<DishGroup> groups() {
+        return jdbc.sql("""
+                SELECT g.id, g.name, g.category_id, g.description, g.image_url, g.sort_order,
+                       (SELECT COUNT(*) FROM dishes d WHERE d.group_id = g.id) AS dish_count
+                FROM dish_groups g ORDER BY g.sort_order, g.id
+                """)
+            .query((rs, n) -> new DishGroup(Ids.str(rs.getLong("id")), rs.getString("name"), Ids.str(rs.getLong("category_id")),
+                Objects.toString(rs.getString("description"), ""), images.url(rs.getString("image_url")), rs.getInt("sort_order"),
+                rs.getInt("dish_count")))
+            .list();
+    }
+
+    private DishGroup group(long id) {
+        return groups().stream().filter(g -> g.id().equals(Ids.str(id))).findFirst()
+            .orElseThrow(() -> BusinessException.notFound("Nhóm món không tồn tại hoặc đã bị xóa"));
+    }
+
+    @Transactional
+    public DishGroup saveGroup(String idText, DishGroupInput in) {
+        Long id = idText == null ? null : Ids.parse(idText, "Nhóm món không tồn tại hoặc đã bị xóa");
+        String currentImage = null;
+        if (id != null) {
+            group(id);
+            currentImage = jdbc.sql("SELECT image_url FROM dish_groups WHERE id = ?").param(id).query(String.class).optional().orElse(null);
+        }
+        var v = new ValidationException.Collector();
+        String name = Vi.collapse(in.name());
+        if (name.isEmpty()) v.add("name", "Vui lòng nhập tên nhóm");
+        else if (name.length() > GROUP_NAME_MAX) v.add("name", "Tên nhóm tối đa " + GROUP_NAME_MAX + " ký tự");
+        Long categoryId = Ids.parseOrNull(in.categoryId());
+        Cat cat = categoryId == null ? null : category(categoryId);
+        if (cat == null) v.add("categoryId", "Vui lòng chọn danh mục");
+        String description = Vi.trim(in.description());
+        if (description.length() > TEXT_MAX) v.add("description", "Mô tả tối đa " + TEXT_MAX + " ký tự");
+        if (!v.has("name") && cat != null) {
+            boolean dup = jdbc.sql("SELECT COUNT(*) FROM dish_groups WHERE category_id = ? AND name = ? AND id <> ?")
+                .params(cat.id(), name, id == null ? 0 : id).query(Integer.class).single() > 0;
+            if (dup) v.add("name", "Nhóm \"" + name + "\" đã có trong danh mục này");
+        }
+        if (id != null && cat != null) {
+            boolean other = jdbc.sql("SELECT COUNT(*) FROM dishes WHERE group_id = ? AND category_id <> ?").params(id, cat.id())
+                .query(Integer.class).single() > 0;
+            if (other) v.add("categoryId", "Nhóm đang có món thuộc danh mục khác, hãy chuyển món trước");
+        }
+        v.throwIfAny();
+        String imageKey = in.image() == null ? currentImage : images.apply(GROUP_IMAGE_FOLDER, in.image(), currentImage, "image");
+        if (id == null) {
+            jdbc.sql("""
+                    INSERT INTO dish_groups (name, category_id, description, image_url, sort_order)
+                    SELECT ?, ?, ?, ?, COALESCE(MAX(sort_order), 0) + 1 FROM dish_groups
+                    """).params(name, cat.id(), emptyToNull(description), imageKey).update();
+            id = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
+            audit.log("dish", "Thêm nhóm món", name, "dish_groups", id);
+        } else {
+            jdbc.sql("UPDATE dish_groups SET name = ?, category_id = ?, description = ?, image_url = ? WHERE id = ?")
+                .params(name, cat.id(), emptyToNull(description), imageKey, id).update();
+            audit.log("dish", "Cập nhật nhóm món", name, "dish_groups", id);
+        }
+        return group(id);
+    }
+
+    /** Xóa nhóm: các món trong nhóm trở thành món đứng riêng (không xóa món). */
+    @Transactional
+    public void deleteGroup(String idText) {
+        long id = Ids.parse(idText, "Nhóm món không tồn tại hoặc đã bị xóa");
+        DishGroup g = group(id);
+        String imageKey = jdbc.sql("SELECT image_url FROM dish_groups WHERE id = ?").param(id).query(String.class).optional().orElse(null);
+        jdbc.sql("UPDATE dishes SET group_id = NULL, variant_label = NULL WHERE group_id = ?").param(id).update();
+        jdbc.sql("DELETE FROM dish_groups WHERE id = ?").param(id).update();
+        if (imageKey != null) images.deleteAfterCommit(imageKey);
+        audit.log("dish", "Xóa nhóm món", g.name(), "dish_groups", id);
     }
 
     public List<String> allergens() {

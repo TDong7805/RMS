@@ -8,5 +8,5 @@ Chạy (cần Node và gói `docx`):
 ```bash
 cd tools/dac-ta
 npm install docx@9
-node build-tn.js ../../DacTa_UC_DatMon_Bep_ThuNgan.docx
+node build-tn.js ../../docs/dac-ta/DacTa_UC_DatMon_Bep_ThuNgan.docx
 ```

@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/common/PageParts';
 import { Segmented } from '@/components/common/Segmented';
 import { Skeleton } from '@/components/common/Skeleton';
 import { DESCRIPTION_MAX, createDish, updateDish } from '@/api/dishes';
-import { qk, useAllergens, useCategories, useDish } from '@/features/management/queries';
+import { qk, useAllergens, useCategories, useDish, useDishGroups } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { formatCurrency } from '@/lib/format';
 import { SPICY_LEVELS, formatDateTime } from '@/lib/labels';
@@ -26,6 +26,8 @@ const EMPTY: DishInput = {
   ingredients: '',
   allergens: [],
   spicyLevel: 0,
+  groupId: null,
+  variantLabel: '',
 };
 
 export function DishFormPage() {
@@ -35,6 +37,7 @@ export function DishFormPage() {
   const dishQuery = useDish(id);
   const { data: categories = [] } = useCategories();
   const { data: allergenOptions = [] } = useAllergens();
+  const { data: groups = [] } = useDishGroups();
 
   const [form, setForm] = useState<DishInput>(EMPTY);
   const [priceText, setPriceText] = useState('');
@@ -66,6 +69,8 @@ export function DishFormPage() {
         ingredients: d.ingredients,
         allergens: [...d.allergens],
         spicyLevel: d.spicyLevel,
+        groupId: d.groupId,
+        variantLabel: d.variantLabel ?? '',
       });
       setPriceText(String(d.price));
       setLoaded(true);
@@ -73,7 +78,7 @@ export function DishFormPage() {
   }, [dishQuery.data, isEdit, loaded, id]);
 
   const mutation = useApiMutation((input: DishInput) => (id ? updateDish(id, input) : createDish(input)), {
-    invalidate: [qk.dishes, qk.categories, qk.chatbot],
+    invalidate: [qk.dishes, qk.categories, qk.chatbot, qk.dishGroups],
     success: (d) => (isEdit ? `Đã cập nhật món ${d.name}` : `Đã thêm món ${d.name} (${d.code})`),
     onFieldErrors: setErrors,
     onSuccess: () => navigate('/quan-ly/mon-an'),
@@ -138,7 +143,7 @@ export function DishFormPage() {
                       id="d-cat"
                       value={form.categoryId}
                       invalid={Boolean(errors.categoryId)}
-                      onChange={(e) => set('categoryId', e.target.value)}
+                      onChange={(e) => { set('categoryId', e.target.value); set('groupId', null); }}
                       placeholder="— Chọn danh mục —"
                       options={categories.map((c) => ({ value: c.id, label: c.active ? c.name : `${c.name} (ngừng hoạt động)`, disabled: !c.active }))}
                     />
@@ -152,6 +157,19 @@ export function DishFormPage() {
                       onChange={(e) => { setPriceText(e.target.value); setErrors((p) => ({ ...p, price: '' })); }}
                       placeholder="35000"
                     />
+                  </Field>
+                  <Field label="Nhóm hiển thị" htmlFor="d-group" error={errors.groupId} hint="Gộp nhiều món cùng loại thành một thẻ trên trang gọi món (vd. Nước ngọt có ga)">
+                    <SelectInput
+                      id="d-group"
+                      value={form.groupId ?? ''}
+                      invalid={Boolean(errors.groupId)}
+                      onChange={(e) => set('groupId', e.target.value || null)}
+                      placeholder="— Món đứng riêng —"
+                      options={groups.filter((g) => g.categoryId === form.categoryId).map((g) => ({ value: g.id, label: g.name }))}
+                    />
+                  </Field>
+                  <Field label="Tên loại trong nhóm" htmlFor="d-variant" error={errors.variantLabel} hint={form.groupId ? 'Hiện ở khung chọn loại, vd. "Coca-Cola", "Ly 150ml"' : 'Chỉ dùng khi món thuộc một nhóm'}>
+                    <TextInput id="d-variant" value={form.variantLabel ?? ''} maxLength={40} disabled={!form.groupId} invalid={Boolean(errors.variantLabel)} onChange={(e) => set('variantLabel', e.target.value)} placeholder="Bỏ trống = dùng tên món" />
                   </Field>
                   <Field label="Mô tả" htmlFor="d-desc" error={errors.description} hint={`${form.description.length}/${DESCRIPTION_MAX} ký tự`} className="sm:col-span-2">
                     <TextArea id="d-desc" rows={3} maxLength={DESCRIPTION_MAX} value={form.description} invalid={Boolean(errors.description)} onChange={(e) => set('description', e.target.value)} placeholder="Hương vị, cách chế biến, khẩu phần…" />

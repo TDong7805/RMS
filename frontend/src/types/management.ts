@@ -121,6 +121,8 @@ export interface DishCategory {
   name: string;
   active: boolean;
   sortOrder: number;
+  /** Ảnh minh họa (món tách nền) cho dải danh mục ở trang khách gọi món; null = chưa có. */
+  image: string | null;
 }
 
 export interface Dish {
@@ -144,6 +146,10 @@ export interface Dish {
   aiEnabled: boolean;
   /** Món đã phát sinh trong đơn hàng/hóa đơn → không được xóa cứng. */
   usedInOrders: boolean;
+  /** Nhóm hiển thị trên trang gọi món (vd. Nước ngọt có ga); null = món đứng riêng. */
+  groupId: string | null;
+  /** Tên loại ở khung chọn của nhóm (vd. "Coca-Cola"); null = dùng tên món. */
+  variantLabel: string | null;
   createdAt: string;
   updatedAt: string;
   statusUpdatedAt: string;
@@ -166,6 +172,27 @@ export interface DishInput {
   ingredients: string;
   allergens: string[];
   spicyLevel: number;
+  groupId?: string | null;
+  variantLabel?: string | null;
+}
+
+/** Nhóm món: gộp nhiều món cùng loại thành một thẻ trên trang gọi món (mỗi loại vẫn là món riêng). */
+export interface DishGroup {
+  id: string;
+  name: string;
+  categoryId: string;
+  description: string;
+  image: string | null;
+  sortOrder: number;
+  dishCount: number;
+}
+
+export interface DishGroupInput {
+  name: string;
+  categoryId: string;
+  description: string;
+  /** null = giữ ảnh hiện tại, "" = bỏ ảnh, data URL = ảnh mới. */
+  image: string | null;
 }
 
 /* ============================== Tài khoản ============================== */
@@ -296,19 +323,45 @@ export interface ChatbotConfig {
   updatedAt: string;
 }
 
+/** Một món trong set: số lượng; allowVariant = khách đổi được sang loại khác cùng nhóm (vd. nước ngọt). */
+export interface ComboItem {
+  dishId: string;
+  qty: number;
+  allowVariant: boolean;
+}
+
+/** Set menu (trước là combo gợi ý của Chatbot): bán trên thực đơn khi onMenu; Chatbot cũng dùng để gợi ý. */
 export interface Combo {
   id: string;
   name: string;
   dishIds: string[];
   note: string;
   active: boolean;
+  description: string;
+  /** Giá set; null = chỉ là gợi ý của Chatbot. */
+  price: number | null;
+  /** Tổng giá gọi lẻ hiện tại. */
+  originalPrice: number;
+  image: string | null;
+  onMenu: boolean;
+  sellFrom: string | null;
+  sellTo: string | null;
+  sortOrder: number;
+  items: ComboItem[];
 }
 
 export interface ComboInput {
   name: string;
-  dishIds: string[];
+  dishIds?: string[];
   note: string;
   active: boolean;
+  description: string;
+  price: number | null;
+  image: string | null;
+  onMenu: boolean;
+  sellFrom: string | null;
+  sellTo: string | null;
+  items: ComboItem[];
 }
 
 export interface FaqCategory {

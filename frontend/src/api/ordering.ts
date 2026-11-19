@@ -21,7 +21,6 @@ import type {
   RequestList,
   ServiceRequest,
   SoldOutDish,
-  StaffOption,
 } from '@/types';
 
 /* ---------------------------------------------------------------- Trang đặt món (công khai, nhận diện bàn bằng mã QR) */
@@ -43,7 +42,10 @@ export async function getQrOrder(token: string): Promise<OrderView | null> {
 }
 
 /** UC-KH-03: gửi giỏ món (tất cả hoặc không gì). */
-export function sendQrOrder(token: string, items: { dishId: string; qty: number; note: string }[]): Promise<OrderView> {
+/** Dòng gửi: món lẻ (dishId) hoặc set (setId + parts — món con đã chọn loại / ghi chú). */
+export type SendLine = { dishId?: string; qty: number; note?: string; setId?: string; parts?: { dishId: string; qty: number; note: string }[] };
+
+export function sendQrOrder(token: string, items: SendLine[]): Promise<OrderView> {
   return api.post<OrderView>(`${qr(token)}/orders`, { items });
 }
 
@@ -85,6 +87,11 @@ export function completeItems(ids: string[]): Promise<KitchenQueue> {
   return api.post<KitchenQueue>('/api/bep/items/complete', { ids });
 }
 
+/** Nhân viên phục vụ đã lấy món ở quầy bếp: Đã xong → Đã mang ra. */
+export function kitchenServeItems(ids: string[]): Promise<KitchenQueue> {
+  return api.post<KitchenQueue>('/api/bep/items/serve', { ids });
+}
+
 export function undoItem(id: string): Promise<KitchenQueue> {
   return api.post<KitchenQueue>(`/api/bep/items/${encodeURIComponent(id)}/undo`);
 }
@@ -120,11 +127,6 @@ export function getCashierOrder(id: string): Promise<CashierOrderDetail> {
   return api.get<CashierOrderDetail>(tn(`orders/${enc(id)}`));
 }
 
-/** UC-TN-03: món Đã xong → Đã mang ra. */
-export function serveItems(ids: string[]): Promise<CashierOrderDetail> {
-  return api.post<CashierOrderDetail>(tn('items/serve'), { ids });
-}
-
 /** UC-TN-02: tra cứu đơn (tối đa 31 ngày). */
 export function getCashierOrders(params: { keyword?: string; status?: OrderListStatus; from?: string; to?: string }): Promise<OrderList> {
   return api.get<OrderList>(tn('orders'), params);
@@ -142,6 +144,30 @@ export function cashierCancelOrder(orderId: string, reason: CashierCancelReason,
 /** UC-TN-05 */
 export function getMoveTargets(): Promise<MoveTarget[]> {
   return api.get<MoveTarget[]>(tn('move-targets'));
+}
+
+/** Sơ đồ bàn: số khách đang ngồi ở bàn (null = xóa). */
+/** Mở bàn: tạo đơn rỗng cho bàn — từ lúc này mã QR của bàn mới gửi được món. */
+export function openTable(tableId: string, guests: number | null, reservationId?: string): Promise<CashierOrderDetail> {
+  return api.post<CashierOrderDetail>(tn(`tables/${enc(tableId)}/open`), { guests, reservationId: reservationId ?? null });
+}
+
+/** Đóng bàn chưa gọi món (khách bỏ về / mở nhầm). */
+export function closeTable(orderId: string): Promise<CashierOrderDetail> {
+  return api.post<CashierOrderDetail>(tn(`orders/${enc(orderId)}/close`));
+}
+
+/** Cấu hình hệ thống → Gọi món tại bàn: tự đóng bàn mở quá N phút chưa gọi món (0 = tắt). */
+export function getOrderingSettings(): Promise<{ openTableTimeoutMinutes: number }> {
+  return api.get<{ openTableTimeoutMinutes: number }>('/api/settings/ordering');
+}
+
+export function saveOrderingSettings(openTableTimeoutMinutes: number): Promise<{ openTableTimeoutMinutes: number }> {
+  return api.put<{ openTableTimeoutMinutes: number }>('/api/settings/ordering', { openTableTimeoutMinutes });
+}
+
+export function setOrderGuests(orderId: string, guests: number | null): Promise<CashierOrderDetail> {
+  return api.post<CashierOrderDetail>(tn(`orders/${enc(orderId)}/guests`), { guests });
 }
 
 export function moveOrder(orderId: string, tableId: string): Promise<CashierOrderDetail> {
@@ -185,12 +211,9 @@ export function getRequests(status: 'waiting' | 'done' | 'cancelled'): Promise<R
   return api.get<RequestList>(tn('requests'), { status });
 }
 
-export function getStaffOptions(): Promise<StaffOption[]> {
-  return api.get<StaffOption[]>(tn('staff'));
-}
-
-export function forwardRequest(id: string, staffId: string): Promise<ServiceRequest> {
-  return api.post<ServiceRequest>(tn(`requests/${enc(id)}/forward`), { staffId });
+/** Thu ngân đã báo nhân viên phục vụ (bộ đàm) — không chọn tên vì nhân viên phục vụ không có tài khoản. */
+export function forwardRequest(id: string): Promise<ServiceRequest> {
+  return api.post<ServiceRequest>(tn(`requests/${enc(id)}/forward`), {});
 }
 
 export function completeRequest(id: string): Promise<ServiceRequest> {

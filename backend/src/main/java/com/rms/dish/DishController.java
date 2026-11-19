@@ -88,6 +88,27 @@ public class DishController {
         return service.saveCategory(id, in);
     }
 
+    @GetMapping("/api/dish-groups")
+    public List<DishService.DishGroup> groups() {
+        return service.groups();
+    }
+
+    @PostMapping("/api/dish-groups")
+    public DishService.DishGroup createGroup(@RequestBody DishService.DishGroupInput in) {
+        return service.saveGroup(null, in);
+    }
+
+    @PutMapping("/api/dish-groups/{id}")
+    public DishService.DishGroup updateGroup(@PathVariable String id, @RequestBody DishService.DishGroupInput in) {
+        return service.saveGroup(id, in);
+    }
+
+    @DeleteMapping("/api/dish-groups/{id}")
+    public ResponseEntity<Void> deleteGroup(@PathVariable String id) {
+        service.deleteGroup(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/api/allergens")
     public List<String> allergens() {
         return service.allergens();

@@ -1,44 +1,64 @@
-# RMS — Hệ thống quản lý và vận hành nhà hàng
+# RMS — Hệ thống quản lý nhà hàng Royal Beef
 
-Đề tài nhóm 2. 5 actor: Quản lý nhà hàng (gộp cả Quản trị viên), Thu ngân, Nhân viên bếp, Quản lý kho, Khách hàng. Đặc tả Use Case: `CodeUC_QLNH.docx`.
+Đề tài nhóm 2. Nhà hàng mẫu: **Royal Beef** (chuyên bò, 38 món đang bán).
+Repo này gồm phần **Quản lý nhà hàng, Quản lý kho, Thu ngân, Bếp** và **trang gọi món qua QR** cho khách ngồi tại bàn.
+Website khách (giới thiệu, đặt bàn online) nằm ở repo riêng.
+
+Actor: Quản lý nhà hàng (gộp Quản trị viên), Thu ngân, Nhân viên bếp, Quản lý kho, Khách hàng.
+
+## Tài liệu
+
+| Tài liệu | Nội dung |
+|---|---|
+| [docs/dac-ta/](docs/dac-ta/) | Đặc tả Use Case (Word): `CodeUC_QLNH.docx` (Quản lý nhà hàng), `DacTa_UC_QuanLyKho.docx`, `DacTa_UC_DatMon_Bep_ThuNgan.docx` |
+| [docs/tien-do/](docs/tien-do/) | Tiến độ từng phần: [Kho](docs/tien-do/TIEN_DO_KHO.md), [Thu ngân – Bếp – Đặt món](docs/tien-do/TIEN_DO_THU_NGAN_BEP.md) (kèm việc để sau, quyết định chờ họp) |
+| [docs/kiem-thu/KICH_BAN_TEST.md](docs/kiem-thu/KICH_BAN_TEST.md) | Kịch bản thử bằng tay theo từng vai |
+| [tests/](tests/README.md) | Kiểm thử API tự động (`node tests/run-all.mjs`) |
+| [docs/du-lieu/DU_LIEU_GIA.md](docs/du-lieu/DU_LIEU_GIA.md) | Chỗ nào còn dữ liệu giả / dữ liệu mẫu và cách thay |
+| [docs/trien-khai/TRIEN_KHAI.md](docs/trien-khai/TRIEN_KHAI.md) | Đóng gói `rms.jar` và đưa lên máy chủ thật |
+| [backend/README.md](backend/README.md), [backend/database/README.md](backend/database/README.md) | Cấu hình backend, CSDL, migration, dữ liệu mẫu |
+| [tools/dac-ta/](tools/dac-ta/README.md) | Script sinh file Word đặc tả Đặt món – Bếp – Thu ngân |
 
 ## Cấu trúc thư mục
 
 ```
-RMS-main/
-├── frontend/          Giao diện React + Vite + TypeScript (trang Quản lý nhà hàng)
-├── backend/           Spring Boot API; CSDL MySQL 8.0 dùng chung cho mọi actor (Flyway tự tạo, xem backend/database)
-├── TRIEN_KHAI.md      Hướng dẫn đóng gói và đưa lên máy chủ thật
-├── DU_LIEU_GIA.md     Những chỗ còn dữ liệu giả / dữ liệu mẫu và cách thay
-└── CodeUC_QLNH.docx   Đặc tả Use Case
+RMS/
+├── frontend/   React + Vite + TypeScript (mọi trang nhân viên + trang gọi món QR)
+├── backend/    Spring Boot 3.5 API, MySQL 8.0 (Flyway tự tạo bảng và dữ liệu mẫu)
+├── tests/      Kiểm thử API tự động
+├── docs/       Đặc tả, tiến độ, kịch bản test, triển khai
+├── tools/      Script sinh tài liệu
+└── dev.ps1     Chạy cả backend + frontend một lệnh
 ```
 
 ## Chạy dự án
 
 Yêu cầu: Node.js 18+, JDK 17+, Maven 3.9+, MySQL 8.0.16+.
 
-1. **Backend:** làm theo [backend/README.md](backend/README.md) — khai báo mật khẩu MySQL trong `backend/.env.properties`,
-   chạy `mvn spring-boot:run` → cổng 8080. CSDL `rms_db` và dữ liệu mẫu được tạo tự động ở lần chạy đầu.
-2. **Frontend:**
+1. Tạo `backend/.env.properties` khai báo tài khoản MySQL (xem [backend/README.md](backend/README.md)). File này không đưa lên git.
+2. Lần đầu: `cd frontend && npm install`.
+3. Ở thư mục gốc (PowerShell):
 
-   ```bash
-   cd frontend
-   npm install
-   npm run dev      # http://localhost:3000 — request /api được chuyển sang backend
+   ```powershell
+   .\dev.ps1              # backend :8080 (CSDL rms_db) + frontend http://localhost:3000
+   .\dev.ps1 -Test        # chạy trên CSDL thử rms_test, không đụng dữ liệu thật
+   .\dev.ps1 -ResetTest   # xóa sạch rms_test rồi chạy lại với dữ liệu mẫu mới
    ```
 
-3. **Đăng nhập:** tài khoản mẫu `tuan.nguyen` (Quản lý), `linh.tran` (Thu ngân), `hung.pham` (Bếp),
-   `thao.bui` (Kho), mật khẩu chung `Rms@2026`. Không có trang đăng ký — quản lý cấp tài khoản.
+   Hoặc chạy riêng: `cd backend && mvn spring-boot:run`, `cd frontend && npm run dev`.
 
-Các trang Đặt bàn, Khu vực bàn, Món ăn, Ca làm việc, Bài viết, Tài khoản, Nhật ký, Cấu hình hệ thống và Chatbot AI (cấu hình, thực đơn, FAQ) đã dùng dữ liệu thật từ MySQL.
-Sao lưu & phục hồi đã chạy thật. Những chỗ còn dữ liệu giả (Dashboard, Thông báo, lịch sử / thống kê Chatbot) và dữ liệu mẫu mô phỏng actor chưa làm: xem **[DU_LIEU_GIA.md](DU_LIEU_GIA.md)**.
-Tiến độ chi tiết: xem bảng trong [backend/README.md](backend/README.md).
+CSDL và dữ liệu mẫu tự được tạo ở lần chạy đầu.
 
-## Chức năng Quản lý nhà hàng đã có giao diện
+### Tài khoản mẫu
 
-Dashboard thống kê · Thông báo · Quản lý đặt bàn & form đặt bàn · Sơ đồ khu vực bàn · Quản lý món ăn · Quản lý ca làm việc · Quản lý bài viết · Quản lý tài khoản · Quản lý Chatbot AI · Nhật ký hoạt động · Cấu hình hệ thống.
+Mật khẩu chung `Rms@2026`. Không có trang đăng ký — Quản lý cấp tài khoản.
 
-## Triển khai thật
+| Tài khoản | Vai trò | Trang chính |
+|---|---|---|
+| `tuan.nguyen` | Quản lý nhà hàng | `/quan-ly` |
+| `linh.tran` | Thu ngân | `/thu-ngan` |
+| `hung.pham` | Nhân viên bếp | `/bep` |
+| `thao.bui` | Quản lý kho | `/kho` |
 
-Đóng gói thành một file `rms.jar` (gồm cả giao diện), cấu hình bằng biến môi trường, chạy sau HTTPS:
-xem [TRIEN_KHAI.md](TRIEN_KHAI.md).
+Khách gọi món: quét mã QR của bàn (Quản lý → Khu vực bàn → in mã QR), đường dẫn dạng `/goi-mon/<mã QR riêng của bàn>`.
+Thu ngân phải **mở bàn** thì khách mới gửi món được.

@@ -2,21 +2,21 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRightLeft, BellRing, Check, Printer, Receipt, Wallet, XCircle } from 'lucide-react';
-import { AppShell } from '@/components/layout/AppShell';
+import { ArrowLeft, ArrowRightLeft, BellRing, Printer, Receipt, Wallet, XCircle } from 'lucide-react';
+import { CashierShell } from '@/features/ordering/CashierShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { BlockError } from '@/components/common/EmptyState';
 import { DataTable, PageHeader, StatTile, Td, Th } from '@/components/common/PageParts';
 import { Skeleton } from '@/components/common/Skeleton';
-import { CASHIER_STREAM, getCashierOrder, getInvoice, serveItems } from '@/api/ordering';
+import { CASHIER_STREAM, getCashierOrder, getInvoice } from '@/api/ordering';
 import { useLiveEvents } from '@/features/ordering/live';
-import { CancelDialog, CreateInvoiceDialog, MoveTableDialog, PAY_METHOD_LABEL, PaymentDialog, printInvoice } from '@/features/ordering/CashierDialogs';
-import { REQUEST_TYPE_LABEL } from '@/features/ordering/QrService';
+import { CancelDialog, CreateInvoiceDialog, MoveTableDialog, PAY_METHOD_LABEL, PaymentDialog, printInvoice, printProvisional } from '@/features/ordering/CashierDialogs';
+import { REQUEST_TYPE_LABEL } from '@/features/ordering/requestLabels';
 import { formatCurrency } from '@/lib/format';
 import { formatDateTime } from '@/lib/labels';
-import type { CashierOrderDetail, Invoice, OrderItemStatus, OrderView } from '@/types';
+import type { CashierOrderDetail, Invoice, OrderItemStatus } from '@/types';
 import { CASHIER_KEYS } from './FloorPage';
 
 const STATUS: Record<OrderItemStatus, { label: string; variant: BadgeVariant }> = {
@@ -48,14 +48,6 @@ export default function CashierOrderPage() {
     qc.setQueryData(CASHIER_KEYS.order(id), d);
     void qc.invalidateQueries({ queryKey: CASHIER_KEYS.floor });
   };
-  const serve = useMutation({
-    mutationFn: serveItems,
-    onSuccess: (d) => {
-      toast.success('Đã đánh dấu đã mang ra');
-      apply(d);
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Không lưu được'),
-  });
   const openPay = useMutation({
     mutationFn: getInvoice,
     onSuccess: setPaying,
@@ -69,7 +61,7 @@ export default function CashierOrderPage() {
   const canCancelOrder = editable && o.items.every((i) => i.status === 'pending' || i.status === 'cancelled');
 
   return (
-    <AppShell meta={{ label: o ? `Bàn ${o.tableCode}` : 'Chi tiết đơn', parent: 'Sơ đồ bàn' }}>
+    <CashierShell>
       <div className="min-w-0 space-y-4">
         {q.isError ? (
           <BlockError message="Không tìm thấy đơn hàng" onRetry={() => navigate('/thu-ngan')} />
@@ -92,11 +84,6 @@ export default function CashierOrderPage() {
                   {canCancelOrder ? (
                     <Button variant="outline" size="sm" leadingIcon={<XCircle size={15} />} onClick={() => setCancelTarget({ kind: 'order', id: o.id, code: o.code, tableCode: o.tableCode })}>
                       Hủy đơn
-                    </Button>
-                  ) : null}
-                  {o.readyCount ? (
-                    <Button size="sm" variant="outline" leadingIcon={<Check size={15} />} loading={serve.isPending} onClick={() => serve.mutate(o.items.filter((i) => i.status === 'done').map((i) => i.id))}>
-                      Đã mang ra tất cả ({o.readyCount})
                     </Button>
                   ) : null}
                   {editable ? (
@@ -138,7 +125,7 @@ export default function CashierOrderPage() {
                           {r.vatCompany ? ` · VAT: ${r.vatCompany} – ${r.vatTaxCode}` : ''}
                         </p>
                       ) : (
-                        <p className="text-[var(--text-secondary)]">{r.content || '—'}{r.assignedName ? ` · ${r.assignedName} đang xử lý` : ''}</p>
+                        <p className="text-[var(--text-secondary)]">{r.content || '—'}{r.status === 'forwarded' ? ' · đã báo nhân viên' : ''}</p>
                       )}
                     </div>
                     <Button size="sm" variant="ghost" onClick={() => navigate('/thu-ngan/yeu-cau')}>Xem</Button>
@@ -168,6 +155,7 @@ export default function CashierOrderPage() {
                       <Td className="font-mono text-[13px]">{i.batchNo}</Td>
                       <Td>
                         <p className={i.status === 'cancelled' ? 'line-through' : 'font-semibold'}>{i.name}</p>
+                        {i.setName ? <p className="text-[12px] font-medium text-[var(--accent)]">Thuộc {i.setName} · giá đã chia từ giá set</p> : null}
                         {i.note ? <p className="text-[12.5px] text-[var(--text-muted)]">“{i.note}”</p> : null}
                         {i.status === 'cancelled' ? (
                           <p className="text-[12.5px] text-[var(--danger)]">
@@ -181,7 +169,6 @@ export default function CashierOrderPage() {
                       <Td><Badge variant={STATUS[i.status].variant}>{STATUS[i.status].label}</Badge></Td>
                       <Td className="whitespace-nowrap text-[12.5px] text-[var(--text-muted)]">Gọi {formatDateTime(i.createdAt)}{i.completedAt ? <><br />Xong {formatDateTime(i.completedAt)}</> : null}</Td>
                       <Td className="whitespace-nowrap text-right">
-                        {i.status === 'done' ? <Button size="sm" variant="outline" onClick={() => serve.mutate([i.id])}>Đã mang ra</Button> : null}
                         {i.status === 'pending' && editable ? (
                           <Button size="sm" variant="ghost" className="text-[var(--danger)]" onClick={() => setCancelTarget({ kind: 'item', id: i.id, name: i.name })}>Hủy</Button>
                         ) : null}
@@ -219,25 +206,6 @@ export default function CashierOrderPage() {
           </>
         )}
       </div>
-    </AppShell>
+    </CashierShell>
   );
-}
-
-/** In tạm tính (không phải hóa đơn) bằng trình duyệt. */
-function printProvisional(o: OrderView) {
-  const rows = o.items
-    .filter((i) => i.status !== 'cancelled')
-    .map((i) => `<tr><td>${escapeHtml(i.name)}</td><td style="text-align:right">${i.qty}</td><td style="text-align:right">${(i.price * i.qty).toLocaleString('vi-VN')}</td></tr>`)
-    .join('');
-  const w = window.open('', '_blank', 'width=380,height=600');
-  if (!w) return;
-  w.document.write(`<html><head><title>Tạm tính ${o.code}</title><style>body{font-family:sans-serif;font-size:13px;padding:12px}table{width:100%;border-collapse:collapse}td{padding:3px 0}h3{margin:0 0 4px}</style></head>
-<body><h3>TẠM TÍNH</h3><div>Bàn ${escapeHtml(o.tableCode)} · ${escapeHtml(o.code)}</div><div>${new Date().toLocaleString('vi-VN')}</div><hr/>
-<table>${rows}</table><hr/><b>Tạm tính: ${o.subtotal.toLocaleString('vi-VN')}đ</b><p style="font-size:11px">Đây không phải hóa đơn thanh toán.</p>
-<script>window.print()</script></body></html>`);
-  w.document.close();
-}
-
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }

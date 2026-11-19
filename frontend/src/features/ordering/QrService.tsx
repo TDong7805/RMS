@@ -1,16 +1,22 @@
 import { useState } from 'react';
-import { Banknote, BellRing, CheckCircle2, CreditCard, Landmark, MapPin, PartyPopper, ReceiptText } from 'lucide-react';
-import { Q, Sheet, StageArt, vnd } from '@/features/ordering/QrParts';
+import { motion } from 'motion/react';
+import { Bank, CreditCard, Money, Receipt } from '@phosphor-icons/react';
+import { Q, SPRING, Sheet, StageArt, vnd } from '@/features/ordering/QrParts';
 import { Screen, ScreenHeader } from '@/features/ordering/QrScreens';
+
+import { METHOD_LABEL, REQUEST_TYPE_LABEL } from '@/features/ordering/requestLabels';
 import { TransferQrBox } from '@/features/ordering/TransferQrBox';
 import { cn } from '@/lib/cn';
 import type { CustomerRequest, OrderView, QrInvoice } from '@/types';
 
 /* Trang đặt món: Gọi nhân viên (UC-KH-05), Yêu cầu thanh toán + hóa đơn + cảm ơn (UC-KH-06). */
 
-export const REQUEST_TYPE_LABEL: Record<string, string> = { support: 'Hỗ trợ tại bàn', consult: 'Tư vấn món', other: 'Khác', payment: 'Thanh toán' };
-export const METHOD_LABEL: Record<string, string> = { cash: 'Tiền mặt', card: 'Thẻ', transfer: 'Chuyển khoản', ewallet: 'Ví điện tử' };
-const QUICK = ['Thêm chén đũa', 'Thêm nước', 'Dọn bàn', 'Xin thêm khăn giấy'];
+/** Gợi ý nhanh theo từng loại yêu cầu (bấm gợi ý chỉ điền nội dung, loại yêu cầu giữ nguyên). */
+const QUICK: Record<'support' | 'consult' | 'other', string[]> = {
+  support: ['Mở bàn giúp tôi', 'Thêm chén đũa', 'Thêm nước', 'Dọn bàn', 'Xin thêm khăn giấy'],
+  consult: ['Món nào hợp 2 người?', 'Gợi ý món ít cay', 'Gợi ý đồ uống', 'Độ chín nào ngon?'],
+  other: [],
+};
 const SAFE = 'pb-[max(20px,env(safe-area-inset-bottom))]';
 
 /* ---------------------------------------------------------------- Gọi nhân viên */
@@ -30,11 +36,11 @@ export function CallStaffSheet({ open, onClose, waiting, sending, onSend, onCanc
     <Sheet open={open} onClose={onClose} title="Gọi nhân viên">
       {waiting ? (
         <div className={cn('space-y-4 px-5 pt-1', SAFE)}>
-          <div className="flex items-start gap-3 rounded-2xl bg-[var(--qr-primary-soft)] p-4">
-            <BellRing size={20} className="mt-0.5 shrink-0 animate-pulse text-[var(--qr-primary)]" />
+          <div className="flex items-center gap-3 rounded-2xl bg-[var(--qr-primary-soft)] p-3">
+            <StageArt art="ready" compact size={64} className="h-16 w-16 shrink-0" />
             <div>
               <p className="text-[15px] font-semibold">
-                {waiting.status === 'forwarded' && waiting.assignedName ? `Nhân viên ${waiting.assignedName} đang đến` : 'Đã gửi yêu cầu, nhân viên sẽ đến ngay'}
+                {waiting.status === 'forwarded' ? 'Nhân viên đang đến bàn bạn' : 'Đã gửi yêu cầu, nhân viên sẽ đến ngay'}
               </p>
               <p className="mt-0.5 text-[13px] text-[var(--qr-muted)]">{REQUEST_TYPE_LABEL[waiting.type]}{waiting.content ? ` · ${waiting.content}` : ''}</p>
             </div>
@@ -48,14 +54,14 @@ export function CallStaffSheet({ open, onClose, waiting, sending, onSend, onCanc
         <div className={cn('space-y-4 px-5 pt-1', SAFE)}>
           <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Loại yêu cầu">
             {(['support', 'consult', 'other'] as const).map((k) => (
-              <button key={k} type="button" role="radio" aria-checked={type === k} onClick={() => setType(k)} className={cn('rounded-2xl px-2 py-3 text-[13.5px] font-medium', type === k ? 'bg-[var(--qr-primary)] text-white' : 'bg-[var(--qr-surface-2)]')}>
+              <motion.button whileTap={{ scale: 0.94 }} key={k} type="button" role="radio" aria-checked={type === k} onClick={() => { setType(k); if (Object.values(QUICK).flat().includes(content)) setContent(''); }} className={cn('rounded-2xl px-2 py-3 text-[13.5px] font-medium transition-colors', type === k ? 'bg-[var(--qr-primary)] text-white' : 'bg-[var(--qr-surface-2)]')}>
                 {REQUEST_TYPE_LABEL[k]}
-              </button>
+              </motion.button>
             ))}
           </div>
           <div className="flex flex-wrap gap-2">
-            {QUICK.map((q) => (
-              <button key={q} type="button" onClick={() => setContent(q)} className={cn('rounded-xl px-3 py-1.5 text-[13px]', content === q ? 'bg-[var(--qr-primary-soft)] font-semibold text-[var(--qr-primary)]' : 'bg-[var(--qr-surface-2)]')}>{q}</button>
+            {QUICK[type].map((q) => (
+              <button key={q} type="button" onClick={() => setContent(q)} className={cn('rounded-full px-3 py-1.5 text-[13px] transition-colors', content === q ? 'bg-[var(--qr-primary-soft)] font-semibold text-[var(--qr-primary)]' : 'bg-[var(--qr-surface-2)]')}>{q}</button>
             ))}
           </div>
           <div>
@@ -72,9 +78,9 @@ export function CallStaffSheet({ open, onClose, waiting, sending, onSend, onCanc
 /* ---------------------------------------------------------------- Yêu cầu thanh toán (màn "Checkout") */
 
 const METHODS = [
-  { key: 'cash', label: 'Tiền mặt', icon: Banknote },
+  { key: 'cash', label: 'Tiền mặt', icon: Money },
   { key: 'card', label: 'Thẻ', icon: CreditCard },
-  { key: 'transfer', label: 'Chuyển khoản', icon: Landmark },
+  { key: 'transfer', label: 'Chuyển khoản', icon: Bank },
 ] as const;
 
 export function PaymentScreen({ restaurant, table, area, order, waiting, sending, errors, onBack, onSend, onCancel }: {
@@ -98,11 +104,10 @@ export function PaymentScreen({ restaurant, table, area, order, waiting, sending
   const count = items.reduce((s, i) => s + i.qty, 0);
 
   return (
-    <Screen label="Thanh toán">
+    <Screen label="Thanh toán" onClose={onBack}>
       <ScreenHeader title="Thanh toán" onBack={onBack} table={table} />
-      <div className="flex-1 space-y-3 overflow-y-auto px-5 pb-6">
-        <div className="flex items-center gap-3 rounded-2xl bg-[var(--qr-primary)] p-4 text-white">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/20"><MapPin size={20} /></span>
+      <div className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 pb-6">
+        <div className="qr-pattern flex items-center gap-3 rounded-2xl p-4 text-white">
           <div className="min-w-0">
             <p className="text-[11.5px] opacity-85">Đang dùng bữa tại</p>
             <p className="truncate text-[15px] font-semibold">{restaurant} · Bàn {table}</p>
@@ -112,7 +117,7 @@ export function PaymentScreen({ restaurant, table, area, order, waiting, sending
 
         {waiting ? (
           <div className="rounded-2xl bg-[var(--qr-success-soft)] p-4">
-            <p className="flex items-center gap-2 text-[15px] font-semibold text-[var(--qr-success)]"><CheckCircle2 size={18} />Đã gửi yêu cầu thanh toán</p>
+            <p className="text-[15px] font-semibold text-[var(--qr-success)]">Đã gửi yêu cầu thanh toán</p>
             <p className="mt-1 text-[13.5px] text-[var(--qr-muted)]">Nhân viên sẽ mang hóa đơn đến. Hình thức: {METHOD_LABEL[waiting.paymentMethod ?? 'cash']}.</p>
           </div>
         ) : null}
@@ -143,9 +148,9 @@ export function PaymentScreen({ restaurant, table, area, order, waiting, sending
               <p className="mb-2.5 text-[15px] font-semibold">Hình thức thanh toán</p>
               <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Hình thức thanh toán">
                 {METHODS.map(({ key, label, icon: Icon }) => (
-                  <button key={key} type="button" role="radio" aria-checked={method === key} onClick={() => setMethod(key)} className={cn('flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-[13px] font-medium', method === key ? 'border-[var(--qr-primary)] bg-[var(--qr-primary-soft)] text-[var(--qr-primary)]' : 'border-[var(--qr-border)]')}>
-                    <Icon size={22} />{label}
-                  </button>
+                  <motion.button whileTap={{ scale: 0.94 }} key={key} type="button" role="radio" aria-checked={method === key} onClick={() => setMethod(key)} className={cn('flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-[13px] font-medium transition-colors', method === key ? 'border-[var(--qr-primary)] bg-[var(--qr-primary-soft)] text-[var(--qr-primary)]' : 'border-[var(--qr-border)]')}>
+                    <motion.span animate={{ scale: method === key ? [1, 1.25, 1] : 1 }} transition={{ duration: 0.3 }}><Icon size={26} weight="duotone" /></motion.span>{label}
+                  </motion.button>
                 ))}
               </div>
               {errors.method ? <p className="mt-1 text-[12.5px] text-[var(--qr-danger)]">{errors.method}</p> : null}
@@ -197,9 +202,9 @@ export function InvoiceScreen({ invoice, table, preferTransfer, onBack }: { invo
   const [showQr, setShowQr] = useState(preferTransfer);
   const count = invoice.lines.reduce((s, l) => s + l.qty, 0);
   return (
-    <Screen label={`Hóa đơn ${invoice.code}`}>
+    <Screen label={`Hóa đơn ${invoice.code}`} onClose={onBack}>
       <ScreenHeader title="Hóa đơn" onBack={onBack} table={table} />
-      <div className="flex-1 space-y-3 overflow-y-auto px-5 pb-6">
+      <div className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 pb-6">
         <div className="text-center">
           <p className="text-[13px] text-[var(--qr-muted)]">Mã hóa đơn</p>
           <p className="text-[26px] font-bold tracking-wide text-[var(--qr-primary)]">{invoice.code}</p>
@@ -208,7 +213,7 @@ export function InvoiceScreen({ invoice, table, preferTransfer, onBack }: { invo
           <TransferQrBox transfer={invoice.transfer} />
         ) : (
           <div className="rounded-2xl bg-[var(--qr-surface-2)] p-4 text-center">
-            <ReceiptText size={28} className="mx-auto text-[var(--qr-primary)]" />
+            <Receipt size={32} weight="duotone" className="mx-auto text-[var(--qr-primary)]" />
             <p className="mt-2 text-[14px] font-medium">Đưa mã hóa đơn cho nhân viên để thanh toán</p>
             {invoice.transfer ? <button type="button" onClick={() => setShowQr(true)} className="mt-2 text-[13.5px] font-semibold text-[var(--qr-primary)]">Hiện mã QR chuyển khoản</button> : null}
           </div>
@@ -217,7 +222,13 @@ export function InvoiceScreen({ invoice, table, preferTransfer, onBack }: { invo
           <p className="mb-2 text-[15px] font-semibold">Món</p>
           <ul className="space-y-2">
             {invoice.lines.map((l, i) => (
-              <li key={i} className="flex justify-between gap-3 text-[14px]"><span>{l.name} <span className="text-[var(--qr-muted)]">×{l.qty}</span></span><span className="font-medium">{vnd(l.amount)}</span></li>
+              <li key={i} className="flex justify-between gap-3 text-[14px]">
+                <span>
+                  {l.name} <span className="text-[var(--qr-muted)]">×{l.qty}</span>
+                  {l.detail ? <span className="block text-[12px] leading-snug text-[var(--qr-muted)]">{l.detail}</span> : null}
+                </span>
+                <span className="font-medium">{vnd(l.amount)}</span>
+              </li>
             ))}
           </ul>
         </div>
@@ -239,12 +250,11 @@ export function InvoiceScreen({ invoice, table, preferTransfer, onBack }: { invo
 export function ThanksScreen({ code, total, onClose }: { code: string; total: number; onClose: () => void }) {
   return (
     <Screen label="Cảm ơn quý khách">
-      <StageArt stage="served" className="h-[48%] w-full rounded-b-[32px]" />
-      <div className="flex flex-1 flex-col px-5 pt-6 text-center">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[var(--qr-primary-soft)] text-[var(--qr-primary)]"><PartyPopper size={28} /></span>
-        <h1 className="mt-3 text-[23px] font-semibold">Cảm ơn quý khách!</h1>
-        <p className="mt-1 text-[14px] text-[var(--qr-muted)]">Hóa đơn <b className="text-[var(--qr-text)]">{code}</b> ({vnd(total)}) đã được thanh toán.</p>
-        <p className="mt-1 text-[13.5px] text-[var(--qr-muted)]">Hẹn gặp lại quý khách!</p>
+      <StageArt art="served" size={200} className="mt-[max(16px,env(safe-area-inset-top))] h-[260px] w-full shrink-0" />
+      <div className="flex flex-1 flex-col px-5 pt-2 text-center">
+        <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SPRING, delay: 0.15 }} className="text-[24px] font-bold">Cảm ơn quý khách!</motion.h1>
+        <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SPRING, delay: 0.22 }} className="mt-1 text-[14px] text-[var(--qr-muted)]">Hóa đơn <b className="text-[var(--qr-text)]">{code}</b> ({vnd(total)}) đã được thanh toán.</motion.p>
+        <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SPRING, delay: 0.29 }} className="mt-1 text-[13.5px] text-[var(--qr-muted)]">Hẹn gặp lại quý khách!</motion.p>
         <div className="mt-auto pb-[max(20px,env(safe-area-inset-bottom))] pt-5">
           <button type="button" onClick={onClose} className={cn(Q.btn, 'w-full')}>Xem thực đơn</button>
         </div>

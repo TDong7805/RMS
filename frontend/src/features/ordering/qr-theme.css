@@ -1,21 +1,25 @@
 /*
- * Bộ màu + phông riêng của trang đặt món cho khách (QR) — theo thiết kế Figma (đỏ đậm, nền trắng / xám nhạt, bản tối).
+ * Bộ màu + phông riêng của trang đặt món cho khách (QR) — theo thiết kế Figma (đỏ đậm, bản sáng / tối), từ 17/11/2026
+ * chỉnh **ấm hơn cho khớp ảnh món** (ảnh chụp bàn gỗ óc chó, ánh vàng): đỏ rượu vang, nền kem, bản tối nâu than;
+ * tiêu đề dùng chữ có chân Playfair Display (--qr-display), nội dung vẫn Be Vietnam Pro.
  * Chỉ áp dụng bên trong phần tử .qr-theme, không ảnh hưởng trang quản lý.
  * Dùng trong class Tailwind dạng bg-[var(--qr-primary)], text-[var(--qr-muted)]…
  */
 .qr-theme {
   --qr-font: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --qr-primary: #a71e25;
-  --qr-primary-press: #8c161c;
-  --qr-primary-soft: #fbe9ea;
+  --qr-display: 'Playfair Display Variable', Georgia, 'Times New Roman', serif;
+  --qr-primary: #8e1b22;
+  --qr-primary-press: #74151b;
+  --qr-primary-soft: #f6e7e3;
+  --qr-primary-glow: rgba(142, 27, 34, 0.32);
   --qr-on-primary: #ffffff;
-  --qr-bg: #ffffff;
-  --qr-page: #f2f2f2;
+  --qr-bg: #faf6f1;
+  --qr-page: #f1ebe4;
   --qr-surface: #ffffff;
-  --qr-surface-2: #f5f5f5;
-  --qr-border: #ececec;
-  --qr-text: #141414;
-  --qr-muted: #8a8a8a;
+  --qr-surface-2: #f3ede6;
+  --qr-border: #ece3d9;
+  --qr-text: #2a1f1a;
+  --qr-muted: #8a7a6e;
   --qr-accent: #f59e0b;
   --qr-success: #1f9d61;
   --qr-success-soft: #e6f6ee;
@@ -23,7 +27,7 @@
   --qr-warn-text: #8a5a00;
   --qr-danger: #d92d2d;
   --qr-danger-soft: #fdecec;
-  --qr-shadow: 0 6px 22px rgba(20, 20, 20, 0.07);
+  --qr-shadow: 0 8px 24px rgba(60, 35, 20, 0.08);
   --qr-overlay: rgba(10, 10, 10, 0.5);
 
   font-family: var(--qr-font);
@@ -32,31 +36,201 @@
 }
 
 .qr-theme[data-qr-mode='dark'] {
-  --qr-primary: #e2333b;
-  --qr-primary-press: #c4242c;
-  --qr-primary-soft: #3a1416;
-  --qr-bg: #0b0b0b;
-  --qr-page: #000000;
-  --qr-surface: #171717;
-  --qr-surface-2: #222222;
-  --qr-border: #2a2a2a;
-  --qr-text: #f4f4f4;
-  --qr-muted: #9b9b9b;
+  --qr-primary: #e0484f;
+  --qr-primary-press: #c63a41;
+  --qr-primary-soft: #3a1a17;
+  --qr-primary-glow: rgba(224, 72, 79, 0.3);
+  --qr-bg: #17110e;
+  --qr-page: #0f0b09;
+  --qr-surface: #221915;
+  --qr-surface-2: #2c211c;
+  --qr-border: #35291f;
+  --qr-text: #f3ece6;
+  --qr-muted: #a8978a;
   --qr-success-soft: #10291d;
   --qr-warn-soft: #2e2512;
   --qr-warn-text: #f3c969;
   --qr-danger-soft: #34171a;
-  --qr-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+  --qr-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   --qr-overlay: rgba(0, 0, 0, 0.65);
   color-scheme: dark;
 }
 
-/* Họa tiết nền đỏ cho ảnh bìa mặc định và tranh minh họa (khi chưa có ảnh). */
+/* Nền ảnh bìa mặc định và tranh minh họa (khi chưa có ảnh): đỏ rượu chuyển nâu gỗ. */
 .qr-pattern {
-  background-color: var(--qr-primary);
+  background-color: #5e1a1a;
   background-image:
+    linear-gradient(135deg, rgba(142, 27, 34, 0.9) 0%, rgba(74, 36, 24, 0.9) 60%, rgba(43, 26, 18, 0.95) 100%),
     radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.14) 0 42px, transparent 43px),
     radial-gradient(circle at 88% 78%, rgba(255, 255, 255, 0.1) 0 70px, transparent 71px),
     radial-gradient(circle at 70% 12%, rgba(0, 0, 0, 0.12) 0 30px, transparent 31px),
     repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 14px);
+}
+
+/* ---------------------------------------------------------------- Chuyển động (tự tắt khi điện thoại bật "giảm chuyển động") */
+
+.qr-theme {
+  --qr-chip: #f5ece3;
+  --qr-arc: #f3e9df;
+}
+.qr-theme[data-qr-mode='dark'] {
+  --qr-chip: #2a1f1a;
+  --qr-arc: #201814;
+}
+
+/* Khung chờ lấp lánh thay cho nhấp nháy. */
+.qr-skeleton {
+  background: linear-gradient(100deg, var(--qr-surface-2) 30%, color-mix(in srgb, var(--qr-surface-2) 55%, var(--qr-bg)) 50%, var(--qr-surface-2) 70%);
+  background-size: 220% 100%;
+  animation: qr-shimmer 1.3s linear infinite;
+}
+@keyframes qr-shimmer {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+/* Con dấu "HẾT" đóng xuống món tạm hết. */
+.qr-stamp {
+  animation: qr-stamp 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+@keyframes qr-stamp {
+  from { transform: rotate(-14deg) scale(2.2); opacity: 0; }
+  to { transform: rotate(-14deg) scale(1); opacity: 1; }
+}
+
+/* Chuông rung (đang chờ nhân viên). */
+.qr-wiggle {
+  animation: qr-wiggle 1.6s ease-in-out infinite;
+  transform-origin: 50% 10%;
+}
+@keyframes qr-wiggle {
+  0%, 55%, 100% { transform: rotate(0); }
+  10%, 30% { transform: rotate(14deg); }
+  20%, 40% { transform: rotate(-12deg); }
+}
+
+/* Dải danh mục cong: cuộn ngang, "hít" vào giữa. */
+.qr-arc-scroller {
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.qr-arc-scroller::-webkit-scrollbar { display: none; }
+.qr-arc-scroller [data-chip] { scroll-snap-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .qr-skeleton, .qr-stamp, .qr-wiggle { animation: none; }
+  .qr-stamp { transform: rotate(-14deg); }
+}
+
+/* Tiêu đề lấy màu chữ của trang khách (globals.css tô màu tiêu đề theo trang quản lý — không đổi theo nền tối của trang này). */
+:where(.qr-theme) :is(h1, h2, h3) {
+  color: inherit;
+}
+
+/* Tiêu đề chữ có chân (tên nhà hàng, tên mục, tên món ở chi tiết, đầu màn hình). */
+:where(.qr-theme) :is(h1, h2),
+.qr-theme .qr-display {
+  font-family: var(--qr-display);
+  letter-spacing: -0.005em;
+}
+
+/* Thanh kéo độ chín: dải màu thịt, nút tròn trắng viền màu mức đang chọn. */
+.qr-theme .qr-doneness {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+.qr-theme .qr-doneness::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--track);
+}
+.qr-theme .qr-doneness::-moz-range-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--track);
+}
+.qr-theme .qr-doneness::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  margin-top: -9px;
+  border-radius: 50%;
+  background: var(--thumb);
+  border: 4px solid #fff;
+  box-shadow: 0 3px 10px rgba(60, 35, 20, 0.35);
+  transition: transform 0.15s ease, background-color 0.2s ease;
+}
+.qr-theme .qr-doneness::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--thumb);
+  border: 4px solid #fff;
+  box-shadow: 0 3px 10px rgba(60, 35, 20, 0.35);
+}
+.qr-theme .qr-doneness:active::-webkit-slider-thumb { transform: scale(1.15); }
+.qr-theme .qr-doneness:focus-visible { outline: none; }
+.qr-theme .qr-doneness:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px var(--qr-primary-soft), 0 3px 10px rgba(60, 35, 20, 0.35); }
+
+/* Tranh động trạng thái (qrScene.tsx): quầng sáng, quầng lửa, vòng sóng chuông, tàn lửa, lấp lánh. */
+.qr-theme .qr-stage-glow {
+  background: radial-gradient(circle, rgba(201, 162, 107, 0.45), rgba(142, 27, 34, 0.12) 55%, transparent 70%);
+  animation: qr-glow 4.5s ease-in-out infinite;
+}
+.qr-theme .qr-stage-glow--fire {
+  background: radial-gradient(circle, rgba(255, 150, 60, 0.5), rgba(142, 27, 34, 0.18) 55%, transparent 72%);
+  animation-duration: 1.8s;
+}
+@keyframes qr-glow { 0%, 100% { opacity: 0.55; transform: scale(0.97); } 50% { opacity: 1; transform: scale(1.03); } }
+.qr-theme .qr-ring {
+  border: 3px solid rgba(201, 162, 107, 0.7);
+  animation: qr-ring 2.4s ease-out infinite;
+}
+@keyframes qr-ring { 0% { transform: scale(1); opacity: 0.9; } 100% { transform: scale(1.45); opacity: 0; } }
+.qr-theme .qr-ember {
+  position: absolute;
+  bottom: 22%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffd27a, #e8732a 60%, transparent 70%);
+  opacity: 0;
+  animation: qr-ember 2.6s ease-out infinite;
+}
+@keyframes qr-ember {
+  0% { transform: translate(0, 0) scale(1); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(-14px, -150px) scale(0.3); opacity: 0; }
+}
+.qr-theme .qr-twinkle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #c9a26b;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+  animation: qr-twinkle 3s ease-in-out infinite;
+}
+@keyframes qr-twinkle { 0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .qr-theme .qr-stage-glow, .qr-theme .qr-ring, .qr-theme .qr-ember, .qr-theme .qr-twinkle { animation: none; }
+}
+
+/* Băng chuyền Bán chạy: khối nền nâu than, đèn vàng chiếu từ trên xuống. */
+.qr-best {
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(201, 162, 107, 0.22), transparent 70%),
+    linear-gradient(180deg, #1c1410, #120d0a);
+}
+
+/* Đổi sáng / tối bằng đèn: màu mới lan ra theo vòng tròn (QrOrderPage useQrMode). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }

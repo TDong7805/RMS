@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, FolderCog, Pencil, Plus, Trash2, UtensilsCrossed } from 'lucide-react';
+import { Eye, FolderCog, Layers, Pencil, Plus, Soup, Trash2, UtensilsCrossed } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
@@ -11,6 +11,7 @@ import { ConfirmDialog } from '@/components/common/Modal';
 import { DataTable, PageHeader, Pagination, TableSkeleton, Td, Th, Toolbar } from '@/components/common/PageParts';
 import { Segmented } from '@/components/common/Segmented';
 import { CategoryModal, DishDetailModal, DishThumb } from '@/features/dishes/DishParts';
+import { GroupModal } from '@/features/dishes/GroupModal';
 import { DISH_PAGE_SIZE, deleteDish, setDishStatus } from '@/api/dishes';
 import { qk, useCategories, useDishes } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
@@ -31,6 +32,7 @@ export function DishesPage() {
   const [toggleTarget, setToggleTarget] = useState<Dish | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Dish | null>(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
 
   const list = useDishes({ keyword: debounced, categoryId, status, page });
   const { data: categories = [] } = useCategories();
@@ -62,6 +64,12 @@ export function DishesPage() {
             <>
               <Button variant="outline" size="sm" leadingIcon={<FolderCog size={15} />} onClick={() => setCategoryOpen(true)}>
                 Danh mục
+              </Button>
+              <Button variant="outline" size="sm" leadingIcon={<Layers size={15} />} onClick={() => setGroupOpen(true)}>
+                Nhóm món
+              </Button>
+              <Button variant="outline" size="sm" leadingIcon={<Soup size={15} />} onClick={() => navigate('/quan-ly/mon-an/set-menu')}>
+                Set menu
               </Button>
               <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => navigate('/quan-ly/mon-an/them')}>
                 Thêm món
@@ -164,6 +172,7 @@ export function DishesPage() {
         onEdit={(d) => navigate(`/quan-ly/mon-an/${d.id}/sua`)}
       />
       <CategoryModal open={categoryOpen} onOpenChange={setCategoryOpen} />
+      <GroupModal open={groupOpen} onOpenChange={setGroupOpen} />
       <ConfirmDialog
         open={Boolean(toggleTarget)}
         onOpenChange={(o) => !o && setToggleTarget(null)}

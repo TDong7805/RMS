@@ -19,11 +19,11 @@ SET @o = LAST_INSERT_ID();
 INSERT INTO order_items (order_id, batch_no, dish_id, dish_name, unit_price, quantity, note, status, added_via, created_at, started_at, started_by)
 SELECT @o, 1, d.id, d.name, d.price, x.qty, x.note, x.st, 'customer', NOW() - INTERVAL 18 MINUTE,
        IF(x.st = 'cooking', NOW() - INTERVAL 9 MINUTE, NULL), IF(x.st = 'cooking', @hung, NULL)
-FROM (SELECT 'MA001' c, 2 qty, NULL note, 'cooking' st UNION ALL
-      SELECT 'MA004', 1, 'Ít mật ong', 'cooking' UNION ALL
-      SELECT 'MA003', 1, NULL, 'pending') x JOIN dishes d ON d.code = x.c;
+FROM (SELECT 'MA022' c, 2 qty, NULL note, 'cooking' st UNION ALL
+      SELECT 'MA013', 1, 'Ít tiêu', 'cooking' UNION ALL
+      SELECT 'MA008', 1, 'Chín vừa (medium), sốt tiêu đen', 'pending') x JOIN dishes d ON d.code = x.c;
 INSERT INTO order_items (order_id, batch_no, dish_id, dish_name, unit_price, quantity, note, status, added_via, created_at)
-SELECT @o, 2, d.id, d.name, d.price, 2, 'Không hành', 'pending', 'customer', NOW() - INTERVAL 3 MINUTE FROM dishes d WHERE d.code = 'MA008';
+SELECT @o, 2, d.id, d.name, d.price, 2, 'Ít ngọt', 'pending', 'customer', NOW() - INTERVAL 3 MINUTE FROM dishes d WHERE d.code = 'MA031';
 
 /* ---------------------------------------------------------------- Bàn VIP01: có món đã xong chờ mang ra */
 UPDATE doc_sequences SET last_no = last_no + 1 WHERE seq_key = @k COLLATE utf8mb4_unicode_ci;
@@ -39,11 +39,11 @@ SELECT @o, x.b, d.id, d.name, d.price, x.qty, x.note, x.st, 'customer', NOW() - 
        IF(x.st = 'served', NOW() - INTERVAL (x.ago - 22) MINUTE, NULL), IF(x.st = 'served', @linh, NULL),
        IF(x.st = 'cancelled', 'kitchen', NULL), IF(x.st = 'cancelled', 'Hết nguyên liệu', NULL),
        IF(x.st = 'cancelled', @hung, NULL), IF(x.st = 'cancelled', NOW() - INTERVAL (x.ago - 2) MINUTE, NULL)
-FROM (SELECT 1 b, 'MA002' c, 2 qty, NULL note, 'served' st, 42 ago UNION ALL
-      SELECT 1, 'MA006', 1, 'Chín vừa', 'served', 42 UNION ALL
-      SELECT 1, 'MA011', 2, NULL, 'done', 40 UNION ALL
+FROM (SELECT 1 b, 'MA003' c, 2 qty, NULL note, 'served' st, 42 ago UNION ALL
+      SELECT 1, 'MA006', 1, 'Chín vừa (medium)', 'served', 42 UNION ALL
+      SELECT 1, 'MA002', 2, NULL, 'done', 40 UNION ALL
       SELECT 2, 'MA001', 1, NULL, 'done', 26 UNION ALL
-      SELECT 2, 'MA010', 1, NULL, 'cancelled', 26) x JOIN dishes d ON d.code = x.c;
+      SELECT 2, 'MA010', 1, 'Chín tái', 'cancelled', 26) x JOIN dishes d ON d.code = x.c;
 
 /* ---------------------------------------------------------------- Bàn SV01: món đã ra hết, khách đang dùng bữa */
 UPDATE doc_sequences SET last_no = last_no + 1 WHERE seq_key = @k COLLATE utf8mb4_unicode_ci;
@@ -55,9 +55,10 @@ INSERT INTO order_items (order_id, batch_no, dish_id, dish_name, unit_price, qua
                          started_at, started_by, completed_at, kitchen_user_id, served_at, served_by)
 SELECT @o, 1, d.id, d.name, d.price, x.qty, NULL, 'served', 'customer', NOW() - INTERVAL 65 MINUTE,
        NOW() - INTERVAL 60 MINUTE, @hung, NOW() - INTERVAL 45 MINUTE, @hung, NOW() - INTERVAL 43 MINUTE, @linh
-FROM (SELECT 'MA004' c, 1 qty UNION ALL SELECT 'MA003', 1 UNION ALL SELECT 'MA002', 1) x JOIN dishes d ON d.code = x.c;
+FROM (SELECT 'MA023' c, 1 qty UNION ALL SELECT 'MA026', 1 UNION ALL SELECT 'MA037', 2) x JOIN dishes d ON d.code = x.c;
 
 UPDATE dining_tables SET status = 'occupied' WHERE code IN ('T03', 'VIP01', 'SV01');
 
 /* ---------------------------------------------------------------- Món tạm hết hôm nay */
+-- T-bone bò Úc: kho đã hết T-bone (V7_1) → bếp đánh dấu tạm hết, món T-bone ở VIP01 bị bếp hủy "Hết nguyên liệu".
 UPDATE dishes SET sold_out_date = CURDATE(), sold_out_by = @hung WHERE code = 'MA010';

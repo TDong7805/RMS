@@ -1,0 +1,10 @@
+/* Sơ đồ bàn POS của Thu ngân: bàn "Khách gọi" tỏa viền sáng nhẹ (không phóng to cả bàn). */
+@keyframes pos-call {
+  0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.55); }
+  70% { box-shadow: 0 0 0 12px rgba(249, 115, 22, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+}
+.pos-call { animation: pos-call 1.6s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .pos-call { animation: none; box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.45); }
+}

@@ -21,10 +21,23 @@ Flyway xem bảng `flyway_schema_history` và tự chạy những file SQL chưa
 | `src/main/resources/db/dev/V3_1__mon_an_mau.sql` | Thêm món (đủ 25 món), danh mục đang tắt, combo, vài đơn hàng đã hoàn tất (để thử "món đã bán không xóa được") | Chỉ profile `dev` |
 | `backend/database/rms_verify.sql` | 11 phép kiểm tra ràng buộc, tự ROLLBACK | Chạy tay khi cần, trên CSDL phát triển |
 
-Phần nào của dữ liệu mẫu đang mô phỏng actor chưa làm: xem [DU_LIEU_GIA.md](../../DU_LIEU_GIA.md).
+Phần nào của dữ liệu mẫu đang mô phỏng actor chưa làm: xem [docs/du-lieu/DU_LIEU_GIA.md](../../docs/du-lieu/DU_LIEU_GIA.md).
 
 Profile `dev` là mặc định khi chạy `mvn spring-boot:run`, IntelliJ hoặc `dev.bat`. Khi chạy thật (`prod`), thư mục
-`db/dev` không được nạp → CSDL chỉ có dữ liệu nền, không ai biết trước mật khẩu nào (xem `TRIEN_KHAI.md`).
+`db/dev` không được nạp → CSDL chỉ có dữ liệu nền, không ai biết trước mật khẩu nào (xem `docs/trien-khai/TRIEN_KHAI.md`).
+
+## 17/11/2026 — Dữ liệu mẫu đổi sang nhà hàng Royal Beef: PHẢI xóa `rms_db` và chạy lại
+
+Các file dữ liệu mẫu trong `db/dev` (V1_1, V3_1, V3_3, V7_1, V8_1, V9_1, V10_1, V11_1) được **viết lại** cho nhà hàng
+bò Úc Royal Beef (38 món, nguyên liệu bò, đơn / hóa đơn lịch sử theo món mới). Vì sửa file đã chạy, backend của CSDL cũ
+sẽ báo `Migration checksum mismatch`. Mỗi người trong nhóm làm một lần:
+
+```powershell
+& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p -e "DROP DATABASE IF EXISTS rms_db"
+cd backend; mvn spring-boot:run      # Flyway tạo lại toàn bộ (V1 … V16) trong vài giây
+```
+
+Ảnh món mẫu: đặt vào `backend/database/seed-images/mon/` theo `danh-sach.csv` (xem README ở đó) rồi chạy backend.
 
 ## Sau khi pull bản có Flyway về
 

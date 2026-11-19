@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ClipboardList } from 'lucide-react';
-import { AppShell } from '@/components/layout/AppShell';
+import { CashierShell } from '@/features/ordering/CashierShell';
 import { Card } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { BlockError, EmptyState } from '@/components/common/EmptyState';
@@ -40,7 +40,7 @@ export default function OrdersPage() {
   useLiveEvents(CASHIER_STREAM, [['thu-ngan', 'orders']]);
 
   return (
-    <AppShell meta={{ label: 'Đơn hàng' }}>
+    <CashierShell>
       <div className="min-w-0 space-y-4">
         <PageHeader title="Đơn hàng" description="Đơn gọi qua QR tại bàn: đang mở, chờ thanh toán, hoàn tất, đã hủy. Bấm một đơn để xem chi tiết." />
         <Card className="overflow-hidden">
@@ -96,6 +96,6 @@ export default function OrdersPage() {
           )}
         </Card>
       </div>
-    </AppShell>
+    </CashierShell>
   );
 }

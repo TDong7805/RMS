@@ -20,7 +20,7 @@ import { TransferQrBox } from '@/features/ordering/TransferQrBox';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { ValidationError } from '@/lib/mock';
-import type { CashierCancelReason, CashierOrderDetail, Invoice, MoveTarget, PayMethod } from '@/types';
+import type { CashierCancelReason, CashierOrderDetail, Invoice, MoveTarget, OrderView, PayMethod } from '@/types';
 
 /* Hộp thoại của Thu ngân: hủy món / đơn (UC-TN-04), chuyển bàn (UC-TN-05), lập hóa đơn (UC-TN-07),
    thu tiền (UC-TN-08), hủy hóa đơn và in hóa đơn (UC-TN-09). */
@@ -295,7 +295,7 @@ export function CreateInvoiceDialog({ orderId, open, onClose, onCreated }: { ord
   );
 }
 
-export function InvoiceLines({ lines, total }: { lines: { name: string; price: number; qty: number; amount: number }[]; total: number }) {
+export function InvoiceLines({ lines, total }: { lines: { name: string; price: number; qty: number; amount: number; detail?: string | null }[]; total: number }) {
   return (
     <div className="overflow-hidden rounded-item border border-[var(--border)]">
       <table className="w-full text-[13.5px]">
@@ -310,7 +310,10 @@ export function InvoiceLines({ lines, total }: { lines: { name: string; price: n
         <tbody>
           {lines.map((l, i) => (
             <tr key={i} className="border-t border-[var(--border)]">
-              <td className="px-3 py-1.5">{l.name}</td>
+              <td className="px-3 py-1.5">
+                {l.name}
+                {l.detail ? <span className="block text-[12px] text-[var(--text-muted)]">{l.detail}</span> : null}
+              </td>
               <td className="px-3 py-1.5 text-right font-mono">{l.qty}</td>
               <td className="px-3 py-1.5 text-right font-mono">{formatCurrency(l.price)}</td>
               <td className="px-3 py-1.5 text-right font-mono font-semibold">{formatCurrency(l.amount)}</td>
@@ -545,7 +548,7 @@ const dt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('vi-VN') 
 export function printInvoice(inv: Invoice) {
   const r = inv.restaurant;
   const rows = inv.lines
-    .map((l) => `<tr><td>${esc(l.name)}<br/><small>${l.qty} × ${money(l.price)}</small></td><td class="r">${money(l.amount)}</td></tr>`)
+    .map((l) => `<tr><td>${esc(l.name)}${l.detail ? `<br/><small>${esc(l.detail)}</small>` : ''}<br/><small>${l.qty} × ${money(l.price)}</small></td><td class="r">${money(l.amount)}</td></tr>`)
     .join('');
   const pays = inv.payments
     .map(
@@ -567,5 +570,23 @@ body{font-family:sans-serif;font-size:13px;padding:12px;max-width:320px;margin:a
 ${inv.vatCompany ? `<div>Công ty: ${esc(inv.vatCompany)}</div><div>MST: ${esc(inv.vatTaxCode)}</div>` : ''}<hr/>
 <table>${rows}</table><hr/><table><tr><td><b>TỔNG CỘNG</b></td><td class="r"><b>${money(inv.total)} đ</b></td></tr>${pays}</table><hr/>
 <div class="c">Giá đã bao gồm thuế. Cảm ơn quý khách, hẹn gặp lại!</div><script>window.print()</script></body></html>`);
+  w.document.close();
+}
+
+/** In phiếu tạm tính (không phải hóa đơn) bằng trình duyệt — khách hỏi "bao nhiêu rồi" giữa bữa, không khóa bàn. */
+export function printProvisional(o: OrderView, restaurantName?: string) {
+  const rows = o.items
+    .filter((i) => i.status !== 'cancelled')
+    .map((i) => `<tr><td>${esc(i.name)}<br/><small>${i.qty} × ${money(i.price)}</small></td><td class="r">${money(i.price * i.qty)}</td></tr>`)
+    .join('');
+  const w = window.open('', '_blank', 'width=380,height=640');
+  if (!w) return;
+  w.document.write(`<html><head><title>Tạm tính ${esc(o.code)}</title><style>
+body{font-family:sans-serif;font-size:13px;padding:12px;max-width:320px;margin:auto}table{width:100%;border-collapse:collapse}td{padding:3px 0;vertical-align:top}
+.r{text-align:right;white-space:nowrap}.c{text-align:center}h2{margin:0;font-size:16px}hr{border:0;border-top:1px dashed #999}small{color:#555}</style></head><body>
+<div class="c">${restaurantName ? `<h2>${esc(restaurantName)}</h2>` : ''}<h2 style="margin-top:6px">PHIẾU TẠM TÍNH</h2></div><hr/>
+<div>Bàn: ${esc(o.tableCode)} (${esc(o.areaName)}) · Đơn: ${esc(o.code)}</div><div>In lúc: ${new Date().toLocaleString('vi-VN')}</div><hr/>
+<table>${rows}</table><hr/><table><tr><td><b>TẠM TÍNH</b></td><td class="r"><b>${money(o.subtotal)} đ</b></td></tr></table><hr/>
+<div class="c"><small>Đây không phải hóa đơn thanh toán. Món gọi thêm sẽ được cộng vào hóa đơn cuối bữa.</small></div><script>window.print()</script></body></html>`);
   w.document.close();
 }

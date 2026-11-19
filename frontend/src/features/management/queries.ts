@@ -11,7 +11,7 @@ import {
   getFaqs,
   getUnansweredQuestions,
 } from '@/api/chatbot';
-import { getAllergens, getCategories, getDish, getDishes } from '@/api/dishes';
+import { getAllergens, getCategories, getDish, getDishGroups, getDishes } from '@/api/dishes';
 import { getPost, getPosts } from '@/api/posts';
 import {
   getReservation,
@@ -39,6 +39,7 @@ export const qk = {
   tables: ['tables'] as const,
   dishes: ['dishes'] as const,
   categories: ['dish-categories'] as const,
+  dishGroups: ['dish-groups'] as const,
   accounts: ['accounts'] as const,
   employees: ['employees'] as const,
   shifts: ['shifts'] as const,
@@ -66,6 +67,7 @@ export const useDishes = (f: DishFilter) =>
 export const useDish = (id: string | undefined) =>
   useQuery({ queryKey: [...qk.dishes, 'detail', id], queryFn: () => getDish(id!), enabled: Boolean(id), retry: false });
 export const useCategories = () => useQuery({ queryKey: qk.categories, queryFn: getCategories });
+export const useDishGroups = () => useQuery({ queryKey: qk.dishGroups, queryFn: getDishGroups });
 /** Danh sách dị nguyên ít khi đổi → giữ 5 phút. */
 export const useAllergens = () => useQuery({ queryKey: ['allergens'], queryFn: getAllergens, staleTime: 300_000 });
 

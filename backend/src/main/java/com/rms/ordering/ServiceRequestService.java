@@ -23,7 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Yêu cầu của khách: Gọi nhân viên (UC-KH-05), Yêu cầu thanh toán (UC-KH-06) và phía Thu ngân xử lý (UC-TN-06).
  *
- * Trạng thái: new (Mới) → forwarded (Đã chuyển, chỉ yêu cầu hỗ trợ) → done (Hoàn thành); new / forwarded → cancelled.
+ * Trạng thái: new (Mới) → forwarded (Đã báo nhân viên — thu ngân đã báo qua bộ đàm, chỉ yêu cầu hỗ trợ) → done (Hoàn thành);
+ * new / forwarded → cancelled. Nhân viên phục vụ không có tài khoản nên không chọn tên người phụ trách.
  * Mỗi bàn tối đa một yêu cầu hỗ trợ (support / consult / other) và một yêu cầu thanh toán đang chờ.
  * Yêu cầu thanh toán tự Hoàn thành khi hóa đơn của bàn được thanh toán.
  */
@@ -49,9 +50,6 @@ public class ServiceRequestService {
 
     public record PaymentInput(String method, String vatCompany, String vatTaxCode) {}
 
-    public record ForwardInput(String staffId) {}
-
-    public record Staff(String id, String name, String roleName) {}
 
     private final JdbcClient jdbc;
     private final OrderCore core;
@@ -244,16 +242,6 @@ public class ServiceRequestService {
         return out;
     }
 
-    /** Nhân viên đang hoạt động để chuyển yêu cầu (phục vụ trước, rồi thu ngân, bếp). */
-    public List<Staff> staff() {
-        return jdbc.sql("""
-                SELECT u.id, u.full_name, r.name AS role_name FROM users u JOIN roles r ON r.id = u.role_id
-                WHERE u.deleted_at IS NULL AND u.status = 'active' AND r.code IN ('waiter','cashier','kitchen')
-                ORDER BY FIELD(r.code, 'waiter','cashier','kitchen'), u.full_name
-                """)
-            .query((rs, n) -> new Staff(Ids.str(rs.getLong("id")), rs.getString("full_name"), rs.getString("role_name"))).list();
-    }
-
     private Request lockWaiting(String idText) {
         long id = Ids.parse(idText, "Không tìm thấy yêu cầu");
         jdbc.sql("SELECT id FROM service_requests WHERE id = ? FOR UPDATE").param(id).query(Long.class).optional()
@@ -264,18 +252,16 @@ public class ServiceRequestService {
         return r;
     }
 
+    /** Thu ngân đã báo nhân viên phục vụ (bộ đàm) → khách thấy "Nhân viên đang đến". */
     @Transactional
-    public Request forward(String idText, ForwardInput in) {
+    public Request forward(String idText) {
         Request r = lockWaiting(idText);
         if ("payment".equals(r.type())) throw new BusinessException("Yêu cầu thanh toán xử lý bằng Lập hóa đơn");
-        Long staffId = Ids.parseOrNull(in.staffId());
-        Staff s = staffId == null ? null : staff().stream().filter(x -> x.id().equals(Ids.str(staffId))).findFirst().orElse(null);
-        if (s == null) throw new ValidationException("staffId", "Vui lòng chọn nhân viên phụ trách");
+        if ("forwarded".equals(r.status())) return r;
         long id = Long.parseLong(r.id());
-        jdbc.sql("UPDATE service_requests SET status = 'forwarded', assigned_to = ?, received_by = ?, forwarded_at = ? WHERE id = ?")
-            .params(staffId, currentUser.get().id(), Times.now(), id).update();
-        audit.log("cashier", "Chuyển yêu cầu", "Bàn " + r.tableCode() + " – " + TYPE_LABEL.get(r.type()) + " → " + s.name(),
-            "service_requests", id);
+        jdbc.sql("UPDATE service_requests SET status = 'forwarded', assigned_to = NULL, received_by = ?, forwarded_at = ? WHERE id = ?")
+            .params(currentUser.get().id(), Times.now(), id).update();
+        audit.log("cashier", "Báo nhân viên", "Bàn " + r.tableCode() + " – " + TYPE_LABEL.get(r.type()), "service_requests", id);
         live.publish(LiveEvents.CASHIER, LiveEvents.table(Long.parseLong(r.tableId())));
         return get(id);
     }

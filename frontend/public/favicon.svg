@@ -1,4 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#0f7b5a"/>
-  <text x="32" y="42" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" fill="#ffffff">GL</text>
+  <!-- Royal Beef: đầu bò vàng đồng trên nền đỏ rượu -->
+  <rect width="64" height="64" rx="14" fill="#8e1b22"/>
+  <g fill="#e2c48e">
+    <path d="M8 18c0-6 4-10 10-10-2 4-1 8 3 11l4 2-3 4C14 25 8 23 8 18z"/>
+    <path d="M56 18c0-6-4-10-10-10 2 4 1 8-3 11l-4 2 3 4c8-1 14-3 14-7z"/>
+    <path d="M20 22c3-2 7-3 12-3s9 1 12 3l-1 15c0 7-5 14-11 15-6-1-11-8-11-15z"/>
+  </g>
+  <ellipse cx="32" cy="45" rx="7" ry="4.5" fill="#8e1b22"/>
+  <circle cx="26" cy="31" r="2.2" fill="#8e1b22"/>
+  <circle cx="38" cy="31" r="2.2" fill="#8e1b22"/>
 </svg>

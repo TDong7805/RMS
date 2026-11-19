@@ -10,10 +10,8 @@ import com.rms.ordering.CashierService.OrderList;
 import com.rms.ordering.InvoiceService.Invoice;
 import com.rms.ordering.InvoiceService.PayInput;
 import com.rms.ordering.InvoiceService.Preview;
-import com.rms.ordering.ServiceRequestService.ForwardInput;
 import com.rms.ordering.ServiceRequestService.Request;
 import com.rms.ordering.ServiceRequestService.RequestList;
-import com.rms.ordering.ServiceRequestService.Staff;
 import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,7 +27,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * GET  /api/thu-ngan/floor                      sơ đồ bàn, món chờ mang ra, số liệu đầu trang
  * GET  /api/thu-ngan/orders?keyword&status&from&to   tra cứu đơn (tối đa 31 ngày)
  * GET  /api/thu-ngan/orders/{id}                chi tiết đơn {order, closedAt, requests, invoice}
- * POST /api/thu-ngan/items/serve                {ids} món Đã xong → Đã mang ra
  * POST /api/thu-ngan/items/{id}/cancel          {reason, note} hủy món Chờ chế biến
  * POST /api/thu-ngan/orders/{id}/cancel         {reason, note} hủy đơn
  * GET  /api/thu-ngan/move-targets               bàn đích chuyển được
@@ -41,8 +38,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * POST /api/thu-ngan/invoices/{id}/pay          {payments: [{method, amount, cashGiven, transactionRef}]}
  * POST /api/thu-ngan/invoices/{id}/cancel       {reason} hủy hóa đơn chưa thanh toán
  * GET  /api/thu-ngan/requests?status            yêu cầu của khách (waiting | done | cancelled)
- * GET  /api/thu-ngan/staff                      nhân viên để chuyển yêu cầu
- * POST /api/thu-ngan/requests/{id}/forward      {staffId}
+ * POST /api/thu-ngan/requests/{id}/forward      Đã báo nhân viên (bộ đàm)
  * POST /api/thu-ngan/requests/{id}/done
  * POST /api/thu-ngan/requests/{id}/cancel
  * GET  /api/thu-ngan/stream                     SSE: báo khi có thay đổi
@@ -77,14 +73,19 @@ public class CashierController {
         return service.order(id);
     }
 
-    @PostMapping("/api/thu-ngan/items/serve")
-    public OrderDetail serve(@RequestBody IdsInput in) {
-        return service.serve(in);
-    }
-
     @PostMapping("/api/thu-ngan/items/{id}/cancel")
     public OrderDetail cancelItem(@PathVariable String id, @RequestBody CancelInput in) {
         return service.cancelItem(id, in);
+    }
+
+    @PostMapping("/api/thu-ngan/tables/{id}/open")
+    public OrderDetail openTable(@PathVariable String id, @RequestBody(required = false) CashierService.OpenInput in) {
+        return service.openTable(id, in);
+    }
+
+    @PostMapping("/api/thu-ngan/orders/{id}/close")
+    public OrderDetail closeTable(@PathVariable String id) {
+        return service.closeTable(id);
     }
 
     @PostMapping("/api/thu-ngan/orders/{id}/cancel")
@@ -95,6 +96,11 @@ public class CashierController {
     @GetMapping("/api/thu-ngan/move-targets")
     public List<MoveTarget> moveTargets() {
         return service.moveTargets();
+    }
+
+    @PostMapping("/api/thu-ngan/orders/{id}/guests")
+    public OrderDetail setGuests(@PathVariable String id, @RequestBody CashierService.GuestsInput in) {
+        return service.setGuests(id, in);
     }
 
     @PostMapping("/api/thu-ngan/orders/{id}/move")
@@ -141,14 +147,9 @@ public class CashierController {
         return requests.list(status);
     }
 
-    @GetMapping("/api/thu-ngan/staff")
-    public List<Staff> staff() {
-        return requests.staff();
-    }
-
     @PostMapping("/api/thu-ngan/requests/{id}/forward")
-    public Request forward(@PathVariable String id, @RequestBody ForwardInput in) {
-        return requests.forward(id, in);
+    public Request forward(@PathVariable String id) {
+        return requests.forward(id);
     }
 
     @PostMapping("/api/thu-ngan/requests/{id}/done")

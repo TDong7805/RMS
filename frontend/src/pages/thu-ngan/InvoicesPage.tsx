@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Printer, Receipt, Wallet, XCircle } from 'lucide-react';
-import { AppShell } from '@/components/layout/AppShell';
+import { CashierShell } from '@/features/ordering/CashierShell';
 import { Card } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
@@ -19,6 +19,7 @@ import { INVOICE_STATUS, rangeError, todayKey } from '@/features/ordering/cashie
 import { useDebounced } from '@/hooks/use-debounced';
 import { formatCurrency } from '@/lib/format';
 import { formatDateTime } from '@/lib/labels';
+import { cn } from '@/lib/cn';
 import type { Invoice, InvoiceStatus, PayMethod } from '@/types';
 
 /** UC-TN-09: danh sách hóa đơn, xem chi tiết, in lại, hủy hóa đơn chưa thanh toán; thu tiền hóa đơn còn treo (UC-TN-08). */
@@ -43,13 +44,22 @@ export default function InvoicesPage() {
   const openId = params.get('id') ?? '';
   const setOpenId = (id: string) => setParams(id ? { id } : {}, { replace: true });
   const detail = useQuery({ queryKey: ['thu-ngan', 'invoice', openId], queryFn: () => getInvoice(openId), enabled: Boolean(openId), retry: false });
+  // Mở từ thông báo (?id=…): dòng hóa đơn đó sáng nhấp nháy để thu ngân biết là hóa đơn nào.
+  const [flashId, setFlashId] = useState('');
+  useEffect(() => {
+    if (!openId) return;
+    setFlashId(openId);
+    document.querySelector(`[data-invoice="${openId}"]`)?.scrollIntoView({ block: 'center' });
+    const t = window.setTimeout(() => setFlashId(''), 3500);
+    return () => window.clearTimeout(t);
+  }, [openId, list.data]);
   const [cancelling, setCancelling] = useState<Invoice | null>(null);
   const [paying, setPaying] = useState<Invoice | null>(null);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['thu-ngan'] });
   const reprint = useMutation({ mutationFn: getInvoice, onSuccess: printInvoice, onError: (e) => toast.error(e instanceof Error ? e.message : 'Không in được') });
 
   return (
-    <AppShell meta={{ label: 'Hóa đơn' }}>
+    <CashierShell>
       <div className="min-w-0 space-y-4">
         <PageHeader title="Hóa đơn" description="Hóa đơn đã lập: thu tiền hóa đơn chưa thanh toán, in lại, hủy hóa đơn chưa thanh toán để mở lại đơn." />
         <Card className="overflow-hidden">
@@ -92,7 +102,7 @@ export default function InvoicesPage() {
                 </thead>
                 <tbody>
                   {list.data.items.map((r) => (
-                    <tr key={r.id} className="hover:bg-[var(--bg-subtle)]">
+                    <tr key={r.id} data-invoice={r.id} className={cn('hover:bg-[var(--bg-subtle)]', flashId === r.id && 'rms-flash')}>
                       <Td>
                         <button type="button" onClick={() => setOpenId(r.id)} className="font-mono text-[12.5px] font-semibold hover:text-[var(--accent)]">{r.code}</button>
                       </Td>
@@ -161,7 +171,7 @@ export default function InvoicesPage() {
           refresh();
         }}
       />
-    </AppShell>
+    </CashierShell>
   );
 }
 

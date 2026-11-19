@@ -11,6 +11,7 @@ import com.rms.common.Vi;
 import com.rms.ordering.OrderCore.OrderView;
 import com.rms.ordering.ServiceRequestService.Request;
 import com.rms.table.TableService;
+import com.rms.warehouse.WarehouseCodes;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,10 +33,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CashierService {
 
+    /** guests: số khách thu ngân nhập (null = chưa nhập); lateCount: món chờ bếp quá LATE_MINUTES phút. */
     public record OrderBrief(String id, String code, String openedAt, long subtotal, int pendingCount, int readyCount,
-                             boolean locked) {}
+                             boolean locked, Integer guests, int lateCount) {}
 
-    public record ReservationBrief(String time, String customerName, int guests) {}
+    public record ReservationBrief(String id, String time, String customerName, int guests) {}
+
+    public record OpenInput(Integer guests, String reservationId) {}
 
     public record FloorTable(String id, String code, String areaId, int seats, String shape, int x, int y, String status,
                              OrderBrief order, ReservationBrief reservation, boolean supportRequest, boolean paymentRequest) {}
@@ -44,13 +49,20 @@ public class CashierService {
     public record ReadyItem(String id, String orderId, String tableId, String tableCode, String dishName, int qty, String note,
                             String completedAt) {}
 
+    /** Đặt bàn trong hôm nay (chưa đến / đã xác nhận / đã nhận bàn) — danh sách ở bảng bên phải sơ đồ. */
+    public record ReservationRow(String id, String time, String customerName, String phone, int guests, String tableCode,
+                                 String status) {}
+
     public record Floor(int cols, int rows, List<FloorArea> areas, List<FloorTable> tables, List<ReadyItem> ready,
-                        int occupiedCount, int tableCount, long revenueToday, int requestCount, int unpaidCount) {}
+                        int occupiedCount, int tableCount, long revenueToday, int requestCount, int unpaidCount,
+                        List<ReservationRow> reservations, int lateMinutes) {}
 
     public record IdsInput(List<String> ids) {}
 
     /** Chi tiết đơn cho Thu ngân: đơn + yêu cầu đang chờ của bàn + hóa đơn còn hiệu lực (nếu có). */
-    public record OrderDetail(OrderView order, String closedAt, List<Request> requests, InvoiceBrief invoice) {}
+    public record OrderDetail(OrderView order, String closedAt, List<Request> requests, InvoiceBrief invoice, Integer guests) {}
+
+    public record GuestsInput(Integer guests) {}
 
     public record InvoiceBrief(String id, String code, String status, long total) {}
 
@@ -66,6 +78,9 @@ public class CashierService {
 
     public record OrderList(List<OrderRow> items, int count, long completedTotal) {}
 
+    /** Món gọi quá số phút này mà bếp chưa xong → bàn hiện "Quá giờ" trên sơ đồ. */
+    static final int LATE_MINUTES = 25;
+
     static final Map<String, String> CANCEL_REASONS = Map.of("changed_mind", "Khách đổi ý", "wrong_order", "Gọi nhầm",
         "left", "Khách bỏ về", "other", "Khác");
 
@@ -76,9 +91,11 @@ public class CashierService {
     private final CurrentUserService currentUser;
     private final ServiceRequestService requests;
     private final InvoiceService invoices;
+    private final WarehouseCodes codes;
 
     public CashierService(JdbcClient jdbc, OrderCore core, LiveEvents live, AuditService audit, CurrentUserService currentUser,
-                          ServiceRequestService requests, InvoiceService invoices) {
+                          ServiceRequestService requests, InvoiceService invoices, WarehouseCodes codes) {
+        this.codes = codes;
         this.jdbc = jdbc;
         this.core = core;
         this.live = live;
@@ -97,14 +114,21 @@ public class CashierService {
         Map<Long, ReservationBrief> out = new HashMap<>();
         LocalDateTime now = Times.now();
         jdbc.sql("""
-                SELECT table_id, reserved_at, customer_name, guests FROM reservations
+                SELECT id, table_id, reserved_at, customer_name, guests FROM reservations
                 WHERE table_id IS NOT NULL AND status IN ('pending','confirmed') AND reserved_at >= ? AND reserved_at < ?
                 ORDER BY reserved_at
-                """).params(now.minusHours(1), Times.today().plusDays(1).atStartOfDay())
-            .query((rs, n) -> out.putIfAbsent(rs.getLong("table_id"), new ReservationBrief(iso(Db.dateTime(rs, "reserved_at")),
+                """).params(now.minusHours(1), reservationHorizon())
+            .query((rs, n) -> out.putIfAbsent(rs.getLong("table_id"), new ReservationBrief(Ids.str(rs.getLong("id")), iso(Db.dateTime(rs, "reserved_at")),
                 rs.getString("customer_name"), rs.getInt("guests"))))
             .list();
         return out;
+    }
+
+    /** Đặt bàn cần hiện: tới hết hôm nay, hoặc tới 2 giờ tới nếu muộn hơn (gần nửa đêm vẫn thấy khách đặt sau 0 giờ). */
+    private static LocalDateTime reservationHorizon() {
+        LocalDateTime endOfDay = Times.today().plusDays(1).atStartOfDay();
+        LocalDateTime soon = Times.now().plusHours(2);
+        return soon.isAfter(endOfDay) ? soon : endOfDay;
     }
 
     /* ------------------------------------------------------------------ UC-TN-01: sơ đồ bàn */
@@ -117,18 +141,21 @@ public class CashierService {
         // Tóm tắt đơn đang mở theo bàn.
         Map<Long, OrderBrief> orders = new HashMap<>();
         jdbc.sql("""
-                SELECT o.id, o.code, o.table_id, o.created_at,
+                SELECT o.id, o.code, o.table_id, o.created_at, o.guests,
                        COALESCE(SUM(CASE WHEN oi.status <> 'cancelled' THEN oi.unit_price * oi.quantity END), 0) AS subtotal,
                        COALESCE(SUM(oi.status IN ('pending','cooking')), 0) AS pending_count,
                        COALESCE(SUM(oi.status = 'done'), 0) AS ready_count,
+                       COALESCE(SUM(oi.status IN ('pending','cooking') AND oi.created_at < ?), 0) AS late_count,
                        EXISTS (SELECT 1 FROM invoices i WHERE i.order_id = o.id AND i.status = 'unpaid') AS locked
                 FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id
                 WHERE o.status = 'open'
-                GROUP BY o.id, o.code, o.table_id, o.created_at
+                GROUP BY o.id, o.code, o.table_id, o.created_at, o.guests
                 """)
+            .param(Times.now().minusMinutes(LATE_MINUTES))
             .query((rs, n) -> Map.entry(rs.getLong("table_id"), new OrderBrief(Ids.str(rs.getLong("id")), rs.getString("code"),
                 iso(Db.dateTime(rs, "created_at")), rs.getBigDecimal("subtotal").longValue(), rs.getInt("pending_count"),
-                rs.getInt("ready_count"), rs.getBoolean("locked"))))
+                rs.getInt("ready_count"), rs.getBoolean("locked"), (Integer) rs.getObject("guests", Integer.class),
+                rs.getInt("late_count"))))
             .list().forEach(e -> orders.put(e.getKey(), e.getValue()));
 
         Map<Long, ReservationBrief> reservations = reservationsToday();
@@ -161,8 +188,18 @@ public class CashierService {
         int occupied = (int) tables.stream().filter(t -> t.order() != null).count();
         int active = (int) tables.stream().filter(t -> !"inactive".equals(t.status())).count();
         int unpaid = jdbc.sql("SELECT COUNT(*) FROM invoices WHERE status = 'unpaid'").query(Integer.class).single();
+        List<ReservationRow> resToday = jdbc.sql("""
+                SELECT r.id, r.reserved_at, r.customer_name, r.phone, r.guests, r.status, t.code AS table_code
+                FROM reservations r LEFT JOIN dining_tables t ON t.id = r.table_id
+                WHERE r.status IN ('pending','confirmed','seated') AND r.reserved_at >= ? AND r.reserved_at < ?
+                ORDER BY r.reserved_at, r.id
+                """).params(Times.today().atStartOfDay(), reservationHorizon())
+            .query((rs, n) -> new ReservationRow(Ids.str(rs.getLong("id")), iso(Db.dateTime(rs, "reserved_at")),
+                rs.getString("customer_name"), rs.getString("phone"), rs.getInt("guests"), rs.getString("table_code"),
+                rs.getString("status")))
+            .list();
         return new Floor(TableService.FLOOR_COLS, TableService.FLOOR_ROWS, areas, tables, ready, occupied, active, revenue,
-            requests.waitingCount(), unpaid);
+            requests.waitingCount(), unpaid, resToday, LATE_MINUTES);
     }
 
     /* ------------------------------------------------------------------ UC-TN-03: chi tiết đơn */
@@ -186,35 +223,23 @@ public class CashierService {
                 .query((rs, n) -> new InvoiceBrief(Ids.str(id), rs.getString(1), rs.getString(2), rs.getBigDecimal(3).longValue()))
                 .single())
             .orElse(null);
-        return new OrderDetail(o, iso(closed), reqs, inv);
+        List<Integer> g = jdbc.sql("SELECT guests FROM orders WHERE id = ?").param(orderId)
+            .query((rs, n) -> (Integer) rs.getObject("guests", Integer.class)).list();
+        Integer guests = g.isEmpty() ? null : g.get(0);
+        return new OrderDetail(o, iso(closed), reqs, inv, guests);
     }
 
-    /** UC-TN-03: món Đã xong → Đã mang ra (theo báo của nhân viên phục vụ). */
+    /** Sơ đồ bàn: thu ngân nhập số khách đang ngồi ở bàn (1–99; null = xóa). */
     @Transactional
-    public OrderDetail serve(IdsInput in) {
-        if (in.ids() == null || in.ids().isEmpty()) throw new ValidationException("ids", "Chưa chọn món");
-        Set<Long> tables = new HashSet<>();
-        Long orderId = null;
-        int changed = 0;
-        for (String text : new HashSet<>(in.ids())) {
-            long id = Ids.parse(text, "Không tìm thấy món");
-            var row = jdbc.sql("SELECT oi.status, oi.order_id, o.table_id FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.id = ? FOR UPDATE")
-                .param(id).query((rs, n) -> new Object[] {rs.getString(1), rs.getLong(2), rs.getLong(3)}).optional()
-                .orElseThrow(() -> BusinessException.notFound("Không tìm thấy món"));
-            orderId = (Long) row[1];
-            tables.add((Long) row[2]);
-            if (!"done".equals(row[0])) continue;
-            jdbc.sql("UPDATE order_items SET status = 'served', served_at = ?, served_by = ? WHERE id = ?")
-                .params(Times.now(), currentUser.get().id(), id).update();
-            changed++;
-        }
-        if (changed == 0) throw new BusinessException("Món không ở trạng thái Đã xong");
-        String[] ch = new String[tables.size() + 2];
-        ch[0] = LiveEvents.CASHIER;
-        ch[1] = LiveEvents.KITCHEN;
-        int i = 2;
-        for (Long t : tables) ch[i++] = LiveEvents.table(t);
-        live.publish(ch);
+    public OrderDetail setGuests(String orderIdText, GuestsInput in) {
+        long orderId = Ids.parse(orderIdText, "Không tìm thấy đơn hàng");
+        Integer g = in.guests();
+        if (g != null && (g < 1 || g > 99)) throw new ValidationException("guests", "Số khách từ 1 đến 99");
+        OrderHead h = head(orderId);
+        String status = jdbc.sql("SELECT status FROM orders WHERE id = ? FOR UPDATE").param(orderId).query(String.class).single();
+        if (!"open".equals(status)) throw new BusinessException("Đơn đã đóng");
+        jdbc.sql("UPDATE orders SET guests = ? WHERE id = ?").params(g, orderId).update();
+        live.publish(LiveEvents.CASHIER);
         return detail(orderId);
     }
 
@@ -287,6 +312,93 @@ public class CashierService {
         audit.log("cashier", "Hủy đơn", "Hủy đơn " + h.code() + ": " + reason, "orders", orderId);
         live.publish(LiveEvents.KITCHEN, LiveEvents.CASHIER, LiveEvents.table(h.tableId()));
         return detail(orderId);
+    }
+
+    /* ------------------------------------------------------------------ Mở bàn / đóng bàn */
+
+    /** Cấu hình: mở bàn quá bao nhiêu phút mà chưa gọi món thì tự đóng (0 = không tự đóng). */
+    static final String OPEN_TIMEOUT_KEY = "order.open_table_timeout_minutes";
+
+    /**
+     * Thu ngân mở bàn: tạo đơn rỗng cho bàn (ghi người mở, số khách, phiếu đặt nếu có) — từ lúc này mã QR của bàn mới
+     * gửi được món. Bàn phải đang hoạt động, Trống / Đặt trước và chưa có đơn mở.
+     */
+    @Transactional
+    public OrderDetail openTable(String tableIdText, OpenInput in) {
+        long tableId = Ids.parse(tableIdText, "Không tìm thấy bàn");
+        core.lockTable(tableId);
+        var t = jdbc.sql("""
+                SELECT t.code, t.status, a.is_active FROM dining_tables t JOIN areas a ON a.id = t.area_id WHERE t.id = ?
+                """).param(tableId).query((rs, n) -> new Object[] {rs.getString(1), rs.getString(2), rs.getBoolean(3)}).optional()
+            .orElseThrow(() -> BusinessException.notFound("Không tìm thấy bàn"));
+        String code = (String) t[0];
+        if (!(Boolean) t[2] || "inactive".equals(t[1])) throw new BusinessException("Bàn " + code + " đang ngừng phục vụ");
+        if (core.openOrderId(tableId).isPresent()) throw new BusinessException("Bàn " + code + " đã được mở");
+        Integer guests = in == null ? null : in.guests();
+        if (guests != null && (guests < 1 || guests > 99)) throw new ValidationException("guests", "Số khách từ 1 đến 99");
+        Long resId = in == null ? null : Ids.parseOrNull(in.reservationId());
+        if (resId != null) {
+            var res = jdbc.sql("SELECT table_id, guests, status FROM reservations WHERE id = ?").param(resId)
+                .query((rs, n) -> new Object[] {rs.getObject(1) == null ? null : rs.getLong(1), rs.getInt(2), rs.getString(3)}).optional()
+                .orElseThrow(() -> BusinessException.notFound("Không tìm thấy phiếu đặt bàn"));
+            if (res[0] == null || (Long) res[0] != tableId) throw new BusinessException("Phiếu đặt không thuộc bàn " + code);
+            if (!Set.of("pending", "confirmed").contains((String) res[2])) throw new BusinessException("Phiếu đặt đã được xử lý");
+            if (guests == null) guests = (Integer) res[1];
+            jdbc.sql("UPDATE reservations SET status = 'seated' WHERE id = ?").param(resId).update();
+        }
+        String orderCode = codes.document("DH", Times.today());
+        jdbc.sql("INSERT INTO orders (code, table_id, reservation_id, guests, status, source, created_by) VALUES (?, ?, ?, ?, 'open', 'qr', ?)")
+            .params(orderCode, tableId, resId, guests, currentUser.get().id()).update();
+        long orderId = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
+        jdbc.sql("UPDATE dining_tables SET status = 'occupied' WHERE id = ?").param(tableId).update();
+        audit.log("cashier", "Mở bàn", "Bàn " + code + (guests == null ? "" : " · " + guests + " khách") + (resId == null ? "" : " · khách đặt trước"),
+            "orders", orderId);
+        live.publish(LiveEvents.CASHIER, LiveEvents.table(tableId));
+        return detail(orderId);
+    }
+
+    /** Thu ngân đóng bàn chưa gọi món (khách bỏ về / mở nhầm). Bàn đã có món thì phải dùng Hủy đơn kèm lý do. */
+    @Transactional
+    public OrderDetail closeTable(String orderIdText) {
+        long orderId = Ids.parse(orderIdText, "Không tìm thấy đơn hàng");
+        OrderHead h = lockEditable(orderId);
+        if (activeItems(orderId) > 0) throw new BusinessException("Bàn đã gọi món — dùng \"Hủy đơn\" (kèm lý do) nếu khách không dùng nữa.");
+        closeEmpty(orderId, h.tableId(), "Đóng bàn (chưa gọi món)");
+        audit.log("cashier", "Đóng bàn", "Đóng bàn đơn " + h.code() + " (chưa gọi món)", "orders", orderId);
+        return detail(orderId);
+    }
+
+    private int activeItems(long orderId) {
+        return jdbc.sql("SELECT COUNT(*) FROM order_items WHERE order_id = ? AND status <> 'cancelled'").param(orderId).query(Integer.class).single();
+    }
+
+    private void closeEmpty(long orderId, long tableId, String note) {
+        jdbc.sql("UPDATE orders SET status = 'cancelled', closed_at = ?, note = ? WHERE id = ?").params(Times.now(), note, orderId).update();
+        jdbc.sql("UPDATE dining_tables SET status = 'available' WHERE id = ? AND status = 'occupied'").param(tableId).update();
+        requests.cancelAllOfTable(tableId);
+        live.publish(LiveEvents.CASHIER, LiveEvents.table(tableId));
+    }
+
+    /** Mỗi phút: bàn mở quá N phút (cấu hình) mà chưa gọi món nào thì tự đóng. */
+    @Scheduled(cron = "30 * * * * *", zone = "Asia/Ho_Chi_Minh")
+    @Transactional
+    public void autoCloseIdleTables() {
+        int minutes = openTimeoutMinutes();
+        if (minutes <= 0) return;
+        List<long[]> idle = jdbc.sql("""
+                SELECT o.id, o.table_id FROM orders o
+                WHERE o.status = 'open' AND o.created_at < ?
+                  AND NOT EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.id AND i.status <> 'cancelled')
+                  AND NOT EXISTS (SELECT 1 FROM invoices v WHERE v.order_id = o.id AND v.status = 'unpaid')
+                """).param(Times.now().minusMinutes(minutes))
+            .query((rs, n) -> new long[] {rs.getLong(1), rs.getLong(2)}).list();
+        for (long[] o : idle) closeEmpty(o[0], o[1], "Tự đóng: mở bàn quá " + minutes + " phút chưa gọi món");
+    }
+
+    int openTimeoutMinutes() {
+        return jdbc.sql("SELECT setting_value FROM system_settings WHERE setting_key = ?").param(OPEN_TIMEOUT_KEY)
+            .query(String.class).optional().map((v) -> { try { return Integer.parseInt(v.trim()); } catch (NumberFormatException e) { return 30; } })
+            .orElse(30);
     }
 
     /* ------------------------------------------------------------------ UC-TN-05: chuyển bàn */

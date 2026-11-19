@@ -34,7 +34,7 @@ export const INVOICE_STATUS: Record<InvoiceStatus, { label: string; variant: Bad
 
 export const REQUEST_STATUS: Record<RequestStatus, { label: string; variant: BadgeVariant }> = {
   new: { label: 'Mới', variant: 'warning' },
-  forwarded: { label: 'Đã chuyển', variant: 'info' },
+  forwarded: { label: 'Đã báo NV', variant: 'info' },
   done: { label: 'Hoàn thành', variant: 'accent' },
   cancelled: { label: 'Đã hủy', variant: 'neutral' },
 };

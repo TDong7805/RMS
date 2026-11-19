@@ -1,5 +1,5 @@
 import { api } from '@/lib/http';
-import type { Dish, DishCategory, DishFilter, DishInput, DishStatus, Paged } from '@/types';
+import type { Dish, DishCategory, DishFilter, DishGroup, DishGroupInput, DishInput, DishStatus, Paged } from '@/types';
 
 /** Phải trùng DishService.PAGE_SIZE ở backend. */
 export const DISH_PAGE_SIZE = 10;
@@ -55,8 +55,9 @@ export function getCategories(): Promise<(DishCategory & { dishCount: number })[
 }
 
 /** POST /api/dish-categories | PUT /api/dish-categories/{id} */
-export function saveCategory(input: { id?: string; name: string; active: boolean }): Promise<DishCategory> {
-  const body = { name: input.name, active: input.active };
+export function saveCategory(input: { id?: string; name: string; active: boolean; image?: string | null }): Promise<DishCategory> {
+  // image: không gửi = giữ ảnh hiện tại (vd. chỉ bật / tắt); null = bỏ ảnh; data URL = ảnh mới.
+  const body = { name: input.name, active: input.active, ...(input.image !== undefined ? { image: input.image ?? '' } : {}) };
   return input.id
     ? api.put<DishCategory>(`/api/dish-categories/${encodeURIComponent(input.id)}`, body)
     : api.post<DishCategory>('/api/dish-categories', body);
@@ -65,4 +66,20 @@ export function saveCategory(input: { id?: string; name: string; active: boolean
 /** GET /api/allergens — danh sách dị nguyên nhà hàng khai báo (bảng allergens). */
 export function getAllergens(): Promise<string[]> {
   return api.get<string[]>('/api/allergens');
+}
+
+/* ---------------------------------------------------------------- Nhóm món */
+
+export function getDishGroups(): Promise<DishGroup[]> {
+  return api.get<DishGroup[]>('/api/dish-groups');
+}
+
+export function saveDishGroup(id: string | null, input: DishGroupInput): Promise<DishGroup> {
+  return id
+    ? api.put<DishGroup>(`/api/dish-groups/${encodeURIComponent(id)}`, input)
+    : api.post<DishGroup>('/api/dish-groups', input);
+}
+
+export function deleteDishGroup(id: string): Promise<void> {
+  return api.delete(`/api/dish-groups/${encodeURIComponent(id)}`);
 }

@@ -66,6 +66,15 @@ public final class ImageProcessor {
 
     static Image process(byte[] bytes, String field) {
         if (bytes.length > MAX_BYTES) throw new ValidationException(field, "Ảnh tối đa 2 MB");
+        return processAnySize(bytes, field);
+    }
+
+    /** Ảnh mẫu do nhóm đặt sẵn trong repo (chỉ môi trường dev): không giới hạn 2 MB, vẫn thu nhỏ + làm sạch như ảnh tải lên. */
+    static Image processSeed(byte[] bytes, String name) {
+        return processAnySize(bytes, name);
+    }
+
+    private static Image processAnySize(byte[] bytes, String field) {
         if (!isJpeg(bytes) && !isPng(bytes) && !isWebp(bytes)) {
             throw new ValidationException(field, "Chỉ nhận ảnh JPG, PNG hoặc WebP");
         }
