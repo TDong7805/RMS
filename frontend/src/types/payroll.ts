@@ -23,11 +23,21 @@ export interface AttendanceRow {
   /** Ca qua đêm (ra sáng hôm sau). */
   overnight: boolean;
   hours: number;
-  source: 'excel' | 'manual';
+  /** camera = tự chấm công bằng khuôn mặt (V20). */
+  source: 'excel' | 'manual' | 'camera';
   note: string;
   missingOut: boolean;
   /** Thuộc kỳ lương đã chốt — không sửa / xóa được. */
   locked: boolean;
+  /** Chấm công khuôn mặt: số phút đi trễ / về sớm so với ca (null = không có ca / chấm tay). */
+  lateMinutes: number | null;
+  earlyMinutes: number | null;
+  /** Có ảnh lúc vào / ra (xem qua API có kiểm quyền; ảnh tự xóa sau N ngày). */
+  hasInPhoto: boolean;
+  hasOutPhoto: boolean;
+  /** Độ lệch khuôn mặt so với ảnh đăng ký (càng nhỏ càng giống). */
+  inDistance: number | null;
+  outDistance: number | null;
 }
 
 export interface AttendanceTotal {

@@ -4,8 +4,8 @@ import type { Account, AccountFilter, AccountInput, Paged } from '@/types';
 /** Phải trùng AccountService.PAGE_SIZE ở backend. */
 export const ACCOUNT_PAGE_SIZE = 10;
 
-/** Vai trò được đăng nhập hệ thống (khớp backend com.rms.auth.StaffAreas). Phục vụ thì không. */
-export const LOGIN_ROLES = ['manager', 'cashier', 'kitchen', 'warehouse'] as const;
+/** Vai trò được đăng nhập hệ thống (khớp backend com.rms.auth.StaffAreas). Phục vụ đăng nhập được từ V20. */
+export const LOGIN_ROLES = ['manager', 'cashier', 'kitchen', 'warehouse', 'waiter'] as const;
 export const canLogin = (role: string): boolean => (LOGIN_ROLES as readonly string[]).includes(role);
 
 /** GET /api/accounts?keyword=&role=&status=&page= — tìm không dấu theo tên đăng nhập, họ tên, email, SĐT. */

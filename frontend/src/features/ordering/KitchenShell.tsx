@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { BookOpen, ChefHat, ClipboardList, LogOut, PackageSearch, X } from 'lucide-react';
+import { BookOpen, ChefHat, ClipboardList, LogOut, PackageSearch, ScanFace, X } from 'lucide-react';
 import { useAuth, useLogout } from '@/lib/auth';
 import { cn } from '@/lib/cn';
 import { useKdsSettings } from './kdsSettings';
@@ -12,6 +12,7 @@ const TABS = [
   { to: '/bep', label: 'Hàng chờ', icon: ClipboardList, end: true },
   { to: '/bep/nguyen-lieu', label: 'Kiểm tra nguyên liệu', icon: PackageSearch, end: false },
   { to: '/bep/cong-thuc', label: 'Công thức', icon: BookOpen, end: false },
+  { to: '/bep/toi', label: 'Chấm công', icon: ScanFace, end: false },
 ];
 
 export function KitchenShell({ children, actions }: { children: ReactNode; actions?: ReactNode }) {

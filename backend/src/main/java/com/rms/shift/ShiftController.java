@@ -23,7 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
  * DELETE /api/shifts/{id}                         409 nếu ca đã có phân công
  * GET    /api/employees?from=&to=                 nhân viên cho lịch phân công (status: active | locked | deleted)
  * GET    /api/shift-assignments?from=&to=         phân công trong khoảng ngày (YYYY-MM-DD, tối đa 62 ngày)
- * POST   /api/shift-assignments                   {"employeeId", "shiftId", "dates": ["YYYY-MM-DD", ...]}
+ * POST   /api/shift-assignments                   {"employeeId", "shiftId", "dates": ["YYYY-MM-DD", ...], "areaId"}
+ * PUT    /api/shift-assignments/{id}/area         {"areaId"} khu vực phụ trách (nhân viên phục vụ; rỗng = bỏ gán)
  * DELETE /api/shift-assignments/{id}              hủy phân công (không hủy được ngày đã qua)
  */
 @RestController
@@ -68,6 +69,11 @@ public class ShiftController {
     @PostMapping("/api/shift-assignments")
     public List<Assignment> assign(@RequestBody AssignInput in) {
         return service.assign(in);
+    }
+
+    @PutMapping("/api/shift-assignments/{id}/area")
+    public Assignment setArea(@PathVariable String id, @RequestBody ShiftService.AreaInput in) {
+        return service.setArea(id, in);
     }
 
     @DeleteMapping("/api/shift-assignments/{id}")

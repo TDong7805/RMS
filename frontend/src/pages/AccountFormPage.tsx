@@ -79,7 +79,7 @@ export function AccountFormPage() {
     if (!form.email.trim()) local.email = 'Vui lòng nhập email';
     if (!form.role) local.role = 'Vui lòng phân vai trò cho tài khoản';
     if (Object.keys(local).length) return setErrors(local);
-    // Phục vụ không đăng nhập: không gửi mật khẩu.
+    // Vai trò không đăng nhập (không còn từ V20 — phục vụ đã đăng nhập được): không gửi mật khẩu.
     mutation.mutate(needsPassword ? form : { ...form, password: '' });
   };
 

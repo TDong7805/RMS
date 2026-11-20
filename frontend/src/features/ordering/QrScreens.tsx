@@ -599,7 +599,7 @@ export function MyOrderScreen({ table, order, support, payment, hasInvoice, onBa
           {support ? (
             <div className="flex items-center gap-2.5 rounded-2xl bg-[var(--qr-warn-soft)] px-4 py-3 text-[13.5px] text-[var(--qr-warn-text)]">
               <span className="qr-wiggle inline-flex"><Emoji name="bell" size={20} /></span>
-              {support.status === 'forwarded' ? 'Nhân viên đang đến bàn bạn' : 'Đã gọi nhân viên, vui lòng chờ chút'}
+              {support.status === 'forwarded' ? `Nhân viên${support.assignedName ? ' ' + support.assignedName : ''} đang đến bàn bạn` : 'Đã gọi nhân viên, vui lòng chờ chút'}
             </div>
           ) : null}
           {order?.locked ? <p className="rounded-2xl bg-[var(--qr-warn-soft)] px-4 py-3 text-[13px] text-[var(--qr-warn-text)]">Bàn đang chờ thanh toán — không gọi thêm hay hủy món được.</p> : null}

@@ -18,6 +18,8 @@ export default defineConfig({
       '/api': {
         target: `http://localhost:${process.env.BACKEND_PORT || '8080'}`,
         changeOrigin: true,
+        // Gửi kèm X-Forwarded-For: backend biết IP thật của máy khách (chấm công kiểm tra WiFi quán).
+        xfwd: true,
         // Với trình duyệt, trang và /api cùng một địa chỉ (qua proxy) nên không cần CORS. Bỏ header Origin
         // để backend không chặn khi mở bằng cổng khác hoặc IP mạng LAN (vd. máy tính bảng ở bếp: 192.168.x.x:3000).
         configure: (proxy) => {

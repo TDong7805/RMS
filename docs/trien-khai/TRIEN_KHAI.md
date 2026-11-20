@@ -148,6 +148,34 @@ server {
   cùng máy / mạng nội bộ, nhờ đó nhật ký hoạt động ghi đúng IP người dùng.
 - MySQL cũng chỉ nghe trong máy (`bind-address = 127.0.0.1`) nếu chạy cùng máy chủ.
 
+### Chấm công khuôn mặt trên điện thoại (phục vụ, thu ngân, bếp)
+
+Trình duyệt **chỉ cho mở camera khi trang chạy HTTPS** (hoặc `http://localhost` trên chính máy đó). Mở bằng
+`http://192.168.x.x` từ điện thoại thì camera bị chặn — trang "Thông tin của tôi" sẽ báo ngay. Ba cách có HTTPS:
+
+| Cách | Khi nào dùng | Lưu ý |
+|---|---|---|
+| **VPS + tên miền + Caddy** (mục 5 ở trên) | Chạy thật — khuyên dùng | Chứng chỉ miễn phí, tự gia hạn. Khoảng 100–200k/tháng VPS + ~200k/năm tên miền |
+| Máy ở quán + **Cloudflare Tunnel** (`cloudflared`) | Không muốn thuê VPS | Miễn phí, không mở cổng modem; máy ở quán phải bật. `cloudflared` chạy cùng máy nên backend tin `X-Forwarded-For` |
+| **ngrok** | Thử nhanh trên điện thoại khi phát triển | Bản miễn phí đổi đường dẫn mỗi lần chạy; không dùng chạy thật |
+
+**Kiểm tra "đang dùng WiFi quán"** (Cấu hình hệ thống → Chấm công → *WiFi của quán*):
+
+- Web chạy trên **máy chủ internet** (VPS, Cloudflare, ngrok): máy chủ chỉ thấy **IP công cộng** của mạng quán, không
+  thấy `192.168.x.x`. Đứng ở quán, kết nối WiFi quán, mở trang cấu hình → bấm **Thêm IP hiện tại** → Lưu.
+- IP công cộng của mạng gia đình / quán thường **đổi khi khởi động lại modem**: nhân viên báo "cần kết nối WiFi quán"
+  dù đang ở quán → quản lý làm lại bước trên. Muốn cố định thì xin nhà mạng IP tĩnh.
+- Web chạy **trên máy ở quán** và nhân viên vào bằng địa chỉ trong mạng nội bộ: dùng dải nội bộ, vd. `192.168.1.0/24`.
+- Để trống = không kiểm tra WiFi (chỉ kiểm tra khuôn mặt và ca).
+- Backend lấy IP thật của máy khách qua `X-Forwarded-For` **chỉ khi** yêu cầu đến từ proxy trong máy / mạng nội bộ
+  (Tomcat `RemoteIpValve`). Vì vậy **phải chặn cổng 8080 từ internet** — nếu không, người ngoài gọi thẳng cổng 8080
+  không đi qua proxy (IP vẫn đúng, nhưng mất HTTPS).
+
+**Dữ liệu khuôn mặt** là dữ liệu cá nhân nhạy cảm (Nghị định 13/2023/NĐ-CP): nhân viên phải tick đồng ý khi đăng ký;
+ảnh chấm công tự xóa sau số ngày cấu hình (mặc định 90); khuôn mặt bị xóa khi xóa tài khoản. Ảnh nằm trong
+`RMS_UPLOAD_DIR/khuon-mat` và `RMS_UPLOAD_DIR/cham-cong`, không phục vụ công khai qua `/uploads`, và có trong bản sao lưu —
+cất giữ bản sao lưu cẩn thận.
+
 ## 6. Cập nhật phiên bản mới
 
 1. Bấm **Sao lưu ngay** trong trang Cấu hình hệ thống (hoặc sao lưu bằng cron, mục 7).
@@ -207,6 +235,9 @@ gunzip < /var/backups/rms/rms_2026-11-12.sql.gz | mysql rms_restore_test
 - [ ] Tài khoản MySQL của ứng dụng không phải `root`.
 - [ ] Đã đổi mật khẩu quản lý đầu tiên và xóa `RMS_BOOTSTRAP_*` khỏi `.env.properties`.
 - [ ] Sao lưu tự động đang chạy, đã thử phục hồi được.
+- [ ] Mở trang bằng điện thoại qua `https://`, vào "Thông tin của tôi" → Chấm công mở được camera.
+- [ ] Cấu hình hệ thống → Chấm công: đã thêm IP WiFi quán (bấm *Thêm IP hiện tại* khi đang ở quán).
+- [ ] Nhân viên đã đăng ký khuôn mặt và được duyệt (Quản lý nhân viên → Khuôn mặt chấm công).
 
 ## Quên mật khẩu của quản lý duy nhất
 

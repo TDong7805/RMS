@@ -109,6 +109,11 @@ public class CashierService {
         return t == null ? null : Times.iso(t);
     }
 
+    /** Module nhật ký: thao tác bàn dùng chung cho Thu ngân và Nhân viên phục vụ. */
+    private String module() {
+        return "waiter".equals(currentUser.get().role()) ? "waiter" : "cashier";
+    }
+
     /** Lịch đặt sắp tới trong hôm nay của từng bàn (chưa đến / đã xác nhận). */
     private Map<Long, ReservationBrief> reservationsToday() {
         Map<Long, ReservationBrief> out = new HashMap<>();
@@ -134,6 +139,14 @@ public class CashierService {
     /* ------------------------------------------------------------------ UC-TN-01: sơ đồ bàn */
 
     public Floor floor() {
+        return floor(false);
+    }
+
+    /**
+     * @param forWaiter true = sơ đồ của Nhân viên phục vụ: hiện bàn có yêu cầu hỗ trợ, ẩn doanh thu / hóa đơn chưa thu.
+     *                  false = Thu ngân: yêu cầu hỗ trợ do phục vụ xử lý nên không hiện cờ hỗ trợ.
+     */
+    public Floor floor(boolean forWaiter) {
         Map<Long, Set<String>> waiting = requests.waitingByTable();
         List<FloorArea> areas = jdbc.sql("SELECT id, name FROM areas WHERE is_active = 1 ORDER BY sort_order, id")
             .query((rs, n) -> new FloorArea(Ids.str(rs.getLong("id")), rs.getString("name"))).list();
@@ -169,7 +182,7 @@ public class CashierService {
                 Set<String> w = waiting.getOrDefault(id, Set.of());
                 return new FloorTable(Ids.str(id), rs.getString("code"), Ids.str(rs.getLong("area_id")), rs.getInt("seats"),
                     rs.getString("shape"), rs.getInt("pos_x"), rs.getInt("pos_y"), rs.getString("status"), orders.get(id),
-                    reservations.get(id), w.contains("support"), w.contains("payment"));
+                    reservations.get(id), forWaiter && w.contains("support"), w.contains("payment"));
             })
             .list();
 
@@ -183,11 +196,11 @@ public class CashierService {
                 iso(Db.dateTime(rs, "completed_at"))))
             .list();
 
-        long revenue = jdbc.sql("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status = 'paid' AND paid_at >= ?")
+        long revenue = forWaiter ? 0 : jdbc.sql("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status = 'paid' AND paid_at >= ?")
             .param(Times.today().atStartOfDay()).query(java.math.BigDecimal.class).single().longValue();
         int occupied = (int) tables.stream().filter(t -> t.order() != null).count();
         int active = (int) tables.stream().filter(t -> !"inactive".equals(t.status())).count();
-        int unpaid = jdbc.sql("SELECT COUNT(*) FROM invoices WHERE status = 'unpaid'").query(Integer.class).single();
+        int unpaid = forWaiter ? 0 : jdbc.sql("SELECT COUNT(*) FROM invoices WHERE status = 'unpaid'").query(Integer.class).single();
         List<ReservationRow> resToday = jdbc.sql("""
                 SELECT r.id, r.reserved_at, r.customer_name, r.phone, r.guests, r.status, t.code AS table_code
                 FROM reservations r LEFT JOIN dining_tables t ON t.id = r.table_id
@@ -199,7 +212,7 @@ public class CashierService {
                 rs.getString("status")))
             .list();
         return new Floor(TableService.FLOOR_COLS, TableService.FLOOR_ROWS, areas, tables, ready, occupied, active, revenue,
-            requests.waitingCount(), unpaid, resToday, LATE_MINUTES);
+            forWaiter ? requests.listForWaiter("waiting").waitingCount() : requests.waitingCount(), unpaid, resToday, LATE_MINUTES);
     }
 
     /* ------------------------------------------------------------------ UC-TN-03: chi tiết đơn */
@@ -287,7 +300,7 @@ public class CashierService {
         if (!"pending".equals(row[0])) throw new BusinessException("Món đã bắt đầu chế biến, không thể hủy");
         jdbc.sql("UPDATE order_items SET status = 'cancelled', cancel_source = 'cashier', cancel_reason = ?, cancelled_by = ?, cancelled_at = ? WHERE id = ?")
             .params(reason, currentUser.get().id(), Times.now(), itemId).update();
-        audit.log("cashier", "Hủy món", "Hủy " + row[1] + " – đơn " + h.code() + ": " + reason, "order_items", itemId);
+        audit.log(module(), "Hủy món", "Hủy " + row[1] + " – đơn " + h.code() + ": " + reason, "order_items", itemId);
         live.publish(LiveEvents.KITCHEN, LiveEvents.CASHIER, LiveEvents.table(h.tableId()));
         return detail(orderId);
     }
@@ -309,7 +322,7 @@ public class CashierService {
             .params(now, note.length() > 300 ? note.substring(0, 300) : note, orderId).update();
         jdbc.sql("UPDATE dining_tables SET status = 'available' WHERE id = ? AND status = 'occupied'").param(h.tableId()).update();
         requests.cancelAllOfTable(h.tableId());
-        audit.log("cashier", "Hủy đơn", "Hủy đơn " + h.code() + ": " + reason, "orders", orderId);
+        audit.log(module(), "Hủy đơn", "Hủy đơn " + h.code() + ": " + reason, "orders", orderId);
         live.publish(LiveEvents.KITCHEN, LiveEvents.CASHIER, LiveEvents.table(h.tableId()));
         return detail(orderId);
     }
@@ -351,7 +364,7 @@ public class CashierService {
             .params(orderCode, tableId, resId, guests, currentUser.get().id()).update();
         long orderId = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
         jdbc.sql("UPDATE dining_tables SET status = 'occupied' WHERE id = ?").param(tableId).update();
-        audit.log("cashier", "Mở bàn", "Bàn " + code + (guests == null ? "" : " · " + guests + " khách") + (resId == null ? "" : " · khách đặt trước"),
+        audit.log(module(), "Mở bàn", "Bàn " + code + (guests == null ? "" : " · " + guests + " khách") + (resId == null ? "" : " · khách đặt trước"),
             "orders", orderId);
         live.publish(LiveEvents.CASHIER, LiveEvents.table(tableId));
         return detail(orderId);
@@ -364,7 +377,7 @@ public class CashierService {
         OrderHead h = lockEditable(orderId);
         if (activeItems(orderId) > 0) throw new BusinessException("Bàn đã gọi món — dùng \"Hủy đơn\" (kèm lý do) nếu khách không dùng nữa.");
         closeEmpty(orderId, h.tableId(), "Đóng bàn (chưa gọi món)");
-        audit.log("cashier", "Đóng bàn", "Đóng bàn đơn " + h.code() + " (chưa gọi món)", "orders", orderId);
+        audit.log(module(), "Đóng bàn", "Đóng bàn đơn " + h.code() + " (chưa gọi món)", "orders", orderId);
         return detail(orderId);
     }
 
@@ -441,9 +454,72 @@ public class CashierService {
         jdbc.sql("UPDATE dining_tables SET status = 'occupied' WHERE id = ?").param(target).update();
         jdbc.sql("UPDATE dining_tables SET status = 'available' WHERE id = ? AND status = 'occupied'").param(h.tableId()).update();
         requests.moveWaiting(h.tableId(), target);
-        audit.log("cashier", "Chuyển bàn", "Đơn " + h.code() + ": bàn " + from.code() + " → " + to.code(), "orders", orderId);
+        audit.log(module(), "Chuyển bàn", "Đơn " + h.code() + ": bàn " + from.code() + " → " + to.code(), "orders", orderId);
         live.publish(LiveEvents.KITCHEN, LiveEvents.CASHIER, LiveEvents.table(h.tableId()), LiveEvents.table(target));
         return detail(orderId);
+    }
+
+
+    /* ------------------------------------------------------------------ Ghép bàn (từ V20) */
+
+    /** Bàn ghép vào được: đang có khách (đơn mở), chưa lập hóa đơn. */
+    public List<MoveTarget> mergeTargets() {
+        return jdbc.sql("""
+                SELECT t.id, t.code, a.id AS area_id, a.name AS area_name, t.seats, t.status
+                FROM dining_tables t JOIN areas a ON a.id = t.area_id
+                JOIN orders o ON o.table_id = t.id AND o.status = 'open'
+                WHERE a.is_active = 1
+                  AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.order_id = o.id AND i.status = 'unpaid')
+                ORDER BY a.sort_order, a.id, t.code
+                """)
+            .query((rs, n) -> new MoveTarget(Ids.str(rs.getLong("id")), rs.getString("code"), Ids.str(rs.getLong("area_id")),
+                rs.getString("area_name"), rs.getInt("seats"), rs.getString("status"), null))
+            .list();
+    }
+
+    /**
+     * Ghép bàn: toàn bộ món (kể cả set) của đơn này chuyển sang đơn đang mở của bàn đích, cộng số khách; đơn cũ đóng
+     * (ghi chú "Ghép vào đơn …"), bàn cũ trống. Hai đơn đều phải chưa lập hóa đơn. Bếp thấy món theo bàn mới ngay.
+     */
+    @Transactional
+    public OrderDetail merge(String orderIdText, MoveInput in) {
+        long orderId = Ids.parse(orderIdText, "Không tìm thấy đơn hàng");
+        Long target = Ids.parseOrNull(in.tableId());
+        if (target == null) throw new ValidationException("tableId", "Vui lòng chọn bàn ghép vào");
+        OrderHead h = head(orderId);
+        if (target == h.tableId()) throw new ValidationException("tableId", "Bàn ghép vào trùng bàn hiện tại");
+        core.lockTable(Math.min(target, h.tableId()));
+        core.lockTable(Math.max(target, h.tableId()));
+        String status = jdbc.sql("SELECT status FROM orders WHERE id = ? FOR UPDATE").param(orderId).query(String.class).single();
+        if (!"open".equals(status)) throw new BusinessException("Đơn đã đóng");
+        if (core.isLocked(orderId)) throw new BusinessException("Đơn đang chờ thanh toán. Hủy hóa đơn trước nếu cần ghép bàn.");
+        var from = core.table(h.tableId());
+        var to = core.table(target);
+        long targetOrder = core.openOrderId(target)
+            .orElseThrow(() -> new BusinessException("Bàn " + to.code() + " chưa có khách — dùng \"Chuyển bàn\""));
+        jdbc.sql("SELECT id FROM orders WHERE id = ? FOR UPDATE").param(targetOrder).query(Long.class).single();
+        if (core.isLocked(targetOrder)) throw new BusinessException("Bàn " + to.code() + " đang chờ thanh toán, không ghép được");
+        String targetCode = jdbc.sql("SELECT code FROM orders WHERE id = ?").param(targetOrder).query(String.class).single();
+
+        int offset = jdbc.sql("SELECT COALESCE(MAX(batch_no), 0) FROM order_items WHERE order_id = ?").param(targetOrder)
+            .query(Integer.class).single();
+        jdbc.sql("UPDATE order_items SET order_id = ?, batch_no = batch_no + ? WHERE order_id = ?").params(targetOrder, offset, orderId).update();
+        jdbc.sql("UPDATE order_sets SET order_id = ? WHERE order_id = ?").params(targetOrder, orderId).update();
+        jdbc.sql("""
+                UPDATE orders t JOIN orders s ON s.id = ?
+                SET t.guests = CASE WHEN t.guests IS NULL AND s.guests IS NULL THEN NULL
+                                    ELSE LEAST(99, COALESCE(t.guests, 0) + COALESCE(s.guests, 0)) END
+                WHERE t.id = ?
+                """).params(orderId, targetOrder).update();
+        String note = "Ghép vào đơn " + targetCode + " (bàn " + to.code() + ")";
+        jdbc.sql("UPDATE orders SET status = 'cancelled', closed_at = ?, note = ? WHERE id = ?").params(Times.now(), note, orderId).update();
+        jdbc.sql("UPDATE dining_tables SET status = 'available' WHERE id = ? AND status = 'occupied'").param(h.tableId()).update();
+        jdbc.sql("UPDATE service_requests SET table_id = ?, order_id = ? WHERE table_id = ? AND status IN ('new','forwarded')")
+            .params(target, targetOrder, h.tableId()).update();
+        audit.log(module(), "Ghép bàn", "Bàn " + from.code() + " (đơn " + h.code() + ") ghép vào bàn " + to.code() + " (đơn " + targetCode + ")",
+            "orders", targetOrder);
+        live.publish(LiveEvents.KITCHEN, LiveEvents.CASHIER, LiveEvents.table(h.tableId()), LiveEvents.table(target));
+        return detail(targetOrder);
     }
 
     /* ------------------------------------------------------------------ UC-TN-02: tra cứu đơn */

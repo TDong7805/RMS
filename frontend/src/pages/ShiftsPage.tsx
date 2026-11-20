@@ -7,8 +7,8 @@ import { BlockError, EmptyState } from '@/components/common/EmptyState';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/common/Form';
 import { ConfirmDialog, Modal } from '@/components/common/Modal';
 import { DataTable, PageHeader, PageTabs, TableSkeleton, Td, Th } from '@/components/common/PageParts';
-import { assignShift, createShift, deleteShift, shiftHours, unassignShift, updateShift } from '@/api/shifts';
-import { qk, useAssignments, useEmployees, useShifts } from '@/features/management/queries';
+import { assignShift, createShift, deleteShift, setAssignmentArea, shiftHours, unassignShift, updateShift } from '@/api/shifts';
+import { qk, useAreas, useAssignments, useEmployees, useShifts } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { cn } from '@/lib/cn';
 import { ROLES, ROLE_KEYS, WEEKDAYS_SHORT } from '@/lib/labels';
@@ -203,6 +203,9 @@ function ScheduleBoard() {
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [role, setRole] = useState<RoleKey | ''>('');
   const [assign, setAssign] = useState<{ employeeId: string; date: string } | null>(null);
+  const [areaEdit, setAreaEdit] = useState<{ id: string; label: string; areaId: string | null } | null>(null);
+  const areas = useAreas().data ?? [];
+  const areaName = (id: string | null) => (id ? areas.find((a) => a.id === id)?.name ?? null : null);
 
   const days = useMemo(
     () =>
@@ -298,9 +301,17 @@ function ScheduleBoard() {
                           {items.map((a) => {
                             const s = shifts.find((x) => x.id === a.shiftId);
                             if (!s) return null;
+                            const area = areaName(a.areaId);
+                            const waiter = emp.role === 'waiter';
                             return (
-                              <span key={a.id} className="group/chip flex items-center justify-between gap-1 rounded-[8px] px-2 py-1 text-[11.5px] font-semibold text-white" style={{ background: s.color, opacity: past ? 0.6 : 1 }} title={`${s.name} ${s.startTime}–${s.endTime}`}>
-                                <span className="truncate">{s.name}</span>
+                              <span key={a.id} className="group/chip flex items-center justify-between gap-1 rounded-[8px] px-2 py-1 text-[11.5px] font-semibold text-white" style={{ background: s.color, opacity: past ? 0.6 : 1 }} title={`${s.name} ${s.startTime}–${s.endTime}${area ? ' · ' + area : ''}`}>
+                                {waiter && !past ? (
+                                  <button type="button" className="min-w-0 truncate text-left hover:underline" title="Đổi khu vực phụ trách" onClick={() => setAreaEdit({ id: a.id, label: `${emp.fullName} – ${s.name} ${formatDayMonth(d)}`, areaId: a.areaId })}>
+                                    {s.name}{area ? <span className="block truncate text-[10.5px] font-medium opacity-90">{area}</span> : <span className="block text-[10.5px] font-medium opacity-75">+ gán khu</span>}
+                                  </button>
+                                ) : (
+                                  <span className="truncate">{s.name}{area ? <span className="block truncate text-[10.5px] font-medium opacity-90">{area}</span> : null}</span>
+                                )}
                                 {!past ? (
                                   <button type="button" aria-label={`Hủy ${s.name} của ${emp.fullName}`} onClick={() => unassignMutation.mutate(a.id)} className="hidden rounded-full hover:bg-white/25 group-hover/chip:block">
                                     <X size={12} />
@@ -343,8 +354,10 @@ function ScheduleBoard() {
         days={days}
         employees={(employeesQuery.data ?? []).filter((e) => e.status === 'active')}
         shifts={shifts}
+        areas={areas}
         onClose={() => setAssign(null)}
       />
+      <AreaModal state={areaEdit} areas={areas} onClose={() => setAreaEdit(null)} />
     </Card>
   );
 }
@@ -354,16 +367,20 @@ function AssignModal({
   days,
   employees,
   shifts,
+  areas,
   onClose,
 }: {
   state: { employeeId: string; date: string } | null;
   days: Date[];
   employees: Employee[];
   shifts: Shift[];
+  areas: { id: string; name: string }[];
   onClose: () => void;
 }) {
   const [employeeId, setEmployeeId] = useState('');
   const [shiftId, setShiftId] = useState('');
+  const [areaId, setAreaId] = useState('');
+  const isWaiter = employees.find((e) => e.id === employeeId)?.role === 'waiter';
   const [dates, setDates] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const todayKey = toDateKey(new Date());
@@ -372,11 +389,12 @@ function AssignModal({
     if (!state) return;
     setEmployeeId(state.employeeId);
     setShiftId('');
+    setAreaId('');
     setDates(state.date ? [state.date] : []);
     setErrors({});
   }, [state]);
 
-  const mutation = useApiMutation(() => assignShift(employeeId, shiftId, [...dates].sort()), {
+  const mutation = useApiMutation(() => assignShift(employeeId, shiftId, [...dates].sort(), isWaiter && areaId ? areaId : null), {
     invalidate: [qk.assignments, qk.shifts],
     success: 'Phân công ca làm việc thành công',
     onFieldErrors: setErrors,
@@ -409,6 +427,11 @@ function AssignModal({
         <Field label="Ca làm việc" htmlFor="as-shift" required error={errors.shiftId}>
           <SelectInput id="as-shift" value={shiftId} invalid={Boolean(errors.shiftId)} onChange={(e) => { setShiftId(e.target.value); setErrors({}); }} placeholder="— Chọn ca —" options={shifts.map((s) => ({ value: s.id, label: `${s.name} (${s.startTime} – ${s.endTime})` }))} />
         </Field>
+        {isWaiter ? (
+          <Field label="Khu vực phụ trách" htmlFor="as-area" error={errors.areaId} hint="Yêu cầu hỗ trợ của khách ở khu này chỉ gửi cho phục vụ được gán; khu không ai gán thì mọi phục vụ trong ca đều thấy.">
+            <SelectInput id="as-area" value={areaId} onChange={(e) => setAreaId(e.target.value)} placeholder="Không gán khu (thấy mọi khu)" options={areas.map((a) => ({ value: a.id, label: a.name }))} />
+          </Field>
+        ) : null}
         <Field label="Ngày làm việc trong tuần" required error={errors.dates} hint="Có thể chọn nhiều ngày; ngày đã qua không thể phân công">
           <div className="grid grid-cols-7 gap-1.5">
             {days.map((d) => {
@@ -435,6 +458,38 @@ function AssignModal({
           </div>
         </Field>
       </div>
+    </Modal>
+  );
+}
+
+/** Đổi khu vực phụ trách của nhân viên phục vụ trong một ca (hôm nay hoặc sau này). */
+function AreaModal({ state, areas, onClose }: { state: { id: string; label: string; areaId: string | null } | null; areas: { id: string; name: string }[]; onClose: () => void }) {
+  const [areaId, setAreaId] = useState('');
+  useEffect(() => {
+    if (state) setAreaId(state.areaId ?? '');
+  }, [state]);
+  const mutation = useApiMutation(() => setAssignmentArea(state!.id, areaId || null), {
+    invalidate: [qk.assignments],
+    success: 'Đã cập nhật khu vực phụ trách',
+    onSuccess: onClose,
+  });
+  return (
+    <Modal
+      open={Boolean(state)}
+      onOpenChange={(o) => !o && onClose()}
+      size="sm"
+      title="Khu vực phụ trách"
+      description={state?.label}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>Hủy</Button>
+          <Button loading={mutation.isPending} onClick={() => mutation.mutate(undefined)}>Lưu</Button>
+        </>
+      }
+    >
+      <Field label="Khu vực" htmlFor="area-edit" hint="Nhân viên đang mở trang Phục vụ sẽ thấy khu mới ngay.">
+        <SelectInput id="area-edit" value={areaId} onChange={(e) => setAreaId(e.target.value)} placeholder="Không gán khu (thấy mọi khu)" options={areas.map((a) => ({ value: a.id, label: a.name }))} />
+      </Field>
     </Modal>
   );
 }

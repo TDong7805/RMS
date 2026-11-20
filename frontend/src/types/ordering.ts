@@ -358,7 +358,7 @@ export interface MoveTarget {
   areaId: string;
   areaName: string;
   seats: number;
-  status: 'available' | 'reserved';
+  status: 'available' | 'reserved' | 'occupied';
   reservation: { id: string; time: string; customerName: string; guests: number } | null;
 }
 

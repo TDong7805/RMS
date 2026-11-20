@@ -19,6 +19,7 @@ import DishesPage from '@/pages/DishesPage';
 import DishFormPage from '@/pages/DishFormPage';
 import SetMenuPage from '@/pages/SetMenuPage';
 import ShiftsPage from '@/pages/ShiftsPage';
+import FacesPage from '@/pages/FacesPage';
 import PostsPage from '@/pages/PostsPage';
 import PostFormPage from '@/pages/PostFormPage';
 import AccountsPage from '@/pages/AccountsPage';
@@ -53,12 +54,19 @@ import InvoicesPage from '@/pages/thu-ngan/InvoicesPage';
 import AttendancePage from '@/pages/thu-ngan/AttendancePage';
 import PayrollPage from '@/pages/thu-ngan/PayrollPage';
 import PayrollDetailPage from '@/pages/thu-ngan/PayrollDetailPage';
+import WaiterFloorPage from '@/pages/phuc-vu/WaiterFloorPage';
+import WaiterRequestsPage from '@/pages/phuc-vu/WaiterRequestsPage';
+import WaiterServePage from '@/pages/phuc-vu/WaiterServePage';
+import WaiterMenuPage from '@/pages/phuc-vu/WaiterMenuPage';
+import { CashierSelfPage, KitchenSelfPage, WaiterSelfPage } from '@/pages/SelfPages';
+import WaiterNotificationsPage from '@/pages/phuc-vu/WaiterNotificationsPage';
 
 /**
  * Định tuyến theo vai trò (backend: com.rms.auth.StaffAreas):
  *  - /dang-nhap               ai cũng vào được
  *  - /doi-mat-khau            đã đăng nhập (kể cả khi bị buộc đổi mật khẩu)
  *  - /thu-ngan, /bep, /kho    khu vực Thu ngân / Bếp / Kho
+ *  - /phuc-vu                 khu vực Nhân viên phục vụ (giao diện điện thoại)
  *  - /quan-ly/...             Quản lý nhà hàng (MANAGER_HOME trong lib/paths.ts)
  *  - /, /thuc-don, /tin-tuc, /dat-ban …  để dành cho website khách hàng (chưa làm: "/" tạm chuyển về trang của vai trò)
  * Thêm trang cho Thu ngân: đặt route con trong khối roles={['cashier']}, đường dẫn bắt đầu bằng /thu-ngan.
@@ -97,7 +105,20 @@ export function AppRoutes() {
         <Route path="/thu-ngan/cham-cong" element={<AttendancePage />} />
         <Route path="/thu-ngan/bang-luong" element={<PayrollPage />} />
         <Route path="/thu-ngan/bang-luong/:id" element={<PayrollDetailPage />} />
+        <Route path="/thu-ngan/toi" element={<CashierSelfPage />} />
         <Route path="/thu-ngan/*" element={<PlaceholderPage title="Không tìm thấy trang" description="Đường dẫn không tồn tại trong khu Thu ngân." />} />
+      </Route>
+      <Route element={<RequireAuth roles={['waiter']} />}>
+        {/* Nhân viên phục vụ — giao diện điện thoại, thanh tab dưới đáy (features/waiter/WaiterShell) */}
+        <Route path="/phuc-vu" element={<WaiterFloorPage />} />
+        <Route path="/phuc-vu/yeu-cau" element={<WaiterRequestsPage />} />
+        <Route path="/phuc-vu/mang-mon" element={<WaiterServePage />} />
+        <Route path="/phuc-vu/thuc-don" element={<WaiterMenuPage />} />
+        <Route path="/phuc-vu/goi-mon/:tableId" element={<WaiterMenuPage />} />
+        <Route path="/phuc-vu/toi" element={<WaiterSelfPage />} />
+        <Route path="/phuc-vu/ca-lam" element={<Navigate to="/phuc-vu/toi?tab=shifts" replace />} />
+        <Route path="/phuc-vu/thong-bao" element={<WaiterNotificationsPage />} />
+        <Route path="/phuc-vu/*" element={<Navigate to="/phuc-vu" replace />} />
       </Route>
       <Route element={<RequireAuth roles={['kitchen']} />}>
         {/* Màn hình bếp (KDS) — toàn màn hình, không dùng khung trang quản lý */}
@@ -105,6 +126,7 @@ export function AppRoutes() {
         <Route path="/bep/nguyen-lieu" element={<StockCheckPage />} />
         <Route path="/bep/cong-thuc" element={<RecipesPage />} />
         <Route path="/bep/cong-thuc/:dishId" element={<RecipesPage />} />
+        <Route path="/bep/toi" element={<KitchenSelfPage />} />
         <Route path="/bep/*" element={<Navigate to="/bep" replace />} />
       </Route>
       <Route element={<RequireAuth roles={['warehouse']} />}>
@@ -163,6 +185,7 @@ export function AppRoutes() {
 
         {/* Quản lý nhân viên */}
         <Route path="/quan-ly/nhan-vien/ca-lam" element={<ShiftsPage />} />
+        <Route path="/quan-ly/nhan-vien/khuon-mat" element={<FacesPage />} />
 
         {/* Quản lý bài viết */}
         <Route path="/quan-ly/bai-viet" element={<PostsPage />} />

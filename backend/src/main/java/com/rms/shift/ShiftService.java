@@ -58,9 +58,12 @@ public class ShiftService {
     /** status: active | locked | deleted (đã xóa tài khoản = đã nghỉ việc). */
     public record Employee(String id, String fullName, String role, String status) {}
 
-    public record Assignment(String id, String shiftId, String employeeId, String date) {}
+    /** areaId: khu vực phụ trách trong ca (chỉ nhân viên phục vụ, từ V20); null = không gán khu. */
+    public record Assignment(String id, String shiftId, String employeeId, String date, String areaId) {}
 
-    public record AssignInput(String employeeId, String shiftId, List<String> dates) {}
+    public record AssignInput(String employeeId, String shiftId, List<String> dates, String areaId) {}
+
+    public record AreaInput(String areaId) {}
 
     private record ShiftRow(long id, String name, LocalTime start, LocalTime end) {
         /** Khoảng thời gian thực tế của ca khi làm ngày {@code date}; ca qua đêm kết thúc ngày hôm sau. */
@@ -75,16 +78,18 @@ public class ShiftService {
         }
     }
 
-    private record AssignmentRow(long id, long shiftId, long userId, LocalDate date) {}
+    private record AssignmentRow(long id, long shiftId, long userId, LocalDate date, Long areaId) {}
 
     private final JdbcClient jdbc;
     private final AuditService audit;
     private final CurrentUserService currentUser;
+    private final com.rms.ordering.LiveEvents live;
 
-    public ShiftService(JdbcClient jdbc, AuditService audit, CurrentUserService currentUser) {
+    public ShiftService(JdbcClient jdbc, AuditService audit, CurrentUserService currentUser, com.rms.ordering.LiveEvents live) {
         this.jdbc = jdbc;
         this.audit = audit;
         this.currentUser = currentUser;
+        this.live = live;
     }
 
     /* ------------------------------------------------------------------ Ca làm việc */
@@ -150,6 +155,7 @@ public class ShiftService {
             .update();
         audit.log("shift", "Sửa ca làm việc", c.name() + " (" + Times.hhmm(c.start()) + " – " + Times.hhmm(c.end()) + ")",
             "shifts", id);
+        live.publish(com.rms.ordering.LiveEvents.WAITER); // giờ ca đổi → ai đang trong ca có thể đổi
         return one(id);
     }
 
@@ -226,16 +232,16 @@ public class ShiftService {
         if (from == null || to == null || to.isBefore(from)) throw new ValidationException("from", "Khoảng ngày không hợp lệ");
         if (from.plusDays(62).isBefore(to)) throw new ValidationException("to", "Chỉ xem tối đa 62 ngày một lần");
         return assignmentsWhere("a.work_date BETWEEN ? AND ?", from, to).stream()
-            .map(a -> new Assignment(Ids.str(a.id()), Ids.str(a.shiftId()), Ids.str(a.userId()), a.date().toString()))
+            .map(a -> new Assignment(Ids.str(a.id()), Ids.str(a.shiftId()), Ids.str(a.userId()), a.date().toString(), Ids.str(a.areaId())))
             .toList();
     }
 
     private List<AssignmentRow> assignmentsWhere(String condition, Object... params) {
-        return jdbc.sql("SELECT a.id, a.shift_id, a.user_id, a.work_date FROM shift_assignments a WHERE " + condition
+        return jdbc.sql("SELECT a.id, a.shift_id, a.user_id, a.work_date, a.area_id FROM shift_assignments a WHERE " + condition
                 + " ORDER BY a.work_date, a.id")
             .params(params)
             .query((rs, n) -> new AssignmentRow(rs.getLong("id"), rs.getLong("shift_id"), rs.getLong("user_id"),
-                rs.getObject("work_date", LocalDate.class)))
+                rs.getObject("work_date", LocalDate.class), rs.getObject("area_id") == null ? null : rs.getLong("area_id")))
             .list();
     }
 
@@ -281,6 +287,13 @@ public class ShiftService {
         else if (dates.isEmpty()) v.add("dates", "Chọn ít nhất một ngày");
         else if (dates.size() > MAX_DATES) v.add("dates", "Mỗi lần phân công tối đa " + MAX_DATES + " ngày");
         else if (dates.first().isBefore(Times.today())) v.add("dates", "Không thể phân công cho ngày đã qua");
+        Long areaId = Ids.parseOrNull(in.areaId());
+        String areaName = null;
+        if (areaId != null) {
+            areaName = jdbc.sql("SELECT name FROM areas WHERE id = ?").param(areaId).query(String.class).optional().orElse(null);
+            if (areaName == null) v.add("areaId", "Khu vực không tồn tại");
+            else if (emp != null && !"waiter".equals(emp.role())) v.add("areaId", "Chỉ gán khu vực cho nhân viên phục vụ");
+        }
         v.throwIfAny();
 
         for (LocalDate date : dates) {
@@ -302,17 +315,50 @@ public class ShiftService {
         long creator = currentUser.get().id();
         List<Long> ids = new ArrayList<>();
         for (LocalDate date : dates) {
-            jdbc.sql("INSERT INTO shift_assignments (shift_id, user_id, work_date, created_by) VALUES (?, ?, ?, ?)")
-                .params(shiftId, userId, date, creator).update();
+            jdbc.sql("INSERT INTO shift_assignments (shift_id, user_id, work_date, area_id, created_by) VALUES (?, ?, ?, ?, ?)")
+                .params(shiftId, userId, date, areaId, creator).update();
             ids.add(jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single());
         }
         String days = dates.stream().map(d -> d.format(DM)).collect(Collectors.joining(", "));
         audit.log("shift", "Phân công ca",
-            "Phân công " + emp.fullName() + " vào " + shift.name() + " (" + dates.size() + " ngày: " + days + ")", "users", userId);
+            "Phân công " + emp.fullName() + " vào " + shift.name() + (areaName == null ? "" : " – " + areaName)
+                + " (" + dates.size() + " ngày: " + days + ")", "users", userId);
+        // Ca / khu của phục vụ đổi → màn hình phục vụ tải lại ngay (nhãn ca, khu "Của tôi").
+        live.publish(com.rms.ordering.LiveEvents.WAITER);
         List<Assignment> out = new ArrayList<>();
         int i = 0;
-        for (LocalDate date : dates) out.add(new Assignment(Ids.str(ids.get(i++)), Ids.str(shiftId), Ids.str(userId), date.toString()));
+        for (LocalDate date : dates) {
+            out.add(new Assignment(Ids.str(ids.get(i++)), Ids.str(shiftId), Ids.str(userId), date.toString(), Ids.str(areaId)));
+        }
         return out;
+    }
+
+    /** Đổi khu vực phụ trách của một phân công (hôm nay hoặc sau này; chỉ nhân viên phục vụ). areaId rỗng = bỏ gán khu. */
+    @Transactional
+    public Assignment setArea(String idText, AreaInput in) {
+        long id = Ids.parse(idText, "Phân công không tồn tại");
+        record Row(long shiftId, long userId, LocalDate date, String role, String employee, String shift) {}
+        Row row = jdbc.sql("""
+                SELECT a.shift_id, a.user_id, a.work_date, r.code AS role, u.full_name, s.name AS shift_name
+                FROM shift_assignments a JOIN users u ON u.id = a.user_id JOIN roles r ON r.id = u.role_id
+                JOIN shifts s ON s.id = a.shift_id WHERE a.id = ?
+                """).param(id)
+            .query((rs, n) -> new Row(rs.getLong(1), rs.getLong(2), rs.getObject(3, LocalDate.class), rs.getString(4), rs.getString(5),
+                rs.getString(6)))
+            .optional().orElseThrow(() -> BusinessException.notFound("Phân công không tồn tại"));
+        if (!"waiter".equals(row.role())) throw new BusinessException("Chỉ gán khu vực cho nhân viên phục vụ");
+        if (row.date().isBefore(Times.today())) throw new BusinessException("Không đổi khu vực của ngày đã qua");
+        Long areaId = Ids.parseOrNull(in == null ? null : in.areaId());
+        String areaName = null;
+        if (areaId != null) {
+            areaName = jdbc.sql("SELECT name FROM areas WHERE id = ?").param(areaId).query(String.class).optional()
+                .orElseThrow(() -> new ValidationException("areaId", "Khu vực không tồn tại"));
+        }
+        jdbc.sql("UPDATE shift_assignments SET area_id = ? WHERE id = ?").params(areaId, id).update();
+        audit.log("shift", "Gán khu vực", row.employee() + " – " + row.shift() + " " + row.date().format(DMY) + ": "
+            + (areaName == null ? "bỏ gán khu" : areaName), "shift_assignments", id);
+        live.publish(com.rms.ordering.LiveEvents.WAITER);
+        return new Assignment(Ids.str(id), Ids.str(row.shiftId()), Ids.str(row.userId()), row.date().toString(), Ids.str(areaId));
     }
 
     @Transactional
@@ -333,6 +379,7 @@ public class ShiftService {
         if (row.attended())
             throw new BusinessException("Nhân viên đã chấm công cho ca này, không thể hủy phân công");
         jdbc.sql("DELETE FROM shift_assignments WHERE id = ?").param(id).update();
+        live.publish(com.rms.ordering.LiveEvents.WAITER);
         audit.log("shift", "Hủy phân công", "Hủy " + row.shift() + " của " + row.employee() + " ngày " + row.date().format(DMY),
             "shift_assignments", id);
     }

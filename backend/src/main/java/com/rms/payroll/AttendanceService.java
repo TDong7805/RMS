@@ -47,9 +47,14 @@ public class AttendanceService {
 
     public record Employee(String id, String name, String username, String roleName, boolean locked) {}
 
+    /**
+     * Từ V20 (chấm công khuôn mặt, source = camera): lateMinutes / earlyMinutes so với ca, hasInPhoto / hasOutPhoto (ảnh xem qua
+     * API có kiểm quyền), inDistance / outDistance = độ lệch khuôn mặt (càng nhỏ càng giống).
+     */
     public record Row(String id, String userId, String userName, String username, String roleName, String date, String checkIn,
                       String checkOut, boolean overnight, double hours, String source, String note, boolean missingOut,
-                      boolean locked) {}
+                      boolean locked, Integer lateMinutes, Integer earlyMinutes, boolean hasInPhoto, boolean hasOutPhoto,
+                      Double inDistance, Double outDistance) {}
 
     public record Total(String userId, String userName, String roleName, int days, double hours, int missingOut) {}
 
@@ -429,7 +434,11 @@ public class AttendanceService {
         return new Row(Ids.str(rs.getLong("id")), Ids.str(rs.getLong("user_id")), rs.getString("full_name"), rs.getString("username"),
             rs.getString("role_name"), rs.getDate("work_date").toLocalDate().toString(), in.toLocalTime().format(HM),
             out == null ? null : out.toLocalTime().format(HM), out != null && !out.toLocalDate().equals(in.toLocalDate()),
-            hours(in, out), rs.getString("source"), Vi.trim(rs.getString("note")), out == null, rs.getBoolean("locked"));
+            hours(in, out), rs.getString("source"), Vi.trim(rs.getString("note")), out == null, rs.getBoolean("locked"),
+            (Integer) rs.getObject("late_minutes", Integer.class), (Integer) rs.getObject("early_minutes", Integer.class),
+            rs.getString("check_in_photo") != null, rs.getString("check_out_photo") != null,
+            rs.getBigDecimal("check_in_distance") == null ? null : rs.getBigDecimal("check_in_distance").doubleValue(),
+            rs.getBigDecimal("check_out_distance") == null ? null : rs.getBigDecimal("check_out_distance").doubleValue());
     }
 
     public ListResponse list(String userIdText, String from, String to) {
@@ -459,8 +468,8 @@ public class AttendanceService {
         return new ListResponse(items, list, total, missing);
     }
 
-    /** Chấm công một nhân viên trong kỳ lương (phiếu lương), cũ nhất trước. */
-    List<Row> listForUser(long userId, LocalDate from, LocalDate to) {
+    /** Chấm công một nhân viên trong khoảng ngày (phiếu lương, "Thông tin của tôi"), cũ nhất trước. */
+    public List<Row> listForUser(long userId, LocalDate from, LocalDate to) {
         return jdbc.sql(ROW_SELECT + " WHERE a.user_id = ? AND a.work_date BETWEEN ? AND ? ORDER BY a.work_date, a.check_in")
             .params(userId, from, to).query((rs, n) -> mapRow(rs)).list();
     }

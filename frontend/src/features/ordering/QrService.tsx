@@ -40,7 +40,7 @@ export function CallStaffSheet({ open, onClose, waiting, sending, onSend, onCanc
             <StageArt art="ready" compact size={64} className="h-16 w-16 shrink-0" />
             <div>
               <p className="text-[15px] font-semibold">
-                {waiting.status === 'forwarded' ? 'Nhân viên đang đến bàn bạn' : 'Đã gửi yêu cầu, nhân viên sẽ đến ngay'}
+                {waiting.status === 'forwarded' ? `Nhân viên${waiting.assignedName ? ' ' + waiting.assignedName : ''} đang đến bàn bạn` : 'Đã gửi yêu cầu, nhân viên sẽ đến ngay'}
               </p>
               <p className="mt-0.5 text-[13px] text-[var(--qr-muted)]">{REQUEST_TYPE_LABEL[waiting.type]}{waiting.content ? ` · ${waiting.content}` : ''}</p>
             </div>

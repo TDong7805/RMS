@@ -1,7 +1,7 @@
 # Kiểm thử API tự động
 
 Bộ kiểm thử gọi thẳng API của backend đang chạy (giống frontend gọi) và đối chiếu kết quả, kể cả dữ liệu trong MySQL.
-Mỗi bước in `PASS` / `FAIL`. Hiện có **12 bộ, 479 bước** — chạy hết khoảng 1 phút 30 giây.
+Mỗi bước in `PASS` / `FAIL`. Hiện có **13 bộ, 557 bước** — chạy hết khoảng 1 phút (bộ 05 chờ ~15 giây để thử tự đóng bàn).
 
 Đây là kiểm thử **mức API** (gọi qua HTTP). Kiểm thử đơn vị JUnit cho các công thức tính toán chưa làm — xem mục "Việc để sau" trong [docs/tien-do/TIEN_DO_THU_NGAN_BEP.md](../docs/tien-do/TIEN_DO_THU_NGAN_BEP.md).
 
@@ -24,6 +24,16 @@ Kiểm thử **tạo / sửa / xóa dữ liệu**, nên luôn chạy trên CSDL 
    ```
 
    Cuối cùng in bảng tổng kết; có bước không đạt thì mã thoát là 1.
+
+Không có `dev.ps1` (script riêng trên máy cá nhân)? Chạy backend test ở cổng khác, backend chính vẫn chạy bình thường:
+
+```powershell
+mysql -u root -p -e "DROP DATABASE IF EXISTS rms_test"; Remove-Item -Recurse -Force backend\uploads-test -ErrorAction SilentlyContinue
+cd backend; $env:DB_NAME='rms_test'; $env:PORT='8081'; $env:RMS_UPLOAD_DIR='uploads-test'; $env:RMS_BACKUP_DIR='backups-test'; mvn spring-boot:run
+```
+
+rồi `RMS_API=http://localhost:8081 node tests/run-all.mjs`. **Không bao giờ** trỏ `RMS_API` vào backend đang dùng `rms_db`:
+các bộ chỉ gọi API (không đụng mysql) vẫn sửa dữ liệu của backend đó dù đã đặt `RMS_TEST_DB`.
 
 **Chạy lại lần nữa thì `-ResetTest` trước.** Các bộ dựa vào dữ liệu mẫu ban đầu (số món, mã món kế tiếp, bàn trống…), nên chạy lần hai trên dữ liệu đã bị sửa sẽ báo sai.
 
@@ -49,7 +59,7 @@ Mã ở cột "Kịch bản" là số dòng trong [docs/kiem-thu/KICH_BAN_TEST.m
 |---|---|---|
 | `01-dang-nhap-phan-quyen.mjs` | G1–G3, G7 | Đăng nhập, khóa khi sai nhiều lần, phân quyền theo khu vực, đổi mật khẩu, phiên |
 | `02-dat-mon-bep.mjs` | B, C | Khách gọi món qua QR; bếp bắt đầu / xong / Đã lấy / hủy món / món tạm hết |
-| `03-thu-ngan.mjs` | A, D1–D16 | Yêu cầu khách, Đã báo nhân viên, hủy món / hủy đơn, chuyển bàn, hóa đơn, thanh toán |
+| `03-thu-ngan.mjs` | A, D1–D16 | Yêu cầu khách (thanh toán → thu ngân, hỗ trợ → phục vụ), hủy món / hủy đơn, chuyển bàn, hóa đơn, thanh toán |
 | `04-cham-cong-luong-cong-thuc.mjs` | C8–C16, D17–D33 | Chấm công từ Excel, kỳ lương, công thức định lượng, kiểm tra nguyên liệu |
 | `05-mo-ban.mjs` | A2b, B22–B25 | Mở bàn, đóng bàn, tự đóng bàn (bộ này chờ ~1 phút để thử tự đóng) |
 | `06-kho.mjs` | F1–F12, E3, E11, E12 | Nguyên liệu, nhà cung cấp, phiếu mua, nhập / xuất, kiểm kê, công nợ |
@@ -58,6 +68,7 @@ Mã ở cột "Kịch bản" là số dòng trong [docs/kiem-thu/KICH_BAN_TEST.m
 | `09-bai-viet.mjs` | E13 | Bài viết |
 | `10-ca-lam.mjs` | E10 | Ca làm việc, phân công |
 | `11-chatbot.mjs` | E16 | Cấu hình chatbot, FAQ |
+| `13-phuc-vu-cham-cong.mjs` | A22–A25, H1–H18 | Phục vụ: quyền, khu vực theo ca, yêu cầu hỗ trợ theo khu, mở bàn, gọi món hộ, bưng món, ghép / chuyển bàn, sự kiện "sơ đồ đổi"; chấm công khuôn mặt: đăng ký / duyệt, WiFi quán, vào ca / tan ca, trễ / sớm, ảnh không công khai; hồ sơ, phiếu lương |
 | `12-nhom-mon-set.mjs` | B26–B37, C0, E8c, E8d | Nhóm món (thẻ gộp nhiều loại), Set menu: thực đơn QR, gửi set, chia giá, hủy set, bếp, hóa đơn 1 dòng set, ẩn set khi món con hết / ngoài giờ, quản lý nhóm và set |
 
 ## Cấu trúc

@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { BellRing, Check, Clock3, Radio, Receipt, X } from 'lucide-react';
+import { Clock3, Receipt, X } from 'lucide-react';
 import { CashierShell } from '@/features/ordering/CashierShell';
 import { Card } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { BlockError, EmptyState } from '@/components/common/EmptyState';
 import { PageHeader, PageTabs, TableSkeleton } from '@/components/common/PageParts';
-import { cancelRequest, CASHIER_STREAM, completeRequest, forwardRequest, getRequests } from '@/api/ordering';
+import { cancelRequest, CASHIER_STREAM, getRequests } from '@/api/ordering';
 import { beep, useLiveEvents } from '@/features/ordering/live';
 import { PAY_METHOD_LABEL } from '@/features/ordering/CashierDialogs';
 import { REQUEST_TYPE_LABEL } from '@/features/ordering/requestLabels';
@@ -20,7 +20,10 @@ import { cn } from '@/lib/cn';
 type Tab = 'waiting' | 'done' | 'cancelled';
 const KEY = (tab: Tab) => ['thu-ngan', 'requests', tab] as const;
 
-/** UC-TN-06: yêu cầu của khách (Gọi nhân viên, Yêu cầu thanh toán) — báo nhân viên (bộ đàm), hoàn thành, hủy. */
+/**
+ * UC-TN-06: yêu cầu THANH TOÁN của khách → lập hóa đơn / thu tiền. Từ V20 yêu cầu Gọi nhân viên do Nhân viên phục vụ
+ * nhận theo khu vực (khu Phục vụ), thu ngân không còn xử lý.
+ */
 export default function RequestsPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -68,14 +71,12 @@ export default function RequestsPage() {
     toast.error(e instanceof Error ? e.message : 'Không lưu được');
     void qc.invalidateQueries({ queryKey: ['thu-ngan', 'requests'] });
   };
-  const done = useMutation({ mutationFn: completeRequest, onSuccess: after('Đã hoàn thành yêu cầu'), onError });
   const cancel = useMutation({ mutationFn: cancelRequest, onSuccess: after('Đã hủy yêu cầu'), onError });
-  const forward = useMutation({ mutationFn: forwardRequest, onSuccess: after('Đã ghi nhận: nhân viên đang đến bàn'), onError });
 
   return (
     <CashierShell>
       <div className="min-w-0 space-y-4">
-        <PageHeader title="Yêu cầu của khách" description="Khách bấm Gọi nhân viên / Yêu cầu thanh toán trên trang đặt món. Yêu cầu chờ quá 5 phút được tô đỏ." />
+        <PageHeader title="Yêu cầu thanh toán" description="Khách bấm Yêu cầu thanh toán trên trang đặt món. Yêu cầu chờ quá 5 phút được tô đỏ. Khách gọi nhân viên do Nhân viên phục vụ trong khu xử lý." />
         <PageTabs<Tab>
           ariaLabel="Trạng thái yêu cầu"
           value={tab}
@@ -92,7 +93,7 @@ export default function RequestsPage() {
           ) : !list.data ? (
             <TableSkeleton cols={5} />
           ) : list.data.items.length === 0 ? (
-            <div className="p-5"><EmptyState icon={BellRing} title={tab === 'waiting' ? 'Không có yêu cầu nào đang chờ' : 'Chưa có yêu cầu'} /></div>
+            <div className="p-5"><EmptyState icon={Receipt} title={tab === 'waiting' ? 'Không có yêu cầu thanh toán nào đang chờ' : 'Chưa có yêu cầu'} /></div>
           ) : (
             <ul className="divide-y divide-[var(--border)]">
               {list.data.items.map((r) => {
@@ -100,8 +101,8 @@ export default function RequestsPage() {
                 const late = tab === 'waiting' && wait >= 5;
                 return (
                   <li key={r.id} data-request={r.id} className={cn('flex flex-wrap items-center gap-3 px-5 py-3.5', late && 'bg-[var(--danger-soft)]', flashId === r.id && 'rms-flash')}>
-                    <div className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-full', r.type === 'payment' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'bg-[var(--warning-soft)] text-[var(--warning)]')}>
-                      {r.type === 'payment' ? <Receipt size={18} /> : <BellRing size={18} />}
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+                      <Receipt size={18} />
                     </div>
                     <div className="min-w-[220px] flex-1">
                       <p className="text-[15px] font-bold">
@@ -124,22 +125,11 @@ export default function RequestsPage() {
                     </div>
                     {tab === 'waiting' ? (
                       <div className="flex flex-wrap gap-2">
-                        {r.type === 'payment' ? (
-                          r.orderId ? (
-                            <Button size="sm" leadingIcon={<Receipt size={15} />} onClick={() => navigate(`/thu-ngan/don/${r.orderId}`)}>
-                              {r.invoiceId ? 'Thu tiền' : 'Lập hóa đơn'}
-                            </Button>
-                          ) : null
-                        ) : (
-                          <>
-                            {r.status === 'new' ? (
-                              <Button size="sm" variant="outline" leadingIcon={<Radio size={15} />} loading={forward.isPending && forward.variables === r.id} onClick={() => forward.mutate(r.id)} title="Bấm sau khi đã gọi bộ đàm cho nhân viên phục vụ — khách thấy “Nhân viên đang đến”">
-                                Đã báo nhân viên
-                              </Button>
-                            ) : null}
-                            <Button size="sm" leadingIcon={<Check size={15} />} loading={done.isPending && done.variables === r.id} onClick={() => done.mutate(r.id)}>Hoàn thành</Button>
-                          </>
-                        )}
+                        {r.orderId ? (
+                          <Button size="sm" leadingIcon={<Receipt size={15} />} onClick={() => navigate(`/thu-ngan/don/${r.orderId}`)}>
+                            {r.invoiceId ? 'Thu tiền' : 'Lập hóa đơn'}
+                          </Button>
+                        ) : null}
                         <Button size="sm" variant="ghost" aria-label={`Hủy yêu cầu bàn ${r.tableCode}`} loading={cancel.isPending && cancel.variables === r.id} onClick={() => cancel.mutate(r.id)}>
                           <X size={15} />
                         </Button>

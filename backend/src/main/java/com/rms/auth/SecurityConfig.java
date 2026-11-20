@@ -25,6 +25,9 @@ import org.springframework.security.web.context.SecurityContextRepository;
  *  - /api/kho/**                 : Quản lý kho → ROLE_WAREHOUSE
  *  - /api/bep/**                 : Nhân viên bếp → ROLE_KITCHEN
  *  - /api/thu-ngan/**            : Thu ngân → ROLE_CASHIER
+ *  - /api/phuc-vu/**             : Nhân viên phục vụ → ROLE_WAITER
+ *  - /api/toi/**                 : thông tin, chấm công khuôn mặt của chính mình → phục vụ, thu ngân, bếp
+ *  - /uploads/cham-cong, /uploads/khuon-mat : ảnh khuôn mặt KHÔNG phục vụ công khai (xem qua API có kiểm quyền)
  *  - /api/** còn lại             : chức năng của Quản lý nhà hàng → ROLE_MANAGER.
  *
  * CSRF tắt có chủ đích: API chỉ nhận JSON (form của trang khác không gửi được application/json khi
@@ -62,7 +65,10 @@ public class SecurityConfig {
                 .requestMatchers("/api/public/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers("/api/auth/**").authenticated()
-                .requestMatchers("/api/notifications/**").hasAnyRole("MANAGER", "CASHIER", "KITCHEN", "WAREHOUSE")
+                .requestMatchers("/uploads/cham-cong/**", "/uploads/khuon-mat/**").denyAll()
+                .requestMatchers("/api/notifications/**").hasAnyRole("MANAGER", "CASHIER", "KITCHEN", "WAREHOUSE", "WAITER")
+                .requestMatchers("/api/toi/**").hasAnyRole("WAITER", "CASHIER", "KITCHEN")
+                .requestMatchers("/api/phuc-vu/**").hasRole("WAITER")
                 .requestMatchers("/api/kho/**").hasRole("WAREHOUSE")
                 .requestMatchers("/api/bep/**").hasRole("KITCHEN")
                 .requestMatchers("/api/thu-ngan/**").hasRole("CASHIER")

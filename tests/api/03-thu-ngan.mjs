@@ -1,4 +1,4 @@
-// [03-thu-ngan.mjs] A, D1–D16: yêu cầu khách, Đã báo nhân viên, hủy món / hủy đơn, chuyển bàn, hóa đơn, thanh toán
+// [03-thu-ngan.mjs] A, D1–D16: yêu cầu khách (từ V20 hỗ trợ do phục vụ nhận), hủy món / hủy đơn, chuyển bàn, hóa đơn, thanh toán
 import { BASE, DB, FIXTURES, OUT, UPLOADS, sql } from '../lib/env.mjs';
 // Gọi thử API đợt 2 (yêu cầu, hóa đơn, thanh toán, dashboard) trên backend 8081.
 const T05 = sql("SELECT qr_token FROM dining_tables WHERE code='T04'");
@@ -24,6 +24,7 @@ function crc16(s) {
 }
 
 const tn = await login('linh.tran');
+const waiter = await login('nam.hoang');
 const bep = await login('hung.pham');
 const ql = await login('tuan.nguyen');
 
@@ -59,22 +60,25 @@ ok('yêu cầu thanh toán lần 2 → 409', r.status === 409, r);
 /* ---------------- Thu ngân: yêu cầu */
 let reqs = await tn.get('/api/thu-ngan/requests');
 const t05reqs = reqs.body.items.filter((x) => x.tableCode === 'T04');
-ok('danh sách đang chờ có 2 yêu cầu của T05', t05reqs.length === 2 && reqs.body.waitingCount >= 4, reqs.body.items.map((x) => x.tableCode + x.type));
+ok('thu ngân chỉ thấy yêu cầu thanh toán của T05 (hỗ trợ do phục vụ nhận)', t05reqs.length === 1 && t05reqs[0].type === 'payment'
+  && reqs.body.items.every((x) => x.type === 'payment'), reqs.body.items.map((x) => x.tableCode + x.type));
 ok('không còn API danh sách nhân viên (dùng bộ đàm)', (await tn.get('/api/thu-ngan/staff')).status >= 400);
 r = await tn.post(`/api/thu-ngan/requests/${supportId}/forward`, {});
-ok('Đã báo nhân viên → forwarded, không có tên người', r.body.status === 'forwarded' && !r.body.assignedName, r);
+ok('thu ngân "Báo nhân viên" yêu cầu hỗ trợ → 409', r.status === 409 && /phục vụ/.test(r.body?.message), r);
+r = await waiter.post(`/api/phuc-vu/requests/${supportId}/accept`);
+ok('phục vụ nhận yêu cầu hỗ trợ → forwarded, có tên người nhận', r.body.status === 'forwarded' && r.body.assignedName === 'Hoàng Gia Nam', r);
 info = await pub(T05);
-ok('khách thấy yêu cầu Đã báo nhân viên', info.body.support?.status === 'forwarded', info.body.support);
+ok('khách thấy "Nhân viên đang đến"', info.body.support?.status === 'forwarded', info.body.support);
 r = await pub(`${T05}/requests/${supportId}/cancel`, {});
 ok('khách hủy yêu cầu đã chuyển → 409', r.status === 409, r);
-r = await tn.post(`/api/thu-ngan/requests/${supportId}/done`);
-ok('hoàn thành yêu cầu hỗ trợ', r.body.status === 'done', r);
+r = await waiter.post(`/api/phuc-vu/requests/${supportId}/done`);
+ok('phục vụ hoàn thành yêu cầu hỗ trợ', r.body.status === 'done', r);
 const payReqId = t05reqs.find((x) => x.type === 'payment').id;
 r = await tn.post(`/api/thu-ngan/requests/${payReqId}/done`);
 ok('không bấm Hoàn thành yêu cầu thanh toán → 409', r.status === 409, r);
 const floor = await tn.get('/api/thu-ngan/floor');
 const ft = floor.body.tables.find((t) => t.code === 'T04');
-ok('sơ đồ bàn: T05 cờ thanh toán, đếm yêu cầu', ft.paymentRequest === true && ft.supportRequest === false && floor.body.requestCount >= 3, ft);
+ok('sơ đồ bàn: T05 cờ thanh toán, đếm yêu cầu thanh toán', ft.paymentRequest === true && ft.supportRequest === false && floor.body.requestCount >= 1, ft);
 // Hóa đơn mẫu "hôm nay" bắt đầu từ 11:00 nên chạy test buổi sáng doanh thu có thể = 0.
 ok('doanh thu hôm nay là số không âm', Number.isInteger(floor.body.revenueToday) && floor.body.revenueToday >= 0, floor.body.revenueToday);
 

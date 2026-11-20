@@ -5,9 +5,8 @@ import java.util.Map;
 /**
  * Vai trò được phép đăng nhập trang nội bộ và trang chủ của từng vai trò.
  *
- * Theo đặc tả (5 actor): Quản lý nhà hàng (gộp cả Quản trị viên), Thu ngân, Nhân viên bếp, Quản lý kho
- * đăng nhập; Khách hàng không đăng nhập. Vai trò khác trong bảng roles (vd. waiter — nhân viên phục vụ
- * chỉ để xếp ca/tính lương) không có trong danh sách này nên không đăng nhập được.
+ * Quản lý nhà hàng (gộp cả Quản trị viên), Thu ngân, Nhân viên bếp, Quản lý kho, Nhân viên phục vụ (từ V20)
+ * đăng nhập; Khách hàng không đăng nhập. Vai trò không có trong danh sách này thì không đăng nhập được.
  *
  * Thêm actor mới đăng nhập được: thêm một dòng ở đây + khu vực trang tương ứng ở frontend.
  *
@@ -20,8 +19,12 @@ public final class StaffAreas {
         "manager", "/quan-ly",
         "cashier", "/thu-ngan",
         "kitchen", "/bep",
-        "warehouse", "/kho"
+        "warehouse", "/kho",
+        "waiter", "/phuc-vu"
     );
+
+    /** Vai trò tự chấm công bằng khuôn mặt và có trang "Thông tin của tôi" (/api/toi/**). */
+    public static final java.util.Set<String> SELF_SERVICE = java.util.Set.of("waiter", "cashier", "kitchen");
 
     public static boolean canLogin(String role) {
         return HOME.containsKey(role);

@@ -35,11 +35,12 @@ export function useLogout() {
   });
 }
 
-/** Tiền tố đường dẫn của các khu vực Thu ngân / Bếp / Kho (Quản lý: MANAGER_HOME = /quan-ly). */
+/** Tiền tố đường dẫn của các khu vực Thu ngân / Bếp / Kho / Phục vụ (Quản lý: MANAGER_HOME = /quan-ly). */
 const AREA_PREFIXES: Record<Exclude<StaffRole, 'manager'>, string> = {
   cashier: '/thu-ngan',
   kitchen: '/bep',
   warehouse: '/kho',
+  waiter: '/phuc-vu',
 };
 
 const PUBLIC_PATHS = ['/dang-nhap', '/doi-mat-khau'];

@@ -170,6 +170,11 @@ public class QrOrderingService {
     /** UC-KH-02: món đang bán của danh mục đang bật; món tạm hết hôm nay vẫn hiện (soldOut = true). */
     public Menu menu(String token) {
         table(token);
+        return menu();
+    }
+
+    /** Thực đơn như khách thấy — Nhân viên phục vụ tra cứu / gọi món hộ (không cần mã QR). */
+    public Menu menu() {
         List<MenuCategory> cats = jdbc.sql("SELECT id, name, image_url FROM dish_categories WHERE is_active = 1 ORDER BY sort_order, id")
             .query((rs, n) -> new MenuCategory(Ids.str(rs.getLong("id")), rs.getString("name"), images.url(rs.getString("image_url")))).list();
         Map<Long, List<String>> allergens = new HashMap<>();
@@ -332,7 +337,18 @@ public class QrOrderingService {
     /** UC-KH-03: gửi giỏ món → cộng vào đơn đang mở của bàn. Tất cả hoặc không gì. */
     @Transactional
     public OrderView send(String token, SendInput in) {
-        TableRow t = table(token);
+        return send(table(token), in, false);
+    }
+
+    /** Nhân viên phục vụ gọi món hộ khách: như khách gửi giỏ, món ghi added_via = 'staff'. Bàn phải đã mở. */
+    @Transactional
+    public OrderView sendByStaff(long tableId, SendInput in) {
+        TableRow t = core.table(tableId);
+        if ("inactive".equals(t.status())) throw new BusinessException("Bàn " + t.code() + " đang ngừng phục vụ");
+        return send(t, in, true);
+    }
+
+    private OrderView send(TableRow t, SendInput in, boolean staff) {
         if (!core.isOpenNow()) throw new BusinessException("Nhà hàng hiện ngoài giờ phục vụ.");
         List<CartLine> lines = in.items() == null ? List.of() : in.items();
         if (lines.isEmpty()) throw new ValidationException("items", "Giỏ món đang trống");
@@ -375,14 +391,18 @@ public class QrOrderingService {
         if (orderId > 0 && core.isLocked(orderId)) {
             throw new BusinessException("Bàn đang chờ thanh toán, không gọi thêm món được. Vui lòng gọi nhân viên nếu cần gọi thêm.");
         }
-        // Mã QR chỉ gửi được món khi thu ngân đã mở bàn (chặn người không ngồi tại bàn quét mã rồi đặt).
-        if (orderId < 0) throw new BusinessException("Bàn chưa được mở. Vui lòng gọi nhân viên để mở bàn trước khi gọi món.");
+        // Mã QR chỉ gửi được món khi thu ngân / phục vụ đã mở bàn (chặn người không ngồi tại bàn quét mã rồi đặt).
+        if (orderId < 0) {
+            throw new BusinessException(staff ? "Bàn " + t.code() + " chưa được mở. Hãy mở bàn trước khi gọi món."
+                : "Bàn chưa được mở. Vui lòng gọi nhân viên để mở bàn trước khi gọi món.");
+        }
+        String via = staff ? "staff" : "customer";
         int batch = jdbc.sql("SELECT COALESCE(MAX(batch_no), 0) + 1 FROM order_items WHERE order_id = ?").param(orderId)
             .query(Integer.class).single();
         for (Planned p : plan) {
             if (p.set() == null) {
                 Piece c = p.pieces().get(0);
-                insertItem(orderId, batch, null, c.dish(), c.dish().price(), c.qty(), c.note());
+                insertItem(orderId, batch, null, c.dish(), c.dish().price(), c.qty(), c.note(), via);
                 continue;
             }
             for (int k = 0; k < p.qty(); k++) {
@@ -391,7 +411,7 @@ public class QrOrderingService {
                 long setId = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
                 for (Object[] row : allocate(p.pieces(), p.set().price())) {
                     Piece c = (Piece) row[0];
-                    insertItem(orderId, batch, setId, c.dish(), (long) row[1], (int) row[2], c.note());
+                    insertItem(orderId, batch, setId, c.dish(), (long) row[1], (int) row[2], c.note(), via);
                 }
             }
         }
@@ -400,12 +420,12 @@ public class QrOrderingService {
         return core.order(orderId);
     }
 
-    private void insertItem(long orderId, int batch, Long setId, DishRow d, long unitPrice, int qty, String note) {
+    private void insertItem(long orderId, int batch, Long setId, DishRow d, long unitPrice, int qty, String note, String via) {
         jdbc.sql("""
                 INSERT INTO order_items (order_id, order_set_id, batch_no, dish_id, dish_name, unit_price, quantity, note, status, added_via)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'customer')
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
                 """)
-            .params(orderId, setId, batch, d.id(), d.name(), unitPrice, qty, note == null || note.isEmpty() ? null : note).update();
+            .params(orderId, setId, batch, d.id(), d.name(), unitPrice, qty, note == null || note.isEmpty() ? null : note, via).update();
     }
 
     /**

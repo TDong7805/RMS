@@ -206,18 +206,9 @@ export function cancelInvoice(id: string, reason: string): Promise<Invoice> {
   return api.post<Invoice>(tn(`invoices/${enc(id)}/cancel`), { reason });
 }
 
-/** UC-TN-06 */
+/** UC-TN-06: yêu cầu thanh toán (từ V20 yêu cầu hỗ trợ do Nhân viên phục vụ xử lý — api/waiter.ts). */
 export function getRequests(status: 'waiting' | 'done' | 'cancelled'): Promise<RequestList> {
   return api.get<RequestList>(tn('requests'), { status });
-}
-
-/** Thu ngân đã báo nhân viên phục vụ (bộ đàm) — không chọn tên vì nhân viên phục vụ không có tài khoản. */
-export function forwardRequest(id: string): Promise<ServiceRequest> {
-  return api.post<ServiceRequest>(tn(`requests/${enc(id)}/forward`), {});
-}
-
-export function completeRequest(id: string): Promise<ServiceRequest> {
-  return api.post<ServiceRequest>(tn(`requests/${enc(id)}/done`));
 }
 
 export function cancelRequest(id: string): Promise<ServiceRequest> {

@@ -49,7 +49,9 @@ try {
     && r.data.email === 'test.thungan@example.com' && r.data.phone === '0905999001' && r.data.mustChangePassword === true && r.data.status === 'active', JSON.stringify(r.data));
   const cashierId = r.data.id;
   r = await m('POST', '/api/accounts', { username: 'test.phucvu', fullName: 'Thử Phục Vụ', email: 'test.phucvu@example.com', phone: '', role: 'waiter', password: '' });
-  ok('Tạo phục vụ không cần mật khẩu', r.status === 200 && r.data.role === 'waiter', JSON.stringify(r.data?.fields ?? ''));
+  ok('Tạo phục vụ phải có mật khẩu (từ V20 phục vụ đăng nhập được)', r.status === 422 && r.data?.fields?.password, JSON.stringify(r.data?.fields ?? ''));
+  r = await m('POST', '/api/accounts', { username: 'test.phucvu', fullName: 'Thử Phục Vụ', email: 'test.phucvu@example.com', phone: '', role: 'waiter', password: 'KhoiTao123' });
+  ok('Tạo phục vụ có mật khẩu', r.status === 200 && r.data.role === 'waiter', JSON.stringify(r.data?.fields ?? ''));
   const waiterId = r.data.id;
 
   // ---- Người mới đăng nhập → phải đổi mật khẩu
@@ -72,7 +74,7 @@ try {
   r = await u('POST', '/api/auth/login', { username: 'test.thungan', password: temp });
   ok('Mật khẩu tạm đăng nhập được và phải đổi lại', r.status === 200 && r.data.mustChangePassword === true);
   r = await m('POST', `/api/accounts/${waiterId}/reset-password`);
-  ok('Đặt lại mật khẩu cho phục vụ → 409', r.status === 409, r.data?.message);
+  ok('Đặt lại mật khẩu cho phục vụ (đăng nhập được từ V20)', r.status === 200 && r.data?.password, r.data?.message);
 
   // ---- Sửa
   r = await m('PUT', `/api/accounts/${cashierId}`, { username: 'test.thungan2', fullName: 'Thử Thu Ngân Hai', email: 'test.thungan@example.com', phone: '', role: 'kitchen' });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -6,70 +6,19 @@ import { ArrowRightLeft, ExternalLink, Minus, Plus, Printer, Receipt, Wallet, X 
 import { Button } from '@/components/common/Button';
 import { BlockError } from '@/components/common/EmptyState';
 import { Skeleton } from '@/components/common/Skeleton';
-import { closeTable, completeRequest, forwardRequest, getCashierFloor, getCashierOrder, getInvoice, openTable, setOrderGuests } from '@/api/ordering';
+import { closeTable, getCashierFloor, getCashierOrder, getInvoice, openTable, setOrderGuests } from '@/api/ordering';
 import { CashierShell, CASHIER_FLOOR_KEY } from '@/features/ordering/CashierShell';
 import { CreateInvoiceDialog, MoveTableDialog, PaymentDialog, printInvoice, printProvisional } from '@/features/ordering/CashierDialogs';
-import { REQUEST_TYPE_LABEL } from '@/features/ordering/requestLabels';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/cn';
-import '@/features/ordering/pos-floor.css';
+import { elapsed, FloorCanvas, guestsOf, hhmm, LEGEND, minutesSince, soonReservation, STATE, stateOf, SOON_MS, type TableState } from '@/features/ordering/floorParts';
 import type { CashierFloor, CashierOrderDetail, FloorTable, Invoice, OrderItemStatus } from '@/types';
 
 export const CASHIER_KEYS = { floor: CASHIER_FLOOR_KEY, order: (id: string) => ['thu-ngan', 'order', id] as const };
 
-/* ---------------------------------------------------------------- Trạng thái bàn trên sơ đồ */
-
-type TableState = 'available' | 'reserved' | 'occupied' | 'ready' | 'calling' | 'payment' | 'late' | 'inactive';
-
-const STATE: Record<TableState, { label: string; bg: string; fg: string }> = {
-  available: { label: 'Trống', bg: '#e9edf1', fg: '#5b6673' },
-  reserved: { label: 'Đặt trước', bg: '#8b5cf6', fg: '#ffffff' },
-  occupied: { label: 'Có khách', bg: '#2563eb', fg: '#ffffff' },
-  ready: { label: 'Món chờ mang ra', bg: '#16a34a', fg: '#ffffff' },
-  calling: { label: 'Khách gọi', bg: '#f97316', fg: '#ffffff' },
-  payment: { label: 'Chờ thanh toán', bg: '#eab308', fg: '#1f1600' },
-  late: { label: 'Quá giờ', bg: '#dc2626', fg: '#ffffff' },
-  inactive: { label: 'Ngừng phục vụ', bg: '#9ca3af', fg: '#ffffff' },
-};
-const LEGEND: TableState[] = ['available', 'reserved', 'occupied', 'ready', 'calling', 'payment', 'late', 'inactive'];
-const SOON_MS = 2 * 60 * 60_000; // đặt bàn trong 2 giờ tới thì hiện trên bàn trống
-
-const minutesSince = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000));
-const hhmm = (iso: string) => new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-const elapsed = (iso: string) => {
-  const m = minutesSince(iso);
-  return m < 60 ? `${m}′` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
-};
-
-/** Bàn trống có khách đặt sắp tới (trong 2 giờ tới, hoặc đã tới giờ nhưng chưa nhận bàn). */
-function soonReservation(t: FloorTable) {
-  if (!t.reservation) return null;
-  const diff = new Date(t.reservation.time).getTime() - Date.now();
-  return diff <= SOON_MS ? t.reservation : null;
-}
-
-/** Ưu tiên việc cần làm ngay: khách gọi > chờ thanh toán > quá giờ > món chờ mang ra > có khách. */
-function stateOf(t: FloorTable): TableState {
-  if (t.status === 'inactive') return 'inactive';
-  const o = t.order;
-  if (o) {
-    if (t.supportRequest) return 'calling';
-    if (o.locked || t.paymentRequest) return 'payment';
-    if (o.lateCount > 0) return 'late';
-    if (o.readyCount > 0) return 'ready';
-    return 'occupied';
-  }
-  if (t.status === 'reserved' || soonReservation(t)) return 'reserved';
-  return 'available';
-}
-
-/** Số khách: thu ngân đã nhập, không thì lấy từ phiếu đặt bàn. */
-const guestsOf = (t: FloorTable) => t.order?.guests ?? (t.order && t.reservation ? t.reservation.guests : null);
-
 /* ---------------------------------------------------------------- Trang */
 
 const ZOOM_KEY = 'rms-pos-zoom';
-const CELL = 128; // px ở mức 100%
 
 /**
  * UC-TN-01: Sơ đồ bàn kiểu POS — tab khu vực, bàn vẽ đúng hình và vị trí Quản lý đã xếp (lưới), ghế quanh bàn,
@@ -171,116 +120,6 @@ export default function FloorPage() {
         </>
       )}
     </CashierShell>
-  );
-}
-
-/* ---------------------------------------------------------------- Sơ đồ (lưới ô) */
-
-function FloorCanvas({ floor, tables, zoom, selected, onSelect }: { floor: CashierFloor; tables: FloorTable[]; zoom: number; selected: string | null; onSelect: (id: string) => void }) {
-  const cell = CELL * zoom;
-  const style: CSSProperties = {
-    width: floor.cols * cell,
-    height: floor.rows * cell,
-    backgroundImage: 'linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)',
-    backgroundSize: `${cell / 2}px ${cell / 2}px`,
-  };
-  if (!tables.length) return <p className="py-16 text-center text-[14px] text-[var(--text-muted)]">Khu vực này chưa có bàn.</p>;
-  return (
-    <div className="relative mx-auto rounded-[18px] border border-[var(--border)] bg-[var(--bg-surface)]" style={style}>
-      {tables.map((t) => (
-        <div key={t.id} className="absolute grid place-items-center" style={{ left: t.x * cell, top: t.y * cell, width: cell, height: cell }}>
-          <TableShape t={t} zoom={zoom} selected={selected === t.id} onClick={() => onSelect(t.id)} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Vị trí ghế quanh bàn theo số ghế (tối đa 12 ghế được vẽ). */
-function chairs(shape: FloorTable['shape'], seats: number, w: number, h: number) {
-  const n = Math.min(seats, 12);
-  const out: { x: number; y: number; r: number }[] = [];
-  if (shape === 'round') {
-    const R = w / 2 + 9;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 - Math.PI / 2;
-      out.push({ x: w / 2 + Math.cos(a) * R, y: h / 2 + Math.sin(a) * R, r: (a * 180) / Math.PI + 90 });
-    }
-    return out;
-  }
-  // Bàn vuông / chữ nhật: chia ghế cho 4 cạnh (cạnh dài nhận nhiều hơn).
-  const longTB = w >= h;
-  const sides = { top: 0, bottom: 0, left: 0, right: 0 };
-  const order: (keyof typeof sides)[] = longTB ? ['top', 'bottom', 'top', 'bottom', 'left', 'right'] : ['left', 'right', 'left', 'right', 'top', 'bottom'];
-  for (let i = 0; i < n; i++) sides[order[i % order.length]]++;
-  const place = (count: number, side: keyof typeof sides) => {
-    for (let i = 0; i < count; i++) {
-      const p = (i + 1) / (count + 1);
-      if (side === 'top') out.push({ x: w * p, y: -9, r: 0 });
-      if (side === 'bottom') out.push({ x: w * p, y: h + 9, r: 180 });
-      if (side === 'left') out.push({ x: -9, y: h * p, r: 270 });
-      if (side === 'right') out.push({ x: w + 9, y: h * p, r: 90 });
-    }
-  };
-  (Object.keys(sides) as (keyof typeof sides)[]).forEach((s) => place(sides[s], s));
-  return out;
-}
-
-function TableShape({ t, zoom, selected, onClick }: { t: FloorTable; zoom: number; selected: boolean; onClick: () => void }) {
-  const st = stateOf(t);
-  const s = STATE[st];
-  const base = 70 * zoom;
-  const w = t.shape === 'rect' ? base * 1.45 : base;
-  const h = t.shape === 'rect' ? base * 0.85 : base;
-  const g = guestsOf(t);
-  const soon = !t.order ? soonReservation(t) : null;
-  const label = t.order ? formatCurrency(t.order.subtotal) : soon ? `${soon.customerName} · ${hhmm(soon.time)}` : null;
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      aria-label={`Bàn ${t.code}: ${s.label}`}
-      aria-pressed={selected}
-      data-table={t.code}
-      className="group relative flex flex-col items-center outline-none"
-    >
-      <span className="relative block transition-transform group-hover:scale-[1.04]" style={{ width: w, height: h }}>
-        {chairs(t.shape, t.seats, w, h).map((c, i) => (
-          <span
-            key={i}
-            className="absolute block rounded-[4px]"
-            style={{ width: 16 * zoom, height: 7 * zoom, left: c.x, top: c.y, transform: `translate(-50%, -50%) rotate(${c.r}deg)`, background: st === 'available' ? '#c9d1d9' : s.bg, opacity: st === 'available' ? 1 : 0.55 }}
-          />
-        ))}
-        <span
-          className={cn('absolute inset-0 grid place-items-center shadow-[0_4px_10px_rgba(15,26,20,0.12)]', st === 'calling' && 'pos-call', selected && 'ring-[3px] ring-[var(--text-primary)] ring-offset-2')}
-          style={{
-            background: st === 'inactive' ? `repeating-linear-gradient(135deg, ${s.bg} 0 6px, #b8bec6 6px 12px)` : s.bg,
-            color: s.fg,
-            borderRadius: t.shape === 'round' ? '50%' : 14 * zoom,
-          }}
-        >
-          <span className="text-center leading-none">
-            <span className="block font-extrabold" style={{ fontSize: 19 * zoom }}>{t.code}</span>
-            <span className="mt-0.5 block font-mono font-semibold opacity-90" style={{ fontSize: 10.5 * zoom }}>{g ? `${g}/${t.seats}` : `${t.seats} ghế`}</span>
-          </span>
-        </span>
-        {t.order ? (
-          <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--bg-surface)] px-1.5 font-mono font-bold shadow-sm" style={{ top: -10 * zoom, fontSize: 10.5 * zoom, color: st === 'late' ? '#dc2626' : 'var(--text-primary)' }}>
-            {elapsed(t.order.openedAt)}
-          </span>
-        ) : null}
-        {t.order?.readyCount ? (
-          <span className="absolute grid place-items-center rounded-full bg-[#16a34a] font-mono font-bold text-white ring-2 ring-white" style={{ right: -6 * zoom, bottom: -6 * zoom, width: 18 * zoom, height: 18 * zoom, fontSize: 10 * zoom }} title={`${t.order.readyCount} món chờ mang ra`}>
-            {t.order.readyCount}
-          </span>
-        ) : null}
-      </span>
-      <span className={cn('mt-3 max-w-[140px] truncate text-center font-medium', soon ? 'text-[#7c3aed]' : 'text-[var(--text-secondary)]')} style={{ fontSize: 11.5 * zoom, minHeight: 14 * zoom }}>{label ?? ''}</span>
-    </button>
   );
 }
 
@@ -413,16 +252,11 @@ function TablePanel({ table: t, floor, onClose }: { table: FloorTable; floor: Ca
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Không lưu được'),
   });
   const openPay = useMutation({ mutationFn: getInvoice, onSuccess: setPaying, onError: (e) => toast.error(e instanceof Error ? e.message : 'Không mở được hóa đơn') });
-  // Xử lý yêu cầu của khách ngay trên bảng bàn (không phải sang trang Yêu cầu).
-  const reqDone = () => { void detail.refetch(); void qc.invalidateQueries({ queryKey: ['thu-ngan'] }); };
-  const reqErr = (e: unknown) => toast.error(e instanceof Error ? e.message : 'Không lưu được');
   const close = useMutation({
     mutationFn: closeTable,
     onSuccess: () => { toast.success(`Đã đóng bàn ${t.code}`); void qc.invalidateQueries({ queryKey: ['thu-ngan'] }); onClose(); },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Không đóng được bàn'),
   });
-  const forward = useMutation({ mutationFn: forwardRequest, onSuccess: () => { toast.success('Đã ghi nhận: nhân viên đang đến bàn'); reqDone(); }, onError: reqErr });
-  const complete = useMutation({ mutationFn: completeRequest, onSuccess: () => { toast.success('Đã hoàn thành yêu cầu'); reqDone(); }, onError: reqErr });
 
   const d = detail.data;
   const o = d?.order;
@@ -431,6 +265,8 @@ function TablePanel({ table: t, floor, onClose }: { table: FloorTable; floor: Ca
   const resGuests = t.reservation?.guests ?? null;
   const soon = !t.order ? soonReservation(t) : null;
   const activeItems = (o?.items ?? []).filter((i) => i.status !== 'cancelled');
+  // Yêu cầu hỗ trợ (gọi nhân viên) do Nhân viên phục vụ xử lý theo khu vực (V20) — thu ngân chỉ thấy yêu cầu thanh toán.
+  const payReqs = (d?.requests ?? []).filter((r) => r.type === 'payment');
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -487,29 +323,16 @@ function TablePanel({ table: t, floor, onClose }: { table: FloorTable; floor: Ca
               </div>
             </div>
 
-            {d?.requests.length ? (
+            {d && payReqs.length ? (
               <div className="space-y-2">
-                {d.requests.map((r) => (
-                  <div key={r.id} className={cn('rounded-[12px] border p-3 text-[13.5px]', r.type === 'payment' ? 'border-[#fde047] bg-[#fefce8]' : 'border-[#fdba74] bg-[#fff7ed]')}>
-                    <p className={cn('font-semibold', r.type === 'payment' ? 'text-[#854d0e]' : 'text-[#c2410c]')}>
-                      {r.type === 'payment' ? 'Khách yêu cầu thanh toán' : `Khách gọi – ${REQUEST_TYPE_LABEL[r.type]}`} · {hhmm(r.createdAt)}
-                      {r.status === 'forwarded' ? <span className="ml-1 font-normal text-[var(--text-muted)]">· đã báo nhân viên</span> : null}
-                    </p>
-                    {r.content ? <p className="text-[var(--text-secondary)]">{r.content}</p> : null}
+                {payReqs.map((r) => (
+                  <div key={r.id} className="rounded-[12px] border border-[#fde047] bg-[#fefce8] p-3 text-[13.5px]">
+                    <p className="font-semibold text-[#854d0e]">Khách yêu cầu thanh toán · {hhmm(r.createdAt)}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {r.type === 'payment' ? (
-                        d.invoice?.status === 'unpaid' ? (
-                          <Button size="sm" leadingIcon={<Wallet size={14} />} loading={openPay.isPending} onClick={() => openPay.mutate(d.invoice!.id)}>Thu tiền</Button>
-                        ) : (
-                          <Button size="sm" leadingIcon={<Receipt size={14} />} disabled={!editable} onClick={() => setInvoiceOpen(true)}>Lập hóa đơn</Button>
-                        )
+                      {d.invoice?.status === 'unpaid' ? (
+                        <Button size="sm" leadingIcon={<Wallet size={14} />} loading={openPay.isPending} onClick={() => openPay.mutate(d.invoice!.id)}>Thu tiền</Button>
                       ) : (
-                        <>
-                          {r.status === 'new' ? (
-                            <Button size="sm" variant="outline" loading={forward.isPending && forward.variables === r.id} onClick={() => forward.mutate(r.id)}>Đã báo nhân viên</Button>
-                          ) : null}
-                          <Button size="sm" loading={complete.isPending && complete.variables === r.id} onClick={() => complete.mutate(r.id)}>Hoàn thành</Button>
-                        </>
+                        <Button size="sm" leadingIcon={<Receipt size={14} />} disabled={!editable} onClick={() => setInvoiceOpen(true)}>Lập hóa đơn</Button>
                       )}
                     </div>
                   </div>

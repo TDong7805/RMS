@@ -38,10 +38,17 @@ public class TableService {
 
     private final JdbcClient jdbc;
     private final AuditService audit;
+    private final com.rms.ordering.LiveEvents live;
 
-    public TableService(JdbcClient jdbc, AuditService audit) {
+    public TableService(JdbcClient jdbc, AuditService audit, com.rms.ordering.LiveEvents live) {
         this.jdbc = jdbc;
         this.audit = audit;
+        this.live = live;
+    }
+
+    /** Báo thu ngân / phục vụ đang mở sơ đồ: khu vực vừa đổi (sau khi lưu thành công). */
+    private void layoutChanged(long areaId) {
+        live.publishLayout(areaId, findArea(areaId).map(Area::name).orElse(null));
     }
 
     /* ------------------------------------------------------------ Khu vực */
@@ -81,6 +88,7 @@ public class TableService {
             .update(key);
         long id = key.getKey().longValue();
         audit.log("table", "Thêm khu vực", "Thêm khu vực " + name, "areas", id);
+        layoutChanged(id);
         return findArea(id).orElseThrow();
     }
 
@@ -92,6 +100,7 @@ public class TableService {
         jdbc.sql("UPDATE areas SET name = ?, description = ?, is_active = ? WHERE id = ?")
             .params(name, Vi.trim(in.description()), in.active() == null || in.active(), id).update();
         audit.log("table", "Cập nhật khu vực", "Cập nhật khu vực " + name, "areas", id);
+        layoutChanged(id);
         return findArea(id).orElseThrow();
     }
 
@@ -105,6 +114,7 @@ public class TableService {
             throw new BusinessException("Khu vực đã có lịch sử đặt bàn nên không thể xóa. Hãy tắt \"Đang phục vụ\" để tạm ngưng khu vực.");
         jdbc.sql("DELETE FROM areas WHERE id = ?").param(id).update();
         audit.log("table", "Xóa khu vực", "Xóa khu vực " + area.name(), "areas", id);
+        live.publishLayout(id, area.name());
     }
 
     /* ------------------------------------------------------------ Bàn */
@@ -176,6 +186,7 @@ public class TableService {
             .update(key);
         long id = key.getKey().longValue();
         audit.log("table", "Thêm bàn", "Thêm bàn " + t.code() + " (" + t.seats() + " ghế)", "dining_tables", id);
+        layoutChanged(t.areaId());
         return findTable(id).orElseThrow();
     }
 
@@ -199,6 +210,8 @@ public class TableService {
         jdbc.sql("UPDATE dining_tables SET code = ?, area_id = ?, seats = ?, shape = ?, status = ?, pos_x = ?, pos_y = ? WHERE id = ?")
             .params(t.code(), t.areaId(), t.seats(), t.shape(), t.status(), x, y, id).update();
         audit.log("table", "Cập nhật bàn", "Cập nhật bàn " + t.code(), "dining_tables", id);
+        layoutChanged(t.areaId());
+        if (areaChanged) layoutChanged(Long.parseLong(current.areaId()));
         return findTable(id).orElseThrow();
     }
 
@@ -213,6 +226,7 @@ public class TableService {
             throw new BusinessException("Ô này đã có bàn khác");
         jdbc.sql("UPDATE dining_tables SET pos_x = ?, pos_y = ? WHERE id = ?").params(pos.x(), pos.y(), id).update();
         audit.log("table", "Cập nhật sơ đồ bàn", "Di chuyển bàn " + current.code(), "dining_tables", id);
+        layoutChanged(Long.parseLong(current.areaId()));
         return findTable(id).orElseThrow();
     }
 
@@ -228,6 +242,7 @@ public class TableService {
             throw new BusinessException("Bàn đã có lịch sử đặt bàn hoặc đơn hàng nên không thể xóa. Hãy chuyển sang \"Ngưng sử dụng\".");
         }
         audit.log("table", "Xóa bàn", "Xóa bàn " + current.code(), "dining_tables", id);
+        layoutChanged(Long.parseLong(current.areaId()));
     }
 
     private long count(String sql, long id) {

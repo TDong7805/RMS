@@ -18,7 +18,8 @@ import type { AppNotification } from '@/types';
 const TAB_CLASS =
   'relative min-h-[34px] rounded-t-[8px] px-2.5 pb-2 pt-1 text-[13px] font-semibold text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] data-[state=active]:text-[var(--accent)] data-[state=active]:after:absolute data-[state=active]:after:inset-x-2 data-[state=active]:after:bottom-0 data-[state=active]:after:h-[2px] data-[state=active]:after:rounded-full data-[state=active]:after:bg-[var(--accent)]';
 
-export function NotificationMenu() {
+/** allHref: trang "Xem tất cả" (mặc định theo khu của đường dẫn; khu Phục vụ truyền /phuc-vu/thong-bao). */
+export function NotificationMenu({ allHref }: { allHref?: string } = {}) {
   const navigate = useNavigate();
   const area = useCurrentArea();
   const { data, isLoading, isError, refetch, isFetching } = useNotificationsQuery();
@@ -162,7 +163,7 @@ export function NotificationMenu() {
             <Button
               variant="ghost"
               className="w-full justify-center text-[13px] text-[var(--accent)] hover:!bg-[var(--accent-soft)]"
-              onClick={() => navigate(`${AREA_HOME[area]}/thong-bao`)}
+              onClick={() => navigate(allHref ?? `${AREA_HOME[area]}/thong-bao`)}
             >
               Xem tất cả thông báo
             </Button>

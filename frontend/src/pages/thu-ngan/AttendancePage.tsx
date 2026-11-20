@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ClipboardCheck, FileSpreadsheet, Lock, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Camera, ClipboardCheck, FileSpreadsheet, Lock, Pencil, Plus, Trash2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
@@ -11,6 +11,7 @@ import { Field, SelectInput, TextInput } from '@/components/common/Form';
 import { ConfirmDialog, Modal } from '@/components/common/Modal';
 import { DataTable, PageHeader, StatTile, TableSkeleton, Td, Th, Toolbar } from '@/components/common/PageParts';
 import { createAttendance, deleteAttendance, getAttendance, getEmployees, updateAttendance } from '@/api/payroll';
+import { attendancePhotoUrl } from '@/api/attendance-admin';
 import { AttendanceImportDialog } from '@/features/payroll/AttendanceImportDialog';
 import { todayKey } from '@/features/ordering/cashierParts';
 import { ValidationError } from '@/lib/mock';
@@ -43,6 +44,7 @@ export default function AttendancePage() {
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<AttendanceRow | 'new' | null>(null);
   const [deleting, setDeleting] = useState<AttendanceRow | null>(null);
+  const [photos, setPhotos] = useState<AttendanceRow | null>(null);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['thu-ngan', 'attendance'] });
 
   const del = useMutation({
@@ -64,7 +66,7 @@ export default function AttendancePage() {
       <div className="min-w-0 space-y-4">
         <PageHeader
           title="Chấm công"
-          description="Dữ liệu chấm công dùng tính lương: nhập từ file Excel của máy chấm công hoặc thêm tay. Ngày thuộc kỳ lương đã chốt không sửa được."
+          description="Dữ liệu chấm công dùng tính lương: nhân viên tự chấm bằng khuôn mặt, nhập từ file Excel hoặc thêm tay (vd. sửa lượt quên tan ca). Ngày thuộc kỳ lương đã chốt không sửa được."
           actions={
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" leadingIcon={<Plus size={15} />} onClick={() => setEditing('new')}>Thêm chấm công</Button>
@@ -117,12 +119,21 @@ export default function AttendancePage() {
                           <tr key={r.id} className="hover:bg-[var(--bg-subtle)]">
                             <Td><p className="font-semibold">{r.userName}</p><p className="text-[12px] text-[var(--text-muted)]">{r.roleName}</p></Td>
                             <Td className="whitespace-nowrap font-mono text-[13px]">{dmy(r.date)}</Td>
-                            <Td className="font-mono">{r.checkIn}</Td>
+                            <Td className="font-mono">
+                              {r.checkIn}
+                              {r.lateMinutes ? <span className="block font-sans text-[11.5px] font-semibold text-[var(--danger)]">Trễ {r.lateMinutes}′</span> : null}
+                            </Td>
                             <Td className="font-mono">
                               {r.checkOut ? <>{r.checkOut}{r.overnight ? <span className="ml-1 text-[11px] text-[var(--text-muted)]">(+1 ngày)</span> : null}</> : <Badge variant="warning">Thiếu giờ ra</Badge>}
+                              {r.earlyMinutes ? <span className="block font-sans text-[11.5px] font-semibold text-[var(--warning)]">Về sớm {r.earlyMinutes}′</span> : null}
                             </Td>
                             <Td className="text-right font-mono font-semibold">{hours(r.hours)}</Td>
-                            <Td><Badge variant={r.source === 'excel' ? 'info' : 'neutral'}>{r.source === 'excel' ? 'Excel' : 'Nhập tay'}</Badge></Td>
+                            <Td className="whitespace-nowrap">
+                              <Badge variant={r.source === 'camera' ? 'accent' : r.source === 'excel' ? 'info' : 'neutral'}>{r.source === 'camera' ? 'Khuôn mặt' : r.source === 'excel' ? 'Excel' : 'Nhập tay'}</Badge>
+                              {r.hasInPhoto || r.hasOutPhoto ? (
+                                <button type="button" aria-label={`Xem ảnh chấm công ${r.userName} ${dmy(r.date)}`} title="Xem ảnh chấm công" onClick={() => setPhotos(r)} className="ml-1 inline-grid h-7 w-7 place-items-center rounded-lg align-middle text-[var(--accent)] hover:bg-[var(--accent-soft)]"><Camera size={15} /></button>
+                              ) : null}
+                            </Td>
                             <Td className="max-w-[200px] truncate text-[13px] text-[var(--text-secondary)]" title={r.note}>{r.note || '—'}</Td>
                             <Td className="whitespace-nowrap text-right">
                               {r.locked ? (
@@ -164,6 +175,22 @@ export default function AttendancePage() {
         )}
       </div>
       <AttendanceImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={refresh} />
+      <Modal open={photos !== null} onOpenChange={(o) => !o && setPhotos(null)} title={photos ? `Ảnh chấm công – ${photos.userName} · ${dmy(photos.date)}` : ''} description="Đối chiếu đúng người, đúng nơi làm việc. Độ lệch càng nhỏ càng giống khuôn mặt đã đăng ký.">
+        {photos ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(['in', 'out'] as const).map((k) => {
+              const has = k === 'in' ? photos.hasInPhoto : photos.hasOutPhoto;
+              const dist = k === 'in' ? photos.inDistance : photos.outDistance;
+              return (
+                <figure key={k} className="space-y-1">
+                  <figcaption className="text-[13px] font-semibold">{k === 'in' ? `Vào ca ${photos.checkIn}` : `Tan ca ${photos.checkOut ?? '—'}`}{dist != null ? <span className="ml-1 font-normal text-[var(--text-muted)]">· độ lệch {dist.toFixed(2)}</span> : null}</figcaption>
+                  {has ? <img src={attendancePhotoUrl(photos.id, k, 'cashier')} alt={k === 'in' ? 'Ảnh vào ca' : 'Ảnh tan ca'} className="w-full rounded-[12px] object-cover" /> : <p className="grid h-40 place-items-center rounded-[12px] bg-[var(--bg-subtle)] text-[13px] text-[var(--text-muted)]">Không có ảnh</p>}
+                </figure>
+              );
+            })}
+          </div>
+        ) : null}
+      </Modal>
       <AttendanceForm target={editing} employees={employees.data ?? []} onClose={() => setEditing(null)} onSaved={refresh} />
       <ConfirmDialog
         open={Boolean(deleting)}

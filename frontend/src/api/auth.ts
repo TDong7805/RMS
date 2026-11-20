@@ -2,7 +2,7 @@ import { api } from '@/lib/http';
 import { BusinessError } from '@/lib/mock';
 
 /** Vai trò được đăng nhập trang nội bộ (khớp backend com.rms.auth.StaffAreas). */
-export type StaffRole = 'manager' | 'cashier' | 'kitchen' | 'warehouse';
+export type StaffRole = 'manager' | 'cashier' | 'kitchen' | 'warehouse' | 'waiter';
 
 export interface AuthUser {
   id: string;
@@ -14,7 +14,7 @@ export interface AuthUser {
   roleLabel: string;
   /** true: tài khoản mới tạo hoặc vừa được đặt lại mật khẩu → phải đổi trước khi dùng. */
   mustChangePassword: boolean;
-  /** Trang chủ của vai trò: "/", "/thu-ngan", "/bep", "/kho". */
+  /** Trang chủ của vai trò: "/quan-ly", "/thu-ngan", "/bep", "/kho", "/phuc-vu". */
   home: string;
 }
 

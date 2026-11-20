@@ -54,8 +54,8 @@ Mỗi dòng: làm đúng cột *Thao tác*, so với cột *Kết quả mong đ�
 | # | Vai trò | Thao tác | Kết quả mong đợi | Đạt | Ghi chú |
 |---|---|---|---|---|---|
 | A1 | Bếp | Đăng nhập → bấm **Bắt đầu ca** | Màn hình bếp kiểu KDS (nền sáng mặc định), **mỗi bàn một thẻ** (chỉ bàn còn món chờ / đang làm), thấy thẻ **T03, SV01** (VIP01 đã xong hết món nên không có thẻ); dải lọc Tất cả / Mới / Đang làm + viên danh mục | [ ] | |
-| A2 | Thu ngân | Đăng nhập → **Sơ đồ bàn** (khu POS toàn màn hình) | Bàn tô màu theo trạng thái: T03 **cam nhấp nháy** (Khách gọi), VIP01 **vàng** (Chờ thanh toán), SV01 có khách; tab **Yêu cầu** có số 2; đáy màn hình có "Đã thu hôm nay" > 0 | [ ] | |
-| A2b | Khách → Thu ngân | Khách mở QR **T05** khi bàn còn Trống, thêm 1 món vào giỏ, bấm Gửi; rồi bấm Gọi nhân viên → gợi ý **"Mở bàn giúp tôi"**. Thu ngân bấm bàn T05 → chọn số khách 4 → **Mở bàn** | Bàn chưa mở: ảnh bìa có viên "Bàn chưa mở", giỏ báo "Bàn chưa được mở…", nút Gửi bị khóa; thu ngân nhận yêu cầu; mở xong: T05 xanh dương "Có khách" 4/…, bảng bàn có nút **Đóng bàn**, trang khách tự hết viên "Bàn chưa mở" (giỏ vẫn còn món) | [ ] | |
+| A2 | Thu ngân | Đăng nhập → **Sơ đồ bàn** (khu POS toàn màn hình) | Bàn tô màu theo trạng thái: VIP01 **vàng** (Chờ thanh toán), T03, SV01 có khách (yêu cầu *gọi nhân viên* của T03 chỉ hiện ở khu **Phục vụ**, từ V20); tab **Yêu cầu thanh toán** có số 1; đáy màn hình có "Đã thu hôm nay" > 0 | [ ] | |
+| A2b | Khách → Thu ngân | Khách mở QR **T05** khi bàn còn Trống, thêm 1 món vào giỏ, bấm Gửi; rồi bấm Gọi nhân viên → gợi ý **"Mở bàn giúp tôi"**. Thu ngân bấm bàn T05 → chọn số khách 4 → **Mở bàn** | Bàn chưa mở: ảnh bìa có viên "Bàn chưa mở", giỏ báo "Bàn chưa được mở…", nút Gửi bị khóa; phục vụ khu Tầng 1 nhận yêu cầu (khu Phục vụ, có âm báo); mở xong: T05 xanh dương "Có khách" 4/…, bảng bàn có nút **Đóng bàn**, trang khách tự hết viên "Bàn chưa mở" (giỏ vẫn còn món) | [ ] | |
 | A3 | Khách | Mở đường dẫn QR của **T05** (đã mở bàn) | Trang tông đỏ rượu / nền kem, tiêu đề chữ có chân: "Bạn đang ngồi tại · Bàn T05", nút chuông, **Món của tôi**; ảnh bìa (hoặc nền đỏ – nâu) có "Royal Beef", ô tìm kiếm + nút lọc; **dải danh mục cong có ảnh món tròn** ("Tất cả" ghép 4 ảnh); Bán chạy (ảnh tràn thẻ); Tất cả món có ảnh | [ ] | |
 | A4 | Khách | Bấm từng vòng tròn danh mục; vuốt dải danh mục rồi thả; tự cuộn trang; mở nút lọc → Giá thấp → cao + Không cay → Áp dụng; Bỏ lọc | Dải cong: mục chọn vào giữa, hạ thấp, viền đỏ; bấm mục xa (vd. từ Tất cả sang mục thứ 5) thì dải đi thẳng tới mục đó, không giật qua các mục ở giữa; trang cuộn tới đúng mục (món khác vẫn còn); tự cuộn thì dải tự xoay theo; lọc: chỉ món khớp, giá tăng dần, nút lọc có số điều kiện | [ ] | |
 | A5 | Khách | Gõ tìm "gỏi" (thử cả không dấu "goi") | Chỉ hiện *Gỏi bò tái chanh* | [ ] | |
@@ -75,10 +75,10 @@ Mỗi dòng: làm đúng cột *Thao tác*, so với cột *Kết quả mong đ�
 | A19 | Khách | Bấm nút chuông (Gọi nhân viên) → bấm gợi ý "Thêm nước" → đổi sang **Tư vấn món** → đổi sang **Khác**, để trống nội dung → Gửi | Gợi ý đổi theo loại (Tư vấn: "Gợi ý đồ uống"…; Khác: không có gợi ý), đổi loại thì ô nội dung xóa gợi ý cũ; Khác để trống báo "Vui lòng nhập nội dung yêu cầu" | [ ] | |
 | A20 | Khách | Chọn gợi ý "Thêm nước" → Gửi | Báo "Đã gửi yêu cầu, nhân viên sẽ đến ngay"; nút chuông đỏ nhấp nháy; trong Món của tôi nút đổi "Đang chờ NV" | [ ] | |
 | A21 | Khách | Bấm Gọi nhân viên lần nữa | Hiện trạng thái đang chờ + nút **Hủy yêu cầu** (không tạo thêm yêu cầu) | [ ] | |
-| A22 | Thu ngân | Sơ đồ bàn: T05 **cam nhấp nháy** (Windows tắt *Hiệu ứng hoạt ảnh* thì chỉ có viền cam, không nhấp nháy). Bấm bàn T05 | Bảng bên phải có thẻ yêu cầu "Khách gọi – Hỗ trợ tại bàn · Thêm nước" với nút **Đã báo nhân viên** / **Hoàn thành**; có âm báo khi yêu cầu mới tới | [ ] | |
-| A23 | Thu ngân | (Gọi bộ đàm cho nhân viên phục vụ) → bấm **Đã báo nhân viên** trên bảng bàn | Báo "Đã ghi nhận: nhân viên đang đến bàn"; tab Yêu cầu: trạng thái **Đã báo NV** kèm giờ báo | [ ] | |
-| A24 | Khách | (không bấm gì) → bấm lại nút chuông | Hiện **"Nhân viên đang đến bàn bạn"** (không có tên nhân viên) | [ ] | |
-| A25 | Thu ngân | Bấm **Hoàn thành** (trên bảng bàn hoặc tab Yêu cầu) | Yêu cầu sang tab Hoàn thành; khách: nút trở lại "Gọi nhân viên" | [ ] | |
+| A22 | Phục vụ (`nam.hoang`, điện thoại) | Tab **Yêu cầu** (hoặc Sơ đồ: T05 **cam nhấp nháy**) | Có âm báo + rung khi yêu cầu tới; thẻ "T05 · Hỗ trợ tại bàn · Thêm nước" với nút **Tôi đến** / **Hoàn thành**. Thu ngân **không** thấy yêu cầu này | [ ] | |
+| A23 | Phục vụ | Bấm **Tôi đến** | Thẻ đổi "Bạn đang đến"; phục vụ khu khác không nhận được yêu cầu này | [ ] | |
+| A24 | Khách | (không bấm gì) → bấm lại nút chuông | Hiện **"Nhân viên Hoàng Gia Nam đang đến bàn bạn"** | [ ] | |
+| A25 | Phục vụ | Bấm **Hoàn thành** | Yêu cầu sang tab Hoàn thành; khách: nút trở lại "Gọi nhân viên" | [ ] | |
 | A26 | Khách | Bấm (+) 1 món (để trong giỏ, **không gửi**) → **Món của tôi** → **Thanh toán** → thử cả 3 nút; rồi vào lại Thanh toán | Hỏi "Giỏ còn món chưa gửi bếp": **Gửi bếp các món này** (mở bước gửi) · **Bỏ các món này, thanh toán luôn** (xóa giỏ, vào thanh toán) · **Quay lại**. Màn thanh toán: món đã gọi + tạm tính; còn món chưa xong có cảnh báo "Còn n món chưa xong" | [ ] | |
 | A27 | Khách | Chọn **Chuyển khoản**, tick Xuất VAT, nhập công ty + mã số thuế sai (vd. "123") → Gửi | Báo lỗi mã số thuế tại ô | [ ] | |
 | A28 | Khách | Sửa MST đúng (10 số, vd. 0312345678) → Gửi yêu cầu thanh toán | Hiện "Đã gửi yêu cầu thanh toán"; nút đổi "Đã yêu cầu" | [ ] | |
@@ -178,9 +178,9 @@ Mỗi dòng: làm đúng cột *Thao tác*, so với cột *Kết quả mong đ�
 
 | # | Thao tác | Kết quả mong đợi | Đạt | Ghi chú |
 |---|---|---|---|---|
-| D-POS1 | Thu ngân đăng nhập | Mở khu POS toàn màn hình (không có menu trái), tab Sơ đồ bàn / Đơn hàng / Yêu cầu / Hóa đơn có số đếm | [ ] | |
+| D-POS1 | Thu ngân đăng nhập | Mở khu POS toàn màn hình (không có menu trái), tab Sơ đồ bàn / Đơn hàng / Yêu cầu thanh toán / Hóa đơn có số đếm | [ ] | |
 | D-POS2 | Xem sơ đồ từng khu vực, phóng to / thu nhỏ | Bàn đúng hình + ghế theo số ghế, đúng vị trí như trang Khu vực bàn; màu đúng trạng thái; dải chú thích đếm đúng | [ ] | |
-| D-POS3 | Khách quét QR gọi nhân viên ở một bàn | Bàn chuyển cam, tỏa viền nhấp nháy; tab khu vực có chấm cam; tab Yêu cầu tăng số | [ ] | |
+| D-POS3 | Khách quét QR gọi nhân viên ở một bàn | Sơ đồ **thu ngân không đổi** (yêu cầu hỗ trợ do phục vụ xử lý, xem H); khách bấm *Yêu cầu thanh toán* thì bàn chuyển vàng, tab Yêu cầu thanh toán tăng số | [ ] | |
 | D-POS4 | Để một món chờ bếp quá 25 phút | Bàn chuyển đỏ "Quá giờ"; bảng bên phải ghi "n món chờ quá 25′" | [ ] | |
 | D-POS5 | Quản lý tạo đặt bàn cho một bàn trống, giờ đến trong 2 giờ tới | Bàn tím, dưới bàn có tên + giờ đến; tab "Đặt bàn hôm nay" có phiếu (tô nổi) | [ ] | |
 | D-POS6 | Bấm bàn có khách → bấm số khách 3 | Bàn hiện 3/[số ghế]; "Khách đang ngồi" ở đáy tăng | [ ] | |
@@ -279,6 +279,34 @@ Mỗi dòng: làm đúng cột *Thao tác*, so với cột *Kết quả mong đ�
 | G5 | Bật chế độ tối (Quản lý / Kho / Thu ngân) | Chữ, bảng, hộp thoại đọc rõ; mã QR vẫn nền trắng | [ ] | |
 | G6 | Thu nhỏ cửa sổ / mở trên máy tính bảng | Menu thu gọn, bảng cuộn ngang, không vỡ bố cục | [ ] | |
 | G7 | Để yên quá 2 giờ rồi thao tác | Hết phiên, đưa về trang đăng nhập | [ ] | |
+
+## H. Nhân viên phục vụ & chấm công khuôn mặt (từ V20)
+
+Đăng nhập bằng điện thoại (hoặc thu nhỏ trình duyệt). Tài khoản mẫu: `nam.hoang` (Tầng 1), `vy.ngo` (Tầng 1),
+`phuc.do` (Tầng 2), `quynh.ly` (Sân vườn), `binh.vu` (Phòng VIP) — khu được gán theo ca trong dữ liệu mẫu.
+**Camera trên điện thoại chỉ mở được qua HTTPS** (laptop mở `http://localhost` thì được) — xem
+[TRIEN_KHAI.md](../trien-khai/TRIEN_KHAI.md) mục "Chấm công khuôn mặt".
+
+| # | Thao tác | Kết quả mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| H1 | Phục vụ đăng nhập | Vào `/phuc-vu`; thanh trên ghi ca hiện tại + khu (vd. "Ca gãy 10:00–14:00 · Tầng 1"); thanh dưới 5 tab: Sơ đồ · Yêu cầu · Mang món · Thực đơn · Tôi | [ ] | |
+| H2 | Sơ đồ bàn | Mở sẵn khu "Của tôi"; chuyển tab xem được khu khác; bàn vẽ đúng vị trí như trang Quản lý → Khu vực bàn; không có doanh thu | [ ] | |
+| H3 | Quản lý (máy khác) di chuyển một bàn ở Tầng 1 | Phục vụ thấy thông báo "Quản lý vừa thay đổi sơ đồ Tầng 1" và sơ đồ đổi ngay, không cần tải lại | [ ] | |
+| H4 | Bấm bàn trống → chọn số khách → **Mở bàn** | Bảng bàn trượt lên; bàn chuyển Có khách; mã QR của bàn gọi món được | [ ] | |
+| H5 | **Gọi món cho khách** → thêm 2 món, ghi chú "ít cay" → Xem giỏ → **Gửi bếp** | Về sơ đồ, báo đã gửi; bếp thấy món; món ghi là nhân viên gọi | [ ] | |
+| H6 | Bếp bấm xong món → phục vụ tab **Mang món** → **Đã mang hết** | Món chuyển "Đã mang"; khách thấy món đã mang ra | [ ] | |
+| H7 | Bàn có khách → **Chuyển bàn** sang bàn trống; bàn khác → **Ghép bàn** vào bàn đang có khách | Chuyển: bàn cũ Trống. Ghép: món + số khách gộp sang bàn đích, bàn cũ Trống | [ ] | |
+| H8 | Khách ở Tầng 2 gọi nhân viên | Chỉ phục vụ Tầng 2 (`phuc.do`) thấy; khu không ai được gán trong ca thì mọi phục vụ trong ca thấy | [ ] | |
+| H9 | Tab **Thực đơn** → bấm một món | Thấy thành phần, dị nguyên, độ cay, món đã hết | [ ] | |
+| H10 | Tab **Tôi** → Chấm công → tick đồng ý → **Mở camera đăng ký** → làm theo hướng dẫn (nhìn thẳng → quay đầu → nhìn thẳng) | Gửi khuôn mặt, trạng thái "Đang chờ quản lý duyệt" kèm ảnh; quản lý nhận thông báo | [ ] | |
+| H11 | Quản lý → Quản lý nhân viên → **Khuôn mặt chấm công** → **Duyệt** (thử thêm Từ chối có lý do) | Phục vụ nhận thông báo; từ chối thì phục vụ thấy lý do và đăng ký lại được | [ ] | |
+| H12 | Quản lý → Cấu hình hệ thống → **Chấm công** → nhập một IP khác IP máy → Lưu; phục vụ thử Vào ca | Báo "Bạn cần kết nối WiFi của quán"; bấm **Thêm IP hiện tại** rồi Lưu thì chấm được | [ ] | |
+| H13 | Phục vụ (đang có ca) → **Vào ca bằng khuôn mặt** | Lưu giờ vào; vào sau giờ bắt đầu ca thì ghi "Đi trễ n phút"; người khác đứng trước camera → "Khuôn mặt không khớp" | [ ] | |
+| H14 | **Tan ca bằng khuôn mặt** | Lưu giờ ra; về trước giờ kết thúc ca ghi "Về sớm n phút" | [ ] | |
+| H15 | Thu ngân → Văn phòng → **Chấm công** | Dòng nguồn "Khuôn mặt", có Trễ / Về sớm; bấm biểu tượng camera xem ảnh vào / tan ca kèm độ lệch | [ ] | |
+| H16 | Tab **Tôi** → Ca làm / Lịch sử / Phiếu lương / Hồ sơ | Ca theo tuần có khu; lịch sử theo tháng xem được ảnh; phiếu lương kỳ đã chốt in được; sửa email / SĐT được | [ ] | |
+| H17 | Thu ngân bấm **Chấm công** trên thanh trên; Bếp bấm tab **Chấm công** | Cùng trang "Thông tin của tôi" như phục vụ | [ ] | |
+| H18 | Quản lý → Quản lý ca làm → lọc Nhân viên phục vụ → bấm ô ca hôm nay → đổi khu | Ô ca hiện khu mới; phục vụ thấy khu mặc định đổi trên sơ đồ | [ ] | |
 
 ---
 

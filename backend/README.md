@@ -35,7 +35,7 @@ Vite tự chuyển mọi request `/api/...` sang backend cổng 8080 (đổi b�
 | `linh.tran` | Thu ngân | `/thu-ngan` |
 | `hung.pham` | Nhân viên bếp | `/bep` |
 | `thao.bui` | Quản lý kho | `/kho` |
-| `nam.hoang` | Nhân viên phục vụ | không đăng nhập được (chỉ để xếp ca, tính lương) |
+| `nam.hoang` | Nhân viên phục vụ | `/phuc-vu` — giao diện điện thoại (từ V20); `vy.ngo`, `phuc.do`, `quynh.ly`, `binh.vu` cũng là phục vụ |
 
 > Mạng chặn IPv6 khiến Maven báo `Connect timed out` khi tải thư viện lần đầu? Chạy
 > `$env:MAVEN_OPTS="-Djava.net.preferIPv4Stack=true"` rồi chạy lại lệnh mvn.
@@ -49,9 +49,13 @@ src/main/java/com/rms/
 ├── common/        Dùng chung: xử lý lỗi, phân trang, chuỗi tiếng Việt, thời gian, người dùng hiện tại,
 │                  FrontendConfig: phục vụ giao diện đã build khi đóng gói một file jar
 ├── account/       Quản lý tài khoản nhân viên
+├── waiter/        Nhân viên phục vụ (V20): sơ đồ bàn theo khu vực trong ca, bưng món — thao tác bàn dùng chung CashierService
+├── selfservice/   "Thông tin của tôi" + chấm công khuôn mặt (V20): FaceService (đăng ký / duyệt khuôn mặt),
+│                  ClockService (vào ca / tan ca: WiFi quán, khuôn mặt, ca), SelfService (hồ sơ, ca, phiếu lương)
 ├── dish/          Món ăn, danh mục món, dị nguyên
 ├── post/          Bài viết (tin tức, ưu đãi, sự kiện): xuất bản / ẩn, ảnh bìa, khóa đường dẫn sau khi xuất bản
-├── shift/         Ca làm việc, phân công ca (kiểm tra trùng lịch kể cả ca qua đêm), danh sách nhân viên cho lịch
+├── shift/         Ca làm việc, phân công ca (kiểm tra trùng lịch kể cả ca qua đêm), khu vực phụ trách của phục vụ;
+│                  DutyService: ca quy ra giờ thực tế — ai đang trong ca, khu nào (định tuyến yêu cầu khách, chấm công)
 ├── chatbot/       Chatbot AI: cấu hình trợ lý, FAQ, câu hỏi chưa giải đáp, thực đơn cho AI, combo gợi ý
 ├── storage/       Lưu ảnh tải lên: StorageService (thư mục máy chủ, sau này S3/R2), kiểm tra & xử lý ảnh
 ├── backup/        Sao lưu & phục hồi thật (file .zip: dữ liệu + ảnh), tự động theo lịch, phục hồi an toàn
@@ -131,6 +135,31 @@ Hiện mọi API khác dưới `/api/**` chỉ dành cho Quản lý nhà hàng.
 | Quản lý bài viết: thêm, sửa (ảnh bìa), xuất bản / ẩn, xóa, tìm kiếm | ✅ |
 | Thông báo, Dashboard | ⏳ còn dữ liệu giả (xem [DU_LIEU_GIA.md](../docs/du-lieu/DU_LIEU_GIA.md)) |
 | Sẵn sàng triển khai: Flyway, phiên lưu trong MySQL, profile dev/prod, đóng gói một file jar, tài khoản quản lý đầu tiên | ✅ (xem [docs/trien-khai/TRIEN_KHAI.md](../docs/trien-khai/TRIEN_KHAI.md)) |
+| Nhân viên phục vụ (V20): khu vực theo ca, yêu cầu hỗ trợ theo khu, ghép bàn, gọi món hộ, bưng món | ✅ |
+| Chấm công khuôn mặt (V20): đăng ký / duyệt khuôn mặt, WiFi quán, vào ca / tan ca, ảnh tự xóa; "Thông tin của tôi" | ✅ (xem [docs/tien-do/TIEN_DO_PHUC_VU_CHAM_CONG.md](../docs/tien-do/TIEN_DO_PHUC_VU_CHAM_CONG.md)) |
+
+## Nhân viên phục vụ & chấm công khuôn mặt (V20, V21)
+
+| Chức năng | API | Ghi chú |
+|---|---|---|
+| Khu Phục vụ | `/api/phuc-vu/**` (ROLE_WAITER) | Sơ đồ (không có doanh thu), mở / đóng / chuyển / **ghép** bàn, gọi món hộ (`added_via = staff`), bưng món, yêu cầu hỗ trợ, SSE `/api/phuc-vu/stream` |
+| Yêu cầu hỗ trợ theo khu | `ServiceRequestService` | Bàn thuộc khu nào → chỉ phục vụ được gán khu đó **trong ca** thấy và nhận thông báo; khu không ai gán → mọi phục vụ trong ca. Thu ngân chỉ còn **yêu cầu thanh toán** |
+| Sơ đồ đổi | `LiveEvents.publishLayout` | Quản lý sửa khu / bàn → sự kiện `layout` {areaId, areaName} tới thu ngân + phục vụ |
+| Thông tin của tôi | `/api/toi/**` (phục vụ, thu ngân, bếp) | Hồ sơ, ca, chấm công của mình, phiếu lương kỳ đã chốt, đăng ký khuôn mặt, vào ca / tan ca |
+| Quản lý | `/api/faces/**`, `/api/settings/attendance`, `PUT /api/shift-assignments/{id}/area` | Duyệt / từ chối / yêu cầu đăng ký lại khuôn mặt; WiFi quán, vào sớm, ngưỡng khớp, số ngày giữ ảnh; khu phụ trách theo ca |
+
+**Chấm công khuôn mặt.** Trình duyệt (face-api) tính mã khuôn mặt 128 số và kiểm tra người thật (quay đầu); máy chủ
+so mã với khuôn mặt đã duyệt (khoảng cách Euclid ≤ ngưỡng, mặc định 0,5), kiểm tra IP thuộc WiFi quán
+(`attendance.allowed_networks`, trống = không kiểm tra) và đang có ca (vào sớm tối đa `attendance.early_minutes`).
+Lưu giờ, ảnh, IP, độ lệch, phút trễ / về sớm vào `attendances` (`source = camera`); lương vẫn tính theo giờ thực tế.
+Quên tan ca → "Thiếu giờ ra", thu ngân sửa tay. Ảnh tự xóa sau `attendance.photo_retention_days` (3:20 sáng).
+
+- **Ảnh khuôn mặt không công khai:** thư mục `uploads/khuon-mat`, `uploads/cham-cong` bị chặn ở `SecurityConfig`;
+  chỉ xem qua API có kiểm quyền (chính nhân viên, quản lý, thu ngân).
+- **IP máy khách** lấy từ `request.getRemoteAddr()` với `server.forward-headers-strategy=native` (Tomcat chỉ tin
+  `X-Forwarded-For` từ proxy trong máy / mạng nội bộ). Khi phát triển, Vite proxy gửi kèm header này (`xfwd: true`).
+- **Giới hạn:** mã khuôn mặt và bước "người thật" do trình duyệt tính — người rành kỹ thuật có thể gửi mã giả;
+  ảnh được lưu để đối chiếu. Muốn chặt hơn: tính mã ở máy chủ (vd. ONNX) — tốn tài nguyên hơn.
 
 ## Dữ liệu của actor khác
 

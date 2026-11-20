@@ -38,7 +38,7 @@ ok('Sai mật khẩu → 401 thông báo chung', r.status === 401 && r.data.mess
 r = await anon.req('POST', '/api/auth/login', { username: 'khong.ton.tai', password: 'abc12345' });
 ok('Tên không tồn tại → cùng thông báo', r.status === 401 && r.data.message === 'Sai tên đăng nhập hoặc mật khẩu.');
 r = await anon.req('POST', '/api/auth/login', { username: 'nam.hoang', password: PW });
-ok('Phục vụ (waiter) đăng nhập → 403', r.status === 403, r.data?.message);
+ok('Phục vụ (waiter) đăng nhập được từ V20 → home /phuc-vu', r.status === 200 && r.data.home === '/phuc-vu', r.data);
 
 const mgr = client();
 r = await mgr.req('POST', '/api/auth/login', { username: '  Tuan.Nguyen ', password: PW });

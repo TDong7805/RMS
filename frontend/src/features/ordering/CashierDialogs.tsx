@@ -121,34 +121,53 @@ export function CancelDialog({
 
 /* ---------------------------------------------------------------- Chuyển bàn */
 
+/**
+ * Chuyển bàn (sang bàn Trống / Đặt trước) hoặc Ghép bàn (mode="merge": gộp vào bàn đang có khách).
+ * loadTargets / submit / targetsKey: API của khu đang dùng (mặc định của Thu ngân; Phục vụ truyền API /api/phuc-vu).
+ */
 export function MoveTableDialog({
   open,
   order,
   onClose,
   onDone,
+  mode = 'move',
+  loadTargets = getMoveTargets,
+  submit: submitApi = moveOrder,
+  targetsKey = ['thu-ngan', 'move-targets'],
 }: {
   open: boolean;
   order: { id: string; code: string; tableCode: string };
   onClose: () => void;
   onDone: (d: CashierOrderDetail) => void;
+  mode?: 'move' | 'merge';
+  loadTargets?: () => Promise<MoveTarget[]>;
+  submit?: (orderId: string, tableId: string) => Promise<CashierOrderDetail>;
+  targetsKey?: readonly unknown[];
 }) {
-  const targets = useQuery({ queryKey: ['thu-ngan', 'move-targets'], queryFn: getMoveTargets, enabled: open });
+  const merge = mode === 'merge';
+  const targets = useQuery({
+    queryKey: [...targetsKey],
+    queryFn: async () => (await loadTargets()).filter((t) => t.code !== order.tableCode),
+    enabled: open,
+  });
   const [picked, setPicked] = useState<MoveTarget | null>(null);
   const [confirmReserved, setConfirmReserved] = useState(false);
   useEffect(() => {
     if (open) setPicked(null);
   }, [open]);
   const m = useMutation({
-    mutationFn: () => moveOrder(order.id, picked!.id),
+    mutationFn: () => submitApi(order.id, picked!.id),
     onSuccess: (d) => {
-      toast.success(`Đã chuyển đơn ${order.code} từ bàn ${order.tableCode} sang bàn ${picked!.code}`);
+      toast.success(merge
+        ? `Đã ghép bàn ${order.tableCode} vào bàn ${picked!.code}`
+        : `Đã chuyển đơn ${order.code} từ bàn ${order.tableCode} sang bàn ${picked!.code}`);
       setConfirmReserved(false);
       onDone(d);
       onClose();
     },
     onError: (e) => {
       setConfirmReserved(false);
-      toast.error(errorText(e, 'Không chuyển được bàn'));
+      toast.error(errorText(e, merge ? 'Không ghép được bàn' : 'Không chuyển được bàn'));
       void targets.refetch();
       setPicked(null);
     },
@@ -158,26 +177,28 @@ export function MoveTableDialog({
     (targets.data ?? []).forEach((t) => m.set(t.areaName, [...(m.get(t.areaName) ?? []), t]));
     return [...m.entries()];
   }, [targets.data]);
-  const submit = () => (picked?.status === 'reserved' && picked.reservation ? setConfirmReserved(true) : m.mutate());
+  const submit = () => (!merge && picked?.status === 'reserved' && picked.reservation ? setConfirmReserved(true) : m.mutate());
 
   return (
     <>
       <Modal
         open={open}
         onOpenChange={(o) => !o && onClose()}
-        title={`Chuyển bàn – đơn ${order.code}`}
-        description={`Đang ở bàn ${order.tableCode}. Chọn bàn Trống / Đặt trước.`}
+        title={merge ? `Ghép bàn ${order.tableCode}` : `Chuyển bàn – đơn ${order.code}`}
+        description={merge
+          ? `Toàn bộ món của bàn ${order.tableCode} sẽ gộp vào bàn được chọn (đang có khách); bàn ${order.tableCode} trở về Trống.`
+          : `Đang ở bàn ${order.tableCode}. Chọn bàn Trống / Đặt trước.`}
         footer={
           <>
             <Button variant="ghost" onClick={onClose}>Đóng</Button>
-            <Button disabled={!picked} loading={m.isPending} onClick={submit}>Chuyển bàn</Button>
+            <Button disabled={!picked} loading={m.isPending} onClick={submit}>{merge ? 'Ghép bàn' : 'Chuyển bàn'}</Button>
           </>
         }
       >
         {targets.isLoading ? (
           <Skeleton className="h-40" />
         ) : byArea.length === 0 ? (
-          <p className="text-[13.5px] text-[var(--text-muted)]">Không còn bàn trống.</p>
+          <p className="text-[13.5px] text-[var(--text-muted)]">{merge ? 'Không có bàn nào đang có khách để ghép.' : 'Không còn bàn trống.'}</p>
         ) : (
           <div className="space-y-4">
             {byArea.map(([area, list]) => (
@@ -196,7 +217,7 @@ export function MoveTableDialog({
                       )}
                     >
                       <p className="text-[16px] font-extrabold">{t.code}</p>
-                      <p className="text-[12px] text-[var(--text-muted)]">{t.seats} chỗ · {t.status === 'reserved' ? 'Đặt trước' : 'Trống'}</p>
+                      <p className="text-[12px] text-[var(--text-muted)]">{t.seats} chỗ · {merge ? 'Có khách' : t.status === 'reserved' ? 'Đặt trước' : 'Trống'}</p>
                     </button>
                   ))}
                 </div>

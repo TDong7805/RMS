@@ -21,10 +21,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Yêu cầu của khách: Gọi nhân viên (UC-KH-05), Yêu cầu thanh toán (UC-KH-06) và phía Thu ngân xử lý (UC-TN-06).
+ * Yêu cầu của khách: Gọi nhân viên (UC-KH-05), Yêu cầu thanh toán (UC-KH-06).
  *
- * Trạng thái: new (Mới) → forwarded (Đã báo nhân viên — thu ngân đã báo qua bộ đàm, chỉ yêu cầu hỗ trợ) → done (Hoàn thành);
- * new / forwarded → cancelled. Nhân viên phục vụ không có tài khoản nên không chọn tên người phụ trách.
+ * Từ V20: yêu cầu HỖ TRỢ (support / consult / other) do Nhân viên phục vụ xử lý theo khu vực — bàn thuộc khu nào thì
+ * phục vụ được gán khu đó trong ca thấy (khu không ai được gán: mọi phục vụ trong ca thấy). Thu ngân chỉ còn yêu cầu
+ * THANH TOÁN (gắn với hóa đơn).
+ *
+ * Trạng thái hỗ trợ: new (Mới) → forwarded (phục vụ bấm "Tôi đến" — assigned_to = người nhận, khách thấy "Nhân viên đang đến")
+ * → done (Hoàn thành); new / forwarded → cancelled.
  * Mỗi bàn tối đa một yêu cầu hỗ trợ (support / consult / other) và một yêu cầu thanh toán đang chờ.
  * Yêu cầu thanh toán tự Hoàn thành khi hóa đơn của bàn được thanh toán.
  */
@@ -57,9 +61,12 @@ public class ServiceRequestService {
     private final AuditService audit;
     private final CurrentUserService currentUser;
     private final NotificationService notifications;
+    private final com.rms.shift.DutyService duty;
 
     public ServiceRequestService(JdbcClient jdbc, OrderCore core, LiveEvents live, AuditService audit,
-                                 CurrentUserService currentUser, NotificationService notifications) {
+                                 CurrentUserService currentUser, NotificationService notifications,
+                                 com.rms.shift.DutyService duty) {
+        this.duty = duty;
         this.jdbc = jdbc;
         this.core = core;
         this.live = live;
@@ -157,10 +164,15 @@ public class ServiceRequestService {
         jdbc.sql("INSERT INTO service_requests (table_id, order_id, request_type, content, status) VALUES (?, ?, ?, ?, 'new')")
             .params(t.id(), orderId, type, content.isEmpty() ? null : content).update();
         long id = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
-        String title = "Bàn " + t.code() + " gọi nhân viên – " + TYPE_LABEL.get(type);
-        notifications.sendToRoles("service_request", title, content.isEmpty() ? TYPE_LABEL.get(type) : content,
-            "service_requests", id, List.of("cashier"));
-        live.publish(LiveEvents.CASHIER, LiveEvents.table(t.id()));
+        String title = "Bàn " + t.code() + " (" + t.areaName() + ") gọi nhân viên – " + TYPE_LABEL.get(type);
+        String body = content.isEmpty() ? TYPE_LABEL.get(type) : content;
+        List<Long> waiters = duty.waitersFor(t.areaId(), Times.now());
+        if (waiters.isEmpty()) {
+            notifications.sendToRoles("service_request", title, body, "service_requests", id, List.of("waiter"));
+        } else {
+            for (long w : waiters) notifications.sendToUser("service_request", title, body, "service_requests", id, w);
+        }
+        live.publish(LiveEvents.WAITER, LiveEvents.table(t.id()));
         return get(id);
     }
 
@@ -206,7 +218,7 @@ public class ServiceRequestService {
         if ("payment".equals(r.type()) && r.invoiceId() != null) throw new BusinessException("Hóa đơn đã được lập, vui lòng thanh toán với nhân viên");
         jdbc.sql("UPDATE service_requests SET status = 'cancelled', cancelled_at = ? WHERE id = ? AND status = 'new'")
             .params(Times.now(), id).update();
-        live.publish(LiveEvents.CASHIER, LiveEvents.table(t.id()));
+        live.publish(LiveEvents.CASHIER, LiveEvents.WAITER, LiveEvents.table(t.id()));
     }
 
     /* ------------------------------------------------------------------ Thu ngân (UC-TN-06) */
@@ -216,20 +228,25 @@ public class ServiceRequestService {
             .orElseThrow(() -> BusinessException.notFound("Không tìm thấy yêu cầu"));
     }
 
-    /** status: waiting (mặc định) | done | cancelled. Đang chờ: cũ nhất trước; còn lại: 200 yêu cầu gần nhất. */
+    /**
+     * Thu ngân: chỉ yêu cầu thanh toán. status: waiting (mặc định) | done | cancelled.
+     * Đang chờ: cũ nhất trước; còn lại: 200 yêu cầu gần nhất.
+     */
     public RequestList list(String status) {
         String s = status == null || status.isBlank() ? "waiting" : status;
         List<Request> items = switch (s) {
-            case "done", "cancelled" -> jdbc.sql(SELECT + " WHERE sr.status = ? ORDER BY sr.id DESC LIMIT 200").param(s)
+            case "done", "cancelled" -> jdbc.sql(SELECT + " WHERE sr.request_type = 'payment' AND sr.status = ? ORDER BY sr.id DESC LIMIT 200").param(s)
                 .query((rs, n) -> map(rs)).list();
-            default -> jdbc.sql(SELECT + " WHERE sr.status IN ('new','forwarded') ORDER BY sr.status = 'new' DESC, sr.created_at, sr.id")
+            default -> jdbc.sql(SELECT + " WHERE sr.request_type = 'payment' AND sr.status IN ('new','forwarded') ORDER BY sr.status = 'new' DESC, sr.created_at, sr.id")
                 .query((rs, n) -> map(rs)).list();
         };
         return new RequestList(items, waitingCount());
     }
 
+    /** Số yêu cầu thanh toán đang chờ (đầu trang Thu ngân). */
     public int waitingCount() {
-        return jdbc.sql("SELECT COUNT(*) FROM service_requests WHERE status IN ('new','forwarded')").query(Integer.class).single();
+        return jdbc.sql("SELECT COUNT(*) FROM service_requests WHERE request_type = 'payment' AND status IN ('new','forwarded')")
+            .query(Integer.class).single();
     }
 
     /** Bàn có yêu cầu đang chờ: tableId → loại ("support" / "payment"). */
@@ -252,11 +269,14 @@ public class ServiceRequestService {
         return r;
     }
 
-    /** Thu ngân đã báo nhân viên phục vụ (bộ đàm) → khách thấy "Nhân viên đang đến". */
+    private static final String WAITER_ONLY = "Yêu cầu hỗ trợ do nhân viên phục vụ xử lý";
+
+    /** (Trước V20) thu ngân báo nhân viên qua bộ đàm. Từ V20 yêu cầu hỗ trợ do phục vụ nhận — giữ API để báo lỗi rõ ràng. */
     @Transactional
     public Request forward(String idText) {
         Request r = lockWaiting(idText);
         if ("payment".equals(r.type())) throw new BusinessException("Yêu cầu thanh toán xử lý bằng Lập hóa đơn");
+        if (SUPPORT_TYPES.contains(r.type())) throw new BusinessException(WAITER_ONLY);
         if ("forwarded".equals(r.status())) return r;
         long id = Long.parseLong(r.id());
         jdbc.sql("UPDATE service_requests SET status = 'forwarded', assigned_to = NULL, received_by = ?, forwarded_at = ? WHERE id = ?")
@@ -270,6 +290,7 @@ public class ServiceRequestService {
     public Request done(String idText) {
         Request r = lockWaiting(idText);
         if ("payment".equals(r.type())) throw new BusinessException("Yêu cầu thanh toán tự hoàn thành khi hóa đơn được thanh toán");
+        if (SUPPORT_TYPES.contains(r.type())) throw new BusinessException(WAITER_ONLY);
         long id = Long.parseLong(r.id());
         jdbc.sql("UPDATE service_requests SET status = 'done', done_at = ?, received_by = COALESCE(received_by, ?) WHERE id = ?")
             .params(Times.now(), currentUser.get().id(), id).update();
@@ -280,11 +301,97 @@ public class ServiceRequestService {
     @Transactional
     public Request cancel(String idText) {
         Request r = lockWaiting(idText);
+        if (SUPPORT_TYPES.contains(r.type())) throw new BusinessException(WAITER_ONLY);
         long id = Long.parseLong(r.id());
         jdbc.sql("UPDATE service_requests SET status = 'cancelled', cancelled_at = ?, received_by = COALESCE(received_by, ?) WHERE id = ?")
             .params(Times.now(), currentUser.get().id(), id).update();
         audit.log("cashier", "Hủy yêu cầu", "Bàn " + r.tableCode() + " – " + TYPE_LABEL.get(r.type()), "service_requests", id);
         live.publish(LiveEvents.CASHIER, LiveEvents.table(Long.parseLong(r.tableId())));
+        return get(id);
+    }
+
+    /* ------------------------------------------------------------------ Nhân viên phục vụ (từ V20) */
+
+    private static String areaFilter(Set<Long> areas) {
+        if (areas == null) return "";
+        if (areas.isEmpty()) return " AND 1 = 0";
+        return " AND t.area_id IN (" + String.join(",", areas.stream().map(String::valueOf).toList()) + ")";
+    }
+
+    /**
+     * Yêu cầu hỗ trợ cho phục vụ: waiting (mặc định, Mới trước rồi cũ nhất trước) | done | cancelled (100 gần nhất).
+     * Chỉ các khu vực phục vụ đang được xem (DutyService.visibleAreas).
+     */
+    public RequestList listForWaiter(String status) {
+        long me = currentUser.get().id();
+        Set<Long> areas = duty.visibleAreas(me, Times.now());
+        String filter = " AND sr.request_type <> 'payment'" + areaFilter(areas);
+        String s = status == null || status.isBlank() ? "waiting" : status;
+        List<Request> items = switch (s) {
+            case "done", "cancelled" -> jdbc.sql(SELECT + " WHERE sr.status = ?" + filter + " ORDER BY sr.id DESC LIMIT 100").param(s)
+                .query((rs, n) -> map(rs)).list();
+            default -> jdbc.sql(SELECT + " WHERE sr.status IN ('new','forwarded')" + filter
+                    + " ORDER BY sr.status = 'new' DESC, sr.created_at, sr.id")
+                .query((rs, n) -> map(rs)).list();
+        };
+        int waiting = jdbc.sql("SELECT COUNT(*) FROM service_requests sr JOIN dining_tables t ON t.id = sr.table_id"
+            + " WHERE sr.status IN ('new','forwarded')" + filter).query(Integer.class).single();
+        return new RequestList(items, waiting);
+    }
+
+    private Request lockForWaiter(String idText) {
+        Request r = lockWaiting(idText);
+        if ("payment".equals(r.type())) throw new BusinessException("Yêu cầu thanh toán do thu ngân xử lý");
+        Set<Long> areas = duty.visibleAreas(currentUser.get().id(), Times.now());
+        if (areas != null) {
+            long areaId = jdbc.sql("SELECT area_id FROM dining_tables WHERE id = ?").param(Long.parseLong(r.tableId()))
+                .query(Long.class).single();
+            if (!areas.contains(areaId)) throw new BusinessException("Bàn " + r.tableCode() + " thuộc khu vực của nhân viên khác");
+        }
+        return r;
+    }
+
+    /** Phục vụ bấm "Tôi đến": khách thấy "Nhân viên … đang đến". Người khác đã nhận thì báo lỗi. */
+    @Transactional
+    public Request accept(String idText) {
+        Request r = lockForWaiter(idText);
+        long id = Long.parseLong(r.id());
+        long me = currentUser.get().id();
+        if ("forwarded".equals(r.status())) {
+            Long owner = jdbc.sql("SELECT assigned_to FROM service_requests WHERE id = ?").param(id)
+                .query((rs, n) -> rs.getObject(1) == null ? null : rs.getLong(1)).single();
+            if (owner == null || owner == me) {
+                jdbc.sql("UPDATE service_requests SET assigned_to = ? WHERE id = ?").params(me, id).update();
+                live.publish(LiveEvents.WAITER, LiveEvents.table(Long.parseLong(r.tableId())));
+                return get(id);
+            }
+            throw new BusinessException((r.assignedName() == null ? "Nhân viên khác" : r.assignedName()) + " đã nhận yêu cầu này");
+        }
+        jdbc.sql("UPDATE service_requests SET status = 'forwarded', assigned_to = ?, forwarded_at = ? WHERE id = ?")
+            .params(me, Times.now(), id).update();
+        audit.log("waiter", "Nhận yêu cầu", "Bàn " + r.tableCode() + " – " + TYPE_LABEL.get(r.type()), "service_requests", id);
+        live.publish(LiveEvents.WAITER, LiveEvents.table(Long.parseLong(r.tableId())));
+        return get(id);
+    }
+
+    @Transactional
+    public Request doneByWaiter(String idText) {
+        Request r = lockForWaiter(idText);
+        long id = Long.parseLong(r.id());
+        jdbc.sql("UPDATE service_requests SET status = 'done', done_at = ?, assigned_to = COALESCE(assigned_to, ?) WHERE id = ?")
+            .params(Times.now(), currentUser.get().id(), id).update();
+        live.publish(LiveEvents.WAITER, LiveEvents.table(Long.parseLong(r.tableId())));
+        return get(id);
+    }
+
+    @Transactional
+    public Request cancelByWaiter(String idText) {
+        Request r = lockForWaiter(idText);
+        long id = Long.parseLong(r.id());
+        jdbc.sql("UPDATE service_requests SET status = 'cancelled', cancelled_at = ?, assigned_to = COALESCE(assigned_to, ?) WHERE id = ?")
+            .params(Times.now(), currentUser.get().id(), id).update();
+        audit.log("waiter", "Hủy yêu cầu", "Bàn " + r.tableCode() + " – " + TYPE_LABEL.get(r.type()), "service_requests", id);
+        live.publish(LiveEvents.WAITER, LiveEvents.table(Long.parseLong(r.tableId())));
         return get(id);
     }
 }

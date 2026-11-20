@@ -5,14 +5,23 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query';
  * Nghe kênh sự kiện (SSE) của máy chủ: có thay đổi thì tải lại các query được chỉ định.
  * Trình duyệt tự nối lại khi mất kết nối; các query vẫn tự làm mới định kỳ làm dự phòng.
  * onChange (tùy chọn): gọi thêm mỗi khi có sự kiện, ví dụ phát âm báo ở màn hình bếp.
+ * events (tùy chọn): sự kiện có tên khác "change", vd. "layout" (quản lý sửa sơ đồ bàn) → hàm nhận dữ liệu kèm theo.
  */
-export function useLiveEvents(url: string | null, keys: QueryKey[], onChange?: () => void): { connected: boolean } {
+export function useLiveEvents(
+  url: string | null,
+  keys: QueryKey[],
+  onChange?: () => void,
+  events?: Record<string, (data: string) => void>,
+): { connected: boolean } {
   const qc = useQueryClient();
   const [connected, setConnected] = useState(false);
   const keysRef = useRef(keys);
   const changeRef = useRef(onChange);
+  const eventsRef = useRef(events);
   keysRef.current = keys;
   changeRef.current = onChange;
+  eventsRef.current = events;
+  const eventNames = Object.keys(events ?? {}).sort().join(',');
 
   useEffect(() => {
     if (!url || typeof EventSource === 'undefined') return;
@@ -23,12 +32,18 @@ export function useLiveEvents(url: string | null, keys: QueryKey[], onChange?: (
       keysRef.current.forEach((k) => void qc.invalidateQueries({ queryKey: k }));
       changeRef.current?.();
     });
+    eventNames.split(',').filter(Boolean).forEach((name) => {
+      source.addEventListener(name, (e) => {
+        keysRef.current.forEach((k) => void qc.invalidateQueries({ queryKey: k }));
+        eventsRef.current?.[name]?.((e as MessageEvent<string>).data);
+      });
+    });
     source.onerror = () => setConnected(false);
     return () => {
       source.close();
       setConnected(false);
     };
-  }, [url, qc]);
+  }, [url, qc, eventNames]);
 
   return { connected };
 }

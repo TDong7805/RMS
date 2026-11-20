@@ -49,8 +49,13 @@ export function getAssignments(from: string, to: string): Promise<ShiftAssignmen
  * POST /api/shift-assignments { employeeId, shiftId, dates[] }.
  * Máy chủ chặn trùng lịch theo giờ thực tế (ca qua đêm chồng sang sáng hôm sau cũng tính) và ngày đã qua.
  */
-export function assignShift(employeeId: string, shiftId: string, dates: string[]): Promise<ShiftAssignment[]> {
-  return api.post<ShiftAssignment[]>('/api/shift-assignments', { employeeId, shiftId, dates });
+export function assignShift(employeeId: string, shiftId: string, dates: string[], areaId: string | null = null): Promise<ShiftAssignment[]> {
+  return api.post<ShiftAssignment[]>('/api/shift-assignments', { employeeId, shiftId, dates, areaId });
+}
+
+/** PUT /api/shift-assignments/{id}/area — khu vực phụ trách của nhân viên phục vụ trong ca (null = bỏ gán). */
+export function setAssignmentArea(id: string, areaId: string | null): Promise<ShiftAssignment> {
+  return api.put<ShiftAssignment>(`/api/shift-assignments/${encodeURIComponent(id)}/area`, { areaId });
 }
 
 /** DELETE /api/shift-assignments/{id} — không hủy được phân công của ngày đã qua. */

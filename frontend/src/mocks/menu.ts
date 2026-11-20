@@ -63,6 +63,7 @@ export const menuGroups: MenuGroup[] = [
         icon: 'users',
         children: [
           { id: 'staff-shifts', label: 'Quản lý ca làm', path: '/quan-ly/nhan-vien/ca-lam' },
+          { id: 'staff-faces', label: 'Khuôn mặt chấm công', path: '/quan-ly/nhan-vien/khuon-mat' },
         ],
       },
       {

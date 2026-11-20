@@ -57,10 +57,10 @@ export const SPICY_LEVELS = ['Không cay', 'Cay nhẹ', 'Cay vừa', 'Rất cay'
 
 export const ROLES: Record<RoleKey, { label: string; description: string }> = {
   manager: { label: 'Quản lý nhà hàng', description: 'Toàn bộ nghiệp vụ quản lý, gồm tài khoản, cấu hình AI và hệ thống' },
-  cashier: { label: 'Thu ngân', description: 'Tra cứu đơn, lập hóa đơn, nhận yêu cầu khách' },
+  cashier: { label: 'Thu ngân', description: 'Tra cứu đơn, lập hóa đơn, nhận yêu cầu thanh toán' },
   kitchen: { label: 'Nhân viên bếp', description: 'Xem đơn, kiểm tra nguyên liệu, xác nhận món' },
   warehouse: { label: 'Quản lý kho', description: 'Nhập kho, xuất kho, kiểm tra tồn kho' },
-  waiter: { label: 'Nhân viên phục vụ', description: 'Chỉ để xếp ca và tính lương — không đăng nhập hệ thống' },
+  waiter: { label: 'Nhân viên phục vụ', description: 'Sơ đồ bàn, mở bàn, gọi món hộ, nhận yêu cầu khách theo khu vực' },
 };
 
 export const ROLE_KEYS = Object.keys(ROLES) as RoleKey[];
@@ -114,6 +114,8 @@ export const AUDIT_MODULE: Record<AuditModule, string> = {
   kitchen: 'Bếp',
   cashier: 'Thu ngân',
   payroll: 'Chấm công – lương',
+  waiter: 'Phục vụ',
+  attendance: 'Chấm công khuôn mặt',
 };
 
 export const WEEKDAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];

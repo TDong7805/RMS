@@ -8,6 +8,8 @@ uploads/
 uploads-test/
 # Bản sao lưu dữ liệu tạo khi chạy backend (com.rms.backup)
 backups/
+# Bản sao lưu tạo khi chạy chế độ test (CSDL rms_test)
+backups-test/
 *.log
 
 # Mật khẩu, khóa: KHÔNG commit (gồm backend/.env.properties chứa mật khẩu MySQL)

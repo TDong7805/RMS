@@ -197,7 +197,7 @@ export interface DishGroupInput {
 
 /* ============================== Tài khoản ============================== */
 
-/** Vai trò trong bảng roles. Quản trị viên đã gộp vào manager; waiter không đăng nhập (chỉ để xếp ca, tính lương). */
+/** Vai trò trong bảng roles. Quản trị viên đã gộp vào manager; waiter (phục vụ) đăng nhập được từ V20. */
 export type RoleKey = 'manager' | 'cashier' | 'kitchen' | 'warehouse' | 'waiter';
 export type AccountStatus = 'active' | 'locked';
 
@@ -229,7 +229,7 @@ export interface AccountInput {
   phone: string;
   /** '' = chưa chọn (form bắt buộc chọn). */
   role: RoleKey | '';
-  /** Chỉ dùng khi tạo mới; bỏ trống với nhân viên phục vụ (không đăng nhập). */
+  /** Chỉ dùng khi tạo mới (mọi vai trò đều đăng nhập được từ V20). */
   password?: string;
 }
 
@@ -258,6 +258,8 @@ export interface ShiftAssignment {
   employeeId: string;
   /** YYYY-MM-DD */
   date: string;
+  /** Khu vực phụ trách trong ca (chỉ nhân viên phục vụ); null = không gán khu. */
+  areaId: string | null;
 }
 
 export interface Employee {
@@ -453,7 +455,9 @@ export type AuditModule =
   | 'warehouse'
   | 'kitchen'
   | 'cashier'
-  | 'payroll';
+  | 'payroll'
+  | 'waiter'
+  | 'attendance';
 
 export interface AuditLog {
   id: string;

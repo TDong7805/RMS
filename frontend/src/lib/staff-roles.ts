@@ -1,4 +1,4 @@
-import { ChefHat, LayoutDashboard, Receipt, Warehouse, type LucideIcon } from 'lucide-react';
+import { ChefHat, ConciergeBell, LayoutDashboard, Receipt, Warehouse, type LucideIcon } from 'lucide-react';
 import type { StaffRole } from '@/api/auth';
 
 export interface StaffRoleInfo {
@@ -37,12 +37,11 @@ export const STAFF_ROLES: Record<StaffRole, StaffRoleInfo> = {
     tab: 'Thu ngân',
     title: 'Thu ngân',
     icon: Receipt,
-    summary: 'Đầu mối thanh toán và tiếp nhận yêu cầu của khách tại bàn.',
+    summary: 'Đầu mối thanh toán: lập hóa đơn và thu tiền tại quầy.',
     features: [
       'Tra cứu đơn hàng và kiểm tra thông tin đơn',
-      'Lập hóa đơn dựa trên đơn hàng đã ghi nhận',
-      'Nhận thông báo khi khách gọi nhân viên, chuyển tiếp cho người phụ trách',
-      'Tính lương nhân viên',
+      'Lập hóa đơn, nhận yêu cầu thanh toán của khách',
+      'Chấm công bằng khuôn mặt, tính lương nhân viên',
     ],
     destination: 'Khu vực Thu ngân',
   },
@@ -71,6 +70,19 @@ export const STAFF_ROLES: Record<StaffRole, StaffRoleInfo> = {
     ],
     destination: 'Khu vực Kho',
   },
+  waiter: {
+    tab: 'Phục vụ',
+    title: 'Nhân viên phục vụ',
+    icon: ConciergeBell,
+    summary: 'Đón khách, mở bàn và phục vụ tại bàn theo khu vực được phân công.',
+    features: [
+      'Xem sơ đồ bàn, mở bàn, chuyển / ghép bàn',
+      'Nhận yêu cầu hỗ trợ của khách trong khu vực mình',
+      'Gọi món hộ khách, mang món bếp đã làm xong',
+      'Xem ca làm, chấm công bằng khuôn mặt',
+    ],
+    destination: 'Khu vực Phục vụ',
+  },
 };
 
-export const STAFF_ROLE_ORDER: StaffRole[] = ['manager', 'cashier', 'kitchen', 'warehouse'];
+export const STAFF_ROLE_ORDER: StaffRole[] = ['manager', 'cashier', 'waiter', 'kitchen', 'warehouse'];

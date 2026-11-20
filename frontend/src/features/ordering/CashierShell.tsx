@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, Briefcase, ClipboardList, LayoutGrid, Wallet, Wifi, WifiOff } from 'lucide-react';
+import { Bell, Briefcase, ClipboardList, LayoutGrid, ScanFace, Wallet, Wifi, WifiOff } from 'lucide-react';
 import { CASHIER_STREAM, getCashierFloor } from '@/api/ordering';
 import { NotificationMenu } from '@/components/layout/NotificationMenu';
 import { UserMenu } from '@/components/layout/UserMenu';
@@ -9,7 +9,7 @@ import { useLiveEvents } from '@/features/ordering/live';
 import { cn } from '@/lib/cn';
 
 /*
- * Khu POS của Thu ngân (việc trong ca): Sơ đồ bàn, Đơn hàng, Yêu cầu của khách, Hóa đơn.
+ * Khu POS của Thu ngân (việc trong ca): Sơ đồ bàn, Đơn hàng, Yêu cầu thanh toán, Hóa đơn.
  * Toàn màn hình, nền luôn sáng (không theo chế độ tối của trang quản lý), thanh tab trên cùng.
  * Chấm công / Bảng lương / Thông báo ở khu "Văn phòng" (khung trang quản lý).
  */
@@ -19,7 +19,7 @@ export const CASHIER_FLOOR_KEY = ['thu-ngan', 'floor'] as const;
 const TABS = [
   { to: '/thu-ngan', label: 'Sơ đồ bàn', icon: LayoutGrid, end: true },
   { to: '/thu-ngan/don-hang', label: 'Đơn hàng', icon: ClipboardList, end: false },
-  { to: '/thu-ngan/yeu-cau', label: 'Yêu cầu', icon: Bell, end: false, badge: 'requests' as const },
+  { to: '/thu-ngan/yeu-cau', label: 'Yêu cầu thanh toán', icon: Bell, end: false, badge: 'requests' as const },
   { to: '/thu-ngan/hoa-don', label: 'Hóa đơn', icon: Wallet, end: false, badge: 'unpaid' as const },
 ];
 
@@ -79,6 +79,15 @@ export function CashierShell({ children, fill = false }: { children: ReactNode; 
             {connected ? <Wifi size={15} /> : <WifiOff size={15} />}
             <span className="hidden lg:inline">{connected ? 'Trực tiếp' : 'Mất kết nối'}</span>
           </span>
+          <button
+            type="button"
+            onClick={() => navigate('/thu-ngan/toi')}
+            title="Chấm công bằng khuôn mặt, ca làm, phiếu lương của tôi"
+            className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[var(--border)] px-3 text-[13.5px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+          >
+            <ScanFace size={16} />
+            <span className="hidden xl:inline">Chấm công</span>
+          </button>
           <button
             type="button"
             onClick={() => navigate('/thu-ngan/cham-cong')}
