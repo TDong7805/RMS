@@ -21,7 +21,9 @@ import org.springframework.security.web.context.SecurityContextRepository;
  *  - POST /api/auth/login        : ai cũng gọi được
  *  - /api/auth/**                : đã đăng nhập (kể cả khi đang bị buộc đổi mật khẩu)
  *  - /api/notifications/**       : mọi vai trò nội bộ (thông báo của chính tài khoản)
- *  - /api/public/**              : trang đặt món của khách (quét QR, không đăng nhập)
+ *  - /api/public/**              : khách không đăng nhập — trang đặt món QR (/api/public/qr/**) và website khách hàng
+ *                                  (/api/public/site/** chỉ đọc, POST /api/public/reservations có chống gửi dồn dập)
+ *  - /api/website/**             : cấu hình website khách hàng → thuộc khối /api/** của Quản lý nhà hàng
  *  - /api/kho/**                 : Quản lý kho → ROLE_WAREHOUSE
  *  - /api/bep/**                 : Nhân viên bếp → ROLE_KITCHEN
  *  - /api/thu-ngan/**            : Thu ngân → ROLE_CASHIER

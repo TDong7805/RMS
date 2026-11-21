@@ -57,7 +57,7 @@ public class SettingsService {
                 rs.getString("name"),
                 nz(rs.getString("legal_name")),
                 nz(rs.getString("tax_code")),
-                rs.getString("logo_url"),
+                rs.getString("logo_url") == null ? null : images.url(rs.getString("logo_url")),
                 rs.getString("phone"),
                 rs.getString("email"),
                 rs.getString("address"),
@@ -94,13 +94,16 @@ public class SettingsService {
 
         String currentCover = jdbc.sql("SELECT cover_image_url FROM restaurant_info WHERE id = 1").query(String.class).optional().orElse(null);
         String cover = images.apply("restaurant", in.coverImage(), currentCover, "coverImage");
+        // Logo cũng lưu khóa ảnh qua ImageStore (trước đây lưu thẳng chuỗi form gửi lên — data URL vượt VARCHAR(500)).
+        String currentLogo = jdbc.sql("SELECT logo_url FROM restaurant_info WHERE id = 1").query(String.class).optional().orElse(null);
+        String logo = images.apply("restaurant", in.logo(), currentLogo, "logo");
         jdbc.sql("""
                 UPDATE restaurant_info
                 SET name = ?, legal_name = ?, tax_code = ?, logo_url = ?, phone = ?, email = ?, address = ?,
                     website = ?, cover_image_url = ?, updated_by = ?
                 WHERE id = 1
                 """)
-            .params(name, nullIfBlank(Vi.collapse(in.legalName())), nullIfBlank(tax), nullIfBlank(in.logo()), phone,
+            .params(name, nullIfBlank(Vi.collapse(in.legalName())), nullIfBlank(tax), logo, phone,
                 in.email().trim(), address, nullIfBlank(website), cover, currentUser.get().id())
             .update();
         audit.log("settings", "Cập nhật thông tin nhà hàng", "Cập nhật thông tin định danh & liên hệ của " + name);
