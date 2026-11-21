@@ -1,9 +1,10 @@
 // [03-thu-ngan.mjs] A, D1–D16: yêu cầu khách (từ V20 hỗ trợ do phục vụ nhận), hủy món / hủy đơn, chuyển bàn, hóa đơn, thanh toán
-import { BASE, DB, FIXTURES, OUT, UPLOADS, sql } from '../lib/env.mjs';
+import { BASE, DB, FIXTURES, OUT, UPLOADS, sql, fakeClockIn, fakeClockOut } from '../lib/env.mjs';
+fakeClockIn(); // thu ngân, bếp phải đã vào ca (V22)
 // Bộ này thử luồng bếp / thu ngân: tắt bắt buộc phục vụ xác nhận đơn (V22; luồng xác nhận thử ở bộ 13).
 sql("UPDATE system_settings SET setting_value='false' WHERE setting_key='order.require_confirm'; SELECT 1");
 // Phục vụ phải vào ca mới nhận yêu cầu (V22): giả lập nam.hoang đã chấm công vào ca (không gắn khu → thấy mọi khu).
-sql("DELETE FROM attendances WHERE note='Vào ca (kiểm thử)'; INSERT INTO attendances (user_id, work_date, check_in, source, note) SELECT id, CURDATE(), NOW() - INTERVAL 1 MINUTE, 'manual', 'Vào ca (kiểm thử)' FROM users WHERE username='nam.hoang'; SELECT 1");
+sql("INSERT INTO attendances (user_id, work_date, check_in, source, note) SELECT id, CURDATE(), NOW() - INTERVAL 1 MINUTE, 'manual', 'Vào ca (kiểm thử)' FROM users WHERE username='nam.hoang'; SELECT 1");
 // Gọi thử API đợt 2 (yêu cầu, hóa đơn, thanh toán, dashboard) trên backend 8081.
 const T05 = sql("SELECT qr_token FROM dining_tables WHERE code='T04'");
 const T06 = sql("SELECT qr_token FROM dining_tables WHERE code='T06'");
@@ -212,6 +213,6 @@ for (const p of ['today', 'yesterday', 'last7', 'last30', 'thisMonth', 'lastMont
 }
 const top = await ql.get('/api/dashboard/top-dishes?period=last30');
 ok('món bán chạy / chậm', top.body.best.length === 5 && top.body.slow.length === 5 && top.body.best[0].share === 100, top.body.best.map((d) => d.name + ':' + d.quantity));
-sql("DELETE FROM attendances WHERE note='Vào ca (kiểm thử)'; SELECT 1"); // không ảnh hưởng bộ chấm công – lương
+fakeClockOut(); // không ảnh hưởng bộ chấm công – lương
 
 console.log(`\n${pass} PASS, ${fail} FAIL`);

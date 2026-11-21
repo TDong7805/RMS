@@ -61,10 +61,11 @@ Phục vụ → chấm công khuôn mặt + "Thông tin của tôi" → phía Qu
 | Phục vụ chưa chấm công vẫn nhận thông báo, mở bàn… | "Đang làm việc" = **đã chấm công vào ca, chưa tan ca** (trước: chỉ cần có lịch ca). Chưa vào ca: chỉ xem; mọi thao tác bị chặn ở máy chủ (`WaiterGuard`) và khóa trên giao diện, có thanh nhắc "Vào ca"; không nhận thông báo / âm báo. Khu phụ trách lấy theo ca đã chấm công vào. Thu ngân, bếp không bị ảnh hưởng |
 | Khách đặt món phải được nhân viên xác nhận rồi mới xuống bếp (người xác nhận chịu trách nhiệm) | Món khách gửi qua QR ở trạng thái **Chờ xác nhận** (bếp chưa thấy, khách vẫn tự hủy được). Phục vụ đã vào ca của khu xác nhận cả lượt hoặc **bỏ từng món kèm lý do** (khách thấy lý do); tên người xác nhận ghi vào từng món (`order_items.confirmed_by`). Quá 3 phút (cấu hình): tô đỏ, nhắc lại, hiện cho mọi phục vụ đã vào ca — không tự chuyển bếp. Món phục vụ gọi hộ: coi như đã xác nhận. Thu ngân không lập hóa đơn khi còn món chờ xác nhận. Công tắc "Bắt buộc xác nhận" ở Cấu hình → Gọi món tại bàn (mặc định bật) |
 | Sơ đồ bàn chưa tối ưu cho điện thoại | Mặc định **lưới thẻ bàn** chữ to, bàn cần xử lý lên đầu (chờ xác nhận → khách gọi → món chờ lâu → món chờ mang…). Nút **Sơ đồ**: vị trí thật, chỉ lấy vùng có bàn và thu vừa màn hình (khu quá rộng thì vuốt ngang) |
+| Mọi nhân viên phải chấm công trước khi làm | **Thu ngân và bếp** cũng phải đã vào ca mới làm việc trong ca (`OnDutyInterceptor`): thu ngân mở / đóng / chuyển bàn, hủy món / đơn, lập hóa đơn, thu tiền, yêu cầu khách; bếp bắt đầu / xong / hủy món, đánh dấu món hết. Việc văn phòng (chấm công, bảng lương, công thức định lượng) không bị chặn. Màn hình thu ngân / bếp có thanh nhắc "Vào ca"; thu ngân bị khóa nút trên giao diện, màn hình bếp báo lỗi khi bấm (máy chủ chặn) |
 | Lịch phân công của quản lý rối mắt | Mặc định xem **theo ca**: hàng = ca, cột = ngày, trong ô là người chia theo bộ phận (phục vụ kèm khu); nút chuyển về kiểu cũ "Theo nhân viên" |
 
 CSDL: `V22__xac_nhan_don_vao_ca.sql`. Kiểm thử: bộ 13 thêm 23 bước (chưa vào ca bị chặn, không ai vào ca thì không gửi thông báo,
-xác nhận / bỏ món / quá giờ / khách hủy món chờ, thu ngân không lập hóa đơn khi còn món chờ). Toàn bộ **13 bộ, 580 bước đạt**.
+xác nhận / bỏ món / quá giờ / khách hủy món chờ, thu ngân không lập hóa đơn khi còn món chờ). Toàn bộ **13 bộ, 583 bước đạt**.
 
 ## Giới hạn & việc để sau
 

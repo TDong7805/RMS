@@ -16,6 +16,7 @@ import {
 } from '@/api/ordering';
 import { beep, beepCancel, unlockAudio, useLiveEvents } from '@/features/ordering/live';
 import { KitchenBrand, KitchenNav, kIconBtn } from '@/features/ordering/KitchenShell';
+import { DutyBanner } from '@/features/self/DutyBanner';
 import {
   DEFAULT_KDS_SETTINGS,
   KDS_COLORS,
@@ -264,6 +265,7 @@ export default function KitchenDisplayPage() {
           <button type="button" aria-label="Đăng xuất" title="Đăng xuất" onClick={() => logout.mutate()} className={kIconBtn}><LogOut size={16} /></button>
         </div>
       </header>
+      <DutyBanner home="/bep" />
 
       {/* Dải lọc: trạng thái + danh mục + cách xem */}
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--k-line)] bg-[var(--k-header)] px-4 py-2">

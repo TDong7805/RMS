@@ -25,15 +25,29 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * POST /api/public/qr/{token}/payment-request   yêu cầu thanh toán {method: cash|card|transfer, vatCompany, vatTaxCode}
  * POST /api/public/qr/{token}/requests/{id}/cancel  khách hủy yêu cầu còn Mới
  * GET  /api/public/qr/{token}/stream             SSE: báo khi đơn của bàn thay đổi
+ * GET  /api/public/qr/{token}/assistant          trợ lý gọi món: tên, ảnh, lời chào, câu gợi ý, đang bật (Quản lý Chatbot)
+ * POST /api/public/qr/{token}/assistant          hỏi trợ lý (dựa trên luật) {message, history, shown, cart}
  */
 @RestController
 public class QrOrderingController {
     private final QrOrderingService service;
     private final LiveEvents live;
+    private final MenuAssistant assistant;
 
-    public QrOrderingController(QrOrderingService service, LiveEvents live) {
+    public QrOrderingController(QrOrderingService service, LiveEvents live, MenuAssistant assistant) {
         this.service = service;
         this.live = live;
+        this.assistant = assistant;
+    }
+
+    @GetMapping("/api/public/qr/{token}/assistant")
+    public MenuAssistant.Intro assistantIntro(@PathVariable String token) {
+        return assistant.intro(token);
+    }
+
+    @PostMapping("/api/public/qr/{token}/assistant")
+    public MenuAssistant.Reply assistant(@PathVariable String token, @RequestBody MenuAssistant.Ask in) {
+        return assistant.reply(token, in);
     }
 
     @GetMapping("/api/public/qr/{token}")

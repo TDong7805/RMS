@@ -78,7 +78,7 @@ const prev = (() => { const [y, mo, d] = dLinh.split('-').map(Number); return ke
 const linhHasPrevAssign = (await m('GET', `/api/shift-assignments?from=${prev}&to=${prev}`)).data.some((a) => a.employeeId === linh && a.shiftId !== shiftId('Ca sáng'));
 r = await m('POST', '/api/shift-assignments', { employeeId: linh, shiftId: night.id, dates: [prev] });
 ok('Ca đêm 22–05 trước ngày có Ca sáng 06–14 → được', (prev >= today && !linhHasPrevAssign) ? r.status === 200 : true, JSON.stringify(r.data));
-const nightAssign = r.data?.[0]; console.log('DEBUG nightAssign', JSON.stringify(nightAssign), prev, linhHasPrevAssign);
+const nightAssign = r.data?.[0];
 r = await m('PUT', `/api/shifts/${night.id}`, { name: 'Ca đêm', startTime: '22:00', endTime: '07:00', color: '#475569', note: '' });
 ok('Sửa giờ ca đêm thành 22–07 làm chồng Ca sáng hôm sau → 422', nightAssign ? r.status === 422 && /Giờ mới trùng/.test(r.data.fields.startTime) : true, JSON.stringify(r.data));
 if (nightAssign) {
@@ -109,7 +109,7 @@ r = await m('DELETE', `/api/shifts/${r.data.id}`);
 ok('Xóa ca chưa phân công → 204', r.status === 204);
 
 // ---------------------------------------------------------------- Xóa tài khoản → hủy ca từ hôm nay
-r = await m('POST', '/api/accounts', { username: 'test.phucvu', fullName: 'Thử Phục Vụ', email: 'test.phucvu@example.com', phone: '', role: 'waiter', password: '' });
+r = await m('POST', '/api/accounts', { username: 'test.phucvu', fullName: 'Thử Phục Vụ', email: 'test.phucvu@example.com', phone: '', role: 'waiter', password: 'Rms@2026' });
 const w = r.data;
 await m('POST', '/api/shift-assignments', { employeeId: w.id, shiftId: shiftId('Ca chiều'), dates: [today, addDays(1), addDays(5)] });
 sql(`INSERT INTO shift_assignments (shift_id, user_id, work_date) VALUES (${shiftId('Ca chiều')}, ${w.id}, CURDATE() - INTERVAL 2 DAY)`);

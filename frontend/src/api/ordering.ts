@@ -235,3 +235,23 @@ export function saveBankAccount(body: Omit<BankAccount, 'configured'>): Promise<
 }
 
 export const CASHIER_STREAM = '/api/thu-ngan/stream';
+
+/* ---------------------------------------------------------------- Trợ lý gọi món (trang QR, dựa trên luật) */
+
+export type AssistantSuggestion = { kind: 'dish' | 'set'; id: string; qty: number; note: string | null };
+export type AssistantReply = { text: string; items: AssistantSuggestion[]; chips: string[]; addAll: boolean };
+
+/** history: các câu khách hỏi trước (cũ → mới); shown: id món đã gợi ý; cart: id món trong giỏ. */
+export function askAssistant(
+  token: string,
+  body: { message: string; history: string[]; shown: string[]; cart: string[] },
+): Promise<AssistantReply> {
+  return api.post<AssistantReply>(`${qr(token)}/assistant`, body);
+}
+
+export type AssistantIntro = { active: boolean; botName: string; avatar: string; greeting: string; chips: string[] };
+
+/** Tên, ảnh đại diện, lời chào, câu gợi ý nhanh của trợ lý (Quản lý Chatbot); active = false → ẩn trợ lý. */
+export function getAssistantIntro(token: string): Promise<AssistantIntro> {
+  return api.get<AssistantIntro>(`${qr(token)}/assistant`);
+}

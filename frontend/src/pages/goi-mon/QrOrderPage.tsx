@@ -34,6 +34,7 @@ import { CartScreen, DishDetailScreen, MyOrderScreen, SentScreen } from '@/featu
 import { AddonStrip, GroupPickSheet, SetDetailScreen, SetSection } from '@/features/ordering/QrMenuExtras';
 import { addonKeywords, defaultNote, pickAddons } from '@/features/ordering/dishOptions';
 import { CallStaffSheet, InvoiceScreen, PaymentScreen, ThanksScreen } from '@/features/ordering/QrService';
+import { QrAssistant } from '@/features/ordering/QrAssistant';
 import { useLiveEvents } from '@/features/ordering/live';
 import { BusinessError, ValidationError } from '@/lib/mock';
 import { matchesKeyword } from '@/lib/normalize';
@@ -138,6 +139,7 @@ function QrOrderView() {
   const [groupPick, setGroupPick] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<Set<string>>(new Set());
   const [staffOpen, setStaffOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [staffError, setStaffError] = useState('');
   const [payErrors, setPayErrors] = useState<Record<string, string>>({});
   const [thanksSeen, setThanksSeen] = useState(() => sessionStorage.getItem(`rms-thanks-${token}`) ?? '');
@@ -738,6 +740,24 @@ function QrOrderView() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      {/* Trợ lý gọi món: ẩn khi đang mở màn hình khác */}
+      {!screen && !openDishId && !openSetId && !groupPick && !filterOpen ? (
+        <QrAssistant
+          token={token}
+          open={aiOpen}
+          onOpen={() => setAiOpen(true)}
+          onClose={() => setAiOpen(false)}
+          dishById={byId}
+          sets={sets}
+          cartDishIds={cart.flatMap((l) => (l.setId ? (l.parts ?? []).map((x) => x.dishId) : [l.dishId]))}
+          categoryOf={catName}
+          raised={cartCount > 0}
+          onAddDish={(d, q, quiet) => { addToCart(d, q, quickNote(d)); if (!quiet) toast.success(`Đã thêm ${q > 1 ? `${q} × ` : ''}${d.name}`); }}
+          onOpenDish={(d) => { setAiOpen(false); openDishFrom(d, null); }}
+          onOpenSet={(x) => { setAiOpen(false); openScreen('set', x.id); }}
+        />
+      ) : null}
 
       <FilterSheet open={filterOpen} value={filter} onClose={() => setFilterOpen(false)} onApply={(f) => { setFilter(f); setFilterOpen(false); }} />
 

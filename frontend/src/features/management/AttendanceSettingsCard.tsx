@@ -77,7 +77,7 @@ export function AttendanceSettingsCard() {
             <Field label="Vào ca sớm tối đa (phút)" htmlFor="att-early" error={errors.earlyMinutes} hint="0 – 180">
               <TextInput id="att-early" type="number" min={0} max={180} value={form.earlyMinutes} invalid={Boolean(errors.earlyMinutes)} onChange={(e) => set('earlyMinutes', e.target.value)} />
             </Field>
-            <Field label="Ngưỡng so khớp khuôn mặt" htmlFor="att-th" error={errors.faceThreshold} hint="0,3 chặt – 0,7 dễ; khuyên dùng 0,5">
+            <Field label="Ngưỡng so khớp khuôn mặt" htmlFor="att-th" error={errors.faceThreshold} hint="0,3 chặt – 0,7 dễ; khuyên dùng 0,4 (đúng người thường dưới 0,3; người khác có thể chỉ 0,45–0,55)">
               <TextInput id="att-th" inputMode="decimal" value={form.faceThreshold} invalid={Boolean(errors.faceThreshold)} onChange={(e) => set('faceThreshold', e.target.value)} />
             </Field>
             <Field label="Giữ ảnh chấm công (ngày)" htmlFor="att-days" error={errors.photoRetentionDays} hint="7 – 365; giờ chấm công vẫn giữ">

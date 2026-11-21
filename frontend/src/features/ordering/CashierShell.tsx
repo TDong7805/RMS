@@ -6,6 +6,7 @@ import { CASHIER_STREAM, getCashierFloor } from '@/api/ordering';
 import { NotificationMenu } from '@/components/layout/NotificationMenu';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { useLiveEvents } from '@/features/ordering/live';
+import { DutyBanner, useClockedIn } from '@/features/self/DutyBanner';
 import { cn } from '@/lib/cn';
 
 /*
@@ -38,6 +39,8 @@ export function CashierShell({ children, fill = false }: { children: ReactNode; 
   // Dùng chung dữ liệu sơ đồ bàn để hiện số yêu cầu / hóa đơn chưa thu trên tab (tự cập nhật trực tiếp).
   const floor = useQuery({ queryKey: CASHIER_FLOOR_KEY, queryFn: getCashierFloor, refetchInterval: 10_000 });
   const { connected } = useLiveEvents(CASHIER_STREAM, [CASHIER_FLOOR_KEY, ['thu-ngan']]);
+  // Chưa vào ca: việc trong ca (mở bàn, hóa đơn, thu tiền…) bị khóa — máy chủ cũng chặn (V22).
+  const { clockedIn, loaded } = useClockedIn();
   const counts = { requests: floor.data?.requestCount ?? 0, unpaid: floor.data?.unpaidCount ?? 0 };
 
   return (
@@ -101,7 +104,10 @@ export function CashierShell({ children, fill = false }: { children: ReactNode; 
           <UserMenu />
         </div>
       </header>
-      <main className={cn('min-h-0 flex-1', fill ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-4 md:p-5')}>{children}</main>
+      <DutyBanner home="/thu-ngan" />
+      <main className={cn('min-h-0 flex-1', fill ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-4 md:p-5')}>
+        <fieldset disabled={loaded && !clockedIn} className={cn('m-0 min-w-0 border-0 p-0', fill && 'flex min-h-0 flex-1 flex-col')}>{children}</fieldset>
+      </main>
     </div>
   );
 }

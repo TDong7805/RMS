@@ -110,17 +110,22 @@ export function FaceCamera({ onCapture, onCancel, title }: { onCapture: (c: Face
       }
       go('center');
       const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+      // Lúc lấy mã khuôn mặt: ảnh vào mạng to hơn (khung mặt chính xác hơn → mã ổn định hơn), ngưỡng phát hiện cao hơn.
+      const captureOpts = new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.6 });
+      const dist = (a: Float32Array, b: Float32Array) => Math.sqrt(a.reduce((s, x, k) => s + (x - b[k]) ** 2, 0));
 
       const capture = async () => {
         const v = videoRef.current!;
         const descs: Float32Array[] = [];
-        for (let i = 0; i < 6 && descs.length < 3; i++) {
-          const r = await faceapi.detectSingleFace(v, opts).withFaceLandmarks().withFaceDescriptor();
-          if (r && Math.abs(yawOf(r.landmarks) - 0.5) < 0.15) descs.push(r.descriptor);
-          await new Promise((res) => setTimeout(res, 120));
+        for (let i = 0; i < 10 && descs.length < 5; i++) {
+          const r = await faceapi.detectSingleFace(v, captureOpts).withFaceLandmarks().withFaceDescriptor();
+          if (r && Math.abs(yawOf(r.landmarks) - 0.5) < 0.12) descs.push(r.descriptor);
+          await new Promise((res) => setTimeout(res, 100));
         }
         if (cancelled) return;
-        if (descs.length < 2) { setHint('Không nhận rõ khuôn mặt, hãy nhìn thẳng và giữ yên'); stable = 0; go('center'); timer = window.setTimeout(loop, 200); return; }
+        // Các khung hình phải giống nhau (cùng một người, giữ yên): lệch nhau quá 0,3 → làm lại.
+        const spread = descs.length < 2 ? 1 : Math.max(...descs.flatMap((a, i) => descs.slice(i + 1).map((b) => dist(a, b))));
+        if (descs.length < 3 || spread > 0.3) { setHint('Không nhận rõ khuôn mặt — đứng nơi đủ sáng, nhìn thẳng và giữ yên'); stable = 0; go('center'); timer = window.setTimeout(loop, 200); return; }
         const avg = Array.from({ length: 128 }, (_, k) => descs.reduce((s, d) => s + d[k], 0) / descs.length);
         const canvas = document.createElement('canvas');
         const scale = Math.min(1, 640 / v.videoWidth);

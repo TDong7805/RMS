@@ -83,8 +83,8 @@ public class ClockService {
     }
 
     double threshold() {
-        double t = settings.decimal(THRESHOLD_KEY, 0.5);
-        return t < 0.2 || t > 0.8 ? 0.5 : t;
+        double t = settings.decimal(THRESHOLD_KEY, 0.4);
+        return t < 0.2 || t > 0.8 ? 0.4 : t;
     }
 
     boolean networkChecked() {

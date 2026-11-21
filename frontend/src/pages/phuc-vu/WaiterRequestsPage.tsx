@@ -52,14 +52,19 @@ export default function WaiterRequestsPage() {
   const focusOrder = params.get('order');
 
   return (
-    <WaiterShell title="YÊU CẦU CỦA KHÁCH">
+    <WaiterShell title="ĐƠN & YÊU CẦU">
       <fieldset disabled={!onDuty} className="mx-auto m-0 min-w-0 max-w-2xl space-y-3 border-0 p-0">
-        {confirms.data?.items.length ? (
-          <section className="space-y-2">
-            <h2 className="flex items-center gap-1.5 text-[14px] font-bold text-[#9d174d]"><ClipboardCheck size={16} /> Đơn chờ xác nhận ({confirms.data.items.length})</h2>
-            {confirms.data.items.map((c) => <ConfirmCard key={c.orderId} c={c} focus={focusOrder === c.orderId} remindMinutes={confirms.data!.remindMinutes} />)}
-          </section>
-        ) : null}
+        {/* Luôn hiện mục này (kể cả khi trống) để nhân viên biết đơn khách gửi phải được xác nhận ở đây. */}
+        <section className="space-y-2">
+          <h2 className="flex items-center gap-1.5 text-[14px] font-bold text-[#9d174d]"><ClipboardCheck size={16} /> Đơn chờ xác nhận ({confirms.data?.items.length ?? 0})</h2>
+          {confirms.data?.items.length ? (
+            confirms.data.items.map((c) => <ConfirmCard key={c.orderId} c={c} focus={focusOrder === c.orderId} remindMinutes={confirms.data!.remindMinutes} />)
+          ) : (
+            <p className="rounded-[14px] border border-dashed border-[#f9a8d4] bg-[var(--bg-surface)] p-4 text-center text-[13px] text-[var(--text-muted)]">
+              Chưa có đơn nào chờ xác nhận. Khi khách ở khu của bạn gửi món qua mã QR, đơn sẽ hiện ở đây (kèm âm báo khi bạn đã vào ca) — bạn xác nhận thì món mới chuyển xuống bếp.
+            </p>
+          )}
+        </section>
         <h2 className="flex items-center gap-1.5 pt-1 text-[14px] font-bold"><BellRing size={16} /> Khách gọi nhân viên</h2>
         <div className="grid grid-cols-3 gap-1 rounded-[12px] bg-[var(--bg-subtle)] p-1" role="tablist">
           {([['waiting', list.data && tab === 'waiting' ? `Đang chờ (${list.data.waitingCount})` : 'Đang chờ'], ['done', 'Hoàn thành'], ['cancelled', 'Đã hủy']] as const).map(([k, l]) => (

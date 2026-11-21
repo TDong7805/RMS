@@ -1,5 +1,6 @@
 // [12-nhom-mon-set.mjs] Nhóm món (thẻ gộp nhiều loại) và Set menu: thực đơn QR, gửi set, chia giá, bếp, hóa đơn, quản lý
-import { BASE, DB, FIXTURES, OUT, UPLOADS, sql } from '../lib/env.mjs';
+import { BASE, DB, FIXTURES, OUT, UPLOADS, sql, fakeClockIn, fakeClockOut } from '../lib/env.mjs';
+fakeClockIn(); // thu ngân, bếp phải đã vào ca (V22)
 // Bộ này thử luồng bếp / thu ngân: tắt bắt buộc phục vụ xác nhận đơn (V22; luồng xác nhận thử ở bộ 13).
 sql("UPDATE system_settings SET setting_value='false' WHERE setting_key='order.require_confirm'; SELECT 1");
 
@@ -166,5 +167,6 @@ r = await ql.del(`/api/chatbot/combos/${testSet.id}`);
 ok('xóa set → 204', r.status === 204);
 ok('thu ngân không gọi được API nhóm món', (await tn.get('/api/dish-groups')).status === 403);
 
+fakeClockOut();
 console.log(`\n${pass}/${pass + fail} PASS`);
 process.exit(fail ? 1 : 0);

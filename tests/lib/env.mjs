@@ -48,3 +48,19 @@ export function sql(q) {
   const out = execFileSync(MYSQL, ['-u', MYSQL_USER, '--default-character-set=utf8mb4', DB, '-N', '-e', q], { encoding: 'utf8', env: MYSQL_ENV }).trim();
   return out.split(/\r?\n/).pop() ?? '';
 }
+
+/**
+ * Từ V22, thu ngân / bếp / phục vụ phải đã chấm công vào ca mới làm việc trong ca. Bộ kiểm thử giả lập "đã vào ca" bằng
+ * lượt chấm công mở (ghi chú 'Vào ca (kiểm thử)'); gọi fakeClockOut() ở cuối bộ để không ảnh hưởng bộ chấm công – lương.
+ */
+export function fakeClockIn(roles = ['cashier', 'kitchen']) {
+  const list = roles.map((r) => `'${r}'`).join(',');
+  sql(`INSERT INTO attendances (user_id, work_date, check_in, source, note)
+       SELECT u.id, CURDATE(), NOW() - INTERVAL 1 MINUTE, 'manual', 'Vào ca (kiểm thử)' FROM users u JOIN roles r ON r.id = u.role_id
+       WHERE r.code IN (${list}) AND u.status = 'active' AND u.deleted_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM attendances a WHERE a.user_id = u.id AND a.note = 'Vào ca (kiểm thử)'); SELECT 1`);
+}
+
+export function fakeClockOut() {
+  sql("DELETE FROM attendances WHERE note = 'Vào ca (kiểm thử)'; SELECT 1");
+}

@@ -1,7 +1,7 @@
 # Kiểm thử API tự động
 
 Bộ kiểm thử gọi thẳng API của backend đang chạy (giống frontend gọi) và đối chiếu kết quả, kể cả dữ liệu trong MySQL.
-Mỗi bước in `PASS` / `FAIL`. Hiện có **13 bộ, 580 bước** — chạy hết khoảng 1 phút (bộ 05 chờ ~15 giây để thử tự đóng bàn).
+Mỗi bước in `PASS` / `FAIL`. Hiện có **14 bộ, 616 bước** — chạy hết khoảng 1 phút (bộ 05 chờ ~15 giây để thử tự đóng bàn).
 
 Đây là kiểm thử **mức API** (gọi qua HTTP). Kiểm thử đơn vị JUnit cho các công thức tính toán chưa làm — xem mục "Việc để sau" trong [docs/tien-do/TIEN_DO_THU_NGAN_BEP.md](../docs/tien-do/TIEN_DO_THU_NGAN_BEP.md).
 
@@ -69,6 +69,7 @@ Mã ở cột "Kịch bản" là số dòng trong [docs/kiem-thu/KICH_BAN_TEST.m
 | `10-ca-lam.mjs` | E10 | Ca làm việc, phân công |
 | `11-chatbot.mjs` | E16 | Cấu hình chatbot, FAQ |
 | `13-phuc-vu-cham-cong.mjs` | A22–A25, H1–H18 | Phục vụ: quyền, khu vực theo ca, yêu cầu hỗ trợ theo khu, mở bàn, gọi món hộ, bưng món, ghép / chuyển bàn, sự kiện "sơ đồ đổi"; chấm công khuôn mặt: đăng ký / duyệt, WiFi quán, vào ca / tan ca, trễ / sớm, ảnh không công khai; hồ sơ, phiếu lương |
+| `14-tro-ly-goi-mon.mjs` | — | Trợ lý gọi món trên trang QR (dựa trên luật): ngân sách, số người, cay / chay / trẻ em / dị ứng, loại món, hỏi một món, ăn kèm theo giỏ, set menu, món tạm hết; nối Quản lý Chatbot: lời chào, FAQ, câu hỏi chưa giải đáp, món tắt "cho AI gợi ý", tắt Chatbot |
 | `12-nhom-mon-set.mjs` | B26–B37, C0, E8c, E8d | Nhóm món (thẻ gộp nhiều loại), Set menu: thực đơn QR, gửi set, chia giá, hủy set, bếp, hóa đơn 1 dòng set, ẩn set khi món con hết / ngoài giờ, quản lý nhóm và set |
 
 ## Cấu trúc
@@ -86,3 +87,5 @@ tests/
 - Đổi hành vi một API → sửa bước tương ứng trong bộ kiểm thử, chạy lại cho hết `FAIL`.
 - Đổi dữ liệu mẫu (`backend/src/main/resources/db/dev`) → các bước đếm số lượng / mã món có thể phải sửa theo.
 - Thêm chức năng mới → thêm file `tests/api/NN-ten.mjs`, dòng đầu ghi `// [NN-ten.mjs] mã kịch bản: nội dung`, import từ `../lib/env.mjs`, in mỗi bước `PASS tên` hoặc `FAIL tên — chi tiết`.
+
+> Bộ 05 có một bước cần phiếu đặt bàn mẫu trong 2 giờ tới — chạy sau ~21h (khi dữ liệu mẫu không còn phiếu đặt trong ngày) bước này báo FAIL "không có"; đó là do giờ chạy, không phải lỗi.

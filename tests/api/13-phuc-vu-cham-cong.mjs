@@ -1,7 +1,7 @@
 // [13-phuc-vu-cham-cong.mjs] V20: Nhân viên phục vụ (khu vực, yêu cầu hỗ trợ, bàn, gọi món hộ, bưng món, ghép bàn,
 // sơ đồ cập nhật tức thời) và chấm công bằng khuôn mặt (đăng ký, duyệt, WiFi quán, vào ca / tan ca, ảnh không công khai).
 import { deflateSync } from 'node:zlib';
-import { BASE, sql } from '../lib/env.mjs';
+import { BASE, sql, fakeClockIn } from '../lib/env.mjs';
 
 let pass = 0, fail = 0;
 const ok = (n, c, x = '') => { c ? pass++ : fail++; console.log(`${c ? 'PASS' : 'FAIL'} ${n}${c ? '' : ' — ' + JSON.stringify(x).slice(0, 300)}`); };
@@ -60,6 +60,16 @@ sql(`UPDATE system_settings SET setting_value='true' WHERE setting_key='order.re
      UPDATE service_requests SET status='cancelled', cancelled_at=NOW() WHERE status IN ('new','forwarded') AND request_type <> 'payment';
      DELETE sa FROM shift_assignments sa JOIN shifts s ON s.id=sa.shift_id WHERE s.name='Ca kiểm thử';
      DELETE FROM shifts WHERE name='Ca kiểm thử'; SELECT 1`);
+{
+  // Thu ngân / bếp chưa vào ca → việc trong ca bị chặn; việc văn phòng (xem chấm công) vẫn được.
+  const freeTable = sql("SELECT id FROM dining_tables WHERE status='available' LIMIT 1");
+  const r0 = await tn.post(`/api/thu-ngan/tables/${freeTable}/open`, { guests: 2 });
+  ok('thu ngân chưa vào ca: mở bàn bị chặn', r0.status === 409 && /vào ca/.test(r0.body?.message), r0);
+  const r1 = await bep.post('/api/bep/items/start', { ids: ['1'] });
+  ok('bếp chưa vào ca: bắt đầu món bị chặn', r1.status === 409 && /vào ca/.test(r1.body?.message), r1);
+  ok('thu ngân chưa vào ca: vẫn xem / sửa chấm công (việc văn phòng)', (await tn.get('/api/thu-ngan/attendance')).status === 200);
+}
+fakeClockIn(); // thu ngân, bếp phải đã vào ca (V22); phục vụ được thử riêng bên dưới
 sql(`DELETE FROM shift_assignments WHERE user_id IN (SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE r.code='waiter')
      AND work_date BETWEEN CURDATE() - INTERVAL 1 DAY AND CURDATE() + INTERVAL 1 DAY; SELECT 1`);
 sql(`INSERT INTO shifts (name, start_time, end_time) VALUES ('Ca kiểm thử', TIME(DATE_FORMAT(NOW() - INTERVAL 1 HOUR, '%H:%i:00')),
