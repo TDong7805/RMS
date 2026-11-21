@@ -1,0 +1,186 @@
+/*
+ * Bộ màu + phông riêng của website khách hàng (/, /thuc-don, /dat-ban…): cùng tông ấm với trang gọi món QR
+ * (đỏ rượu vang, nền kem, chữ có chân Playfair Display cho tiêu đề, Be Vietnam Pro cho nội dung).
+ * Chỉ áp dụng bên trong phần tử .site-root — không ảnh hưởng trang quản lý / nhân viên.
+ * Dùng trong class Tailwind dạng bg-[var(--site-primary)], text-[var(--site-muted)]…
+ */
+.site-root {
+  --site-font: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --site-display: 'Playfair Display Variable', Georgia, 'Times New Roman', serif;
+  --site-primary: #8e1b22;
+  --site-primary-press: #74151b;
+  --site-primary-soft: #f6e7e3;
+  --site-on-primary: #ffffff;
+  --site-gold: #c9a24a;
+  --site-gold-soft: #f4ead2;
+  --site-bg: #faf6f1;
+  /* Nền mờ của thanh dính đầu trang. Không dùng bg-[var(--site-bg)]/95: Tailwind không áp được độ mờ cho màu var(). */
+  --site-bg-glass: rgba(250, 246, 241, 0.95);
+  --site-gold-line: rgba(201, 162, 74, 0.6);
+  --site-surface: #ffffff;
+  --site-surface-2: #f3ede6;
+  --site-border: #e8ddd1;
+  --site-text: #2a1f1a;
+  --site-muted: #85756a;
+  --site-dark: #1d1512;
+  --site-dark-2: #2a1f1a;
+  --site-on-dark: #f6efe7;
+  --site-on-dark-muted: #bfae9f;
+  --site-danger: #c62828;
+  --site-danger-soft: #fdecec;
+  --site-success: #1f8a57;
+  --site-success-soft: #e6f6ee;
+  --site-shadow: 0 10px 30px rgba(60, 35, 20, 0.08);
+  --site-header-h: 72px;
+
+  min-height: 100vh;
+  background: var(--site-bg);
+  color: var(--site-text);
+  font-family: var(--site-font);
+}
+
+/*
+ * globals.css (trang quản lý) đặt màu cố định cho h1–h4 theo --text-primary — trên website, tiêu đề phải ăn theo
+ * màu của khối chứa (nền tối / nền kem) và không đổi khi nhân viên bật giao diện tối.
+ * :where giữ độ ưu tiên thấp để class màu Tailwind (text-…) trên từng tiêu đề vẫn thắng.
+ */
+:where(.site-root) :is(h1, h2, h3, h4) {
+  color: inherit;
+}
+
+.site-root .site-display {
+  font-family: var(--site-display);
+  letter-spacing: -0.01em;
+}
+
+.site-root .site-container {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 16px;
+}
+
+@media (min-width: 768px) {
+  .site-root .site-container {
+    padding-inline: 32px;
+  }
+}
+
+/* Ô nhập của form đặt bàn / tìm kiếm */
+.site-root .site-input {
+  width: 100%;
+  height: 46px;
+  border-radius: 12px;
+  border: 1px solid var(--site-border);
+  background: var(--site-surface);
+  padding-inline: 14px;
+  font-size: 15px;
+  color: var(--site-text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.site-root textarea.site-input {
+  height: auto;
+  min-height: 96px;
+  padding-block: 10px;
+  resize: vertical;
+}
+
+.site-root .site-input:focus {
+  border-color: var(--site-primary);
+  box-shadow: 0 0 0 3px var(--site-primary-soft);
+}
+
+.site-root .site-input[aria-invalid='true'] {
+  border-color: var(--site-danger);
+  box-shadow: 0 0 0 3px var(--site-danger-soft);
+}
+
+.site-root .site-input::placeholder {
+  color: var(--site-muted);
+}
+
+/* Nút */
+.site-root .site-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 46px;
+  padding-inline: 22px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 15px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
+  white-space: nowrap;
+}
+
+.site-root .site-btn:active {
+  transform: translateY(1px);
+}
+
+.site-root .site-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.site-root .site-btn-primary {
+  background: var(--site-primary);
+  color: var(--site-on-primary);
+}
+
+.site-root .site-btn-primary:hover:not(:disabled) {
+  background: var(--site-primary-press);
+}
+
+.site-root .site-btn-outline {
+  border: 1px solid currentColor;
+  color: inherit;
+  background: transparent;
+}
+
+.site-root .site-btn-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.site-root .site-btn-ghost {
+  color: var(--site-primary);
+  background: var(--site-primary-soft);
+}
+
+.site-root .site-btn-ghost:hover {
+  background: #f0d9d3;
+}
+
+.site-root :focus-visible {
+  outline: 2px solid var(--site-gold);
+  outline-offset: 2px;
+}
+
+/* Khung ảnh tải chậm: nền ấm thay cho ô trắng */
+.site-root .site-img {
+  background: linear-gradient(135deg, var(--site-surface-2), var(--site-gold-soft));
+  object-fit: cover;
+}
+
+@keyframes site-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.site-root .site-fade-up {
+  animation: site-fade-up 0.5s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-root .site-fade-up {
+    animation: none;
+  }
+}

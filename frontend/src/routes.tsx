@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { RequireAuth } from '@/components/auth/RequireAuth';
-import { useAuth } from '@/lib/auth';
 import { LEGACY_MANAGER_PATHS, MANAGER_HOME } from '@/lib/paths';
 import LoginPage from '@/pages/LoginPage';
 import ChangePasswordPage from '@/pages/ChangePasswordPage';
@@ -12,6 +11,15 @@ import { PageLoader } from '@/components/common/PageLoader';
 
 /* Trang đặt món của khách tải riêng (có thư viện chuyển động / tranh động), không làm nặng trang quản lý. */
 const QrOrderPage = lazy(() => import('@/pages/goi-mon/QrOrderPage'));
+/* Website khách hàng: tải riêng (phông, bộ màu riêng), người vào trang quản lý không phải tải phần này. */
+const PublicLayout = lazy(() => import('@/features/public-site/PublicLayout'));
+const SiteHomePage = lazy(() => import('@/pages/khach/HomePage'));
+const SiteAboutPage = lazy(() => import('@/pages/khach/AboutPage'));
+const SiteMenuPage = lazy(() => import('@/pages/khach/MenuPage'));
+const SiteReservationPage = lazy(() => import('@/pages/khach/ReservationPage'));
+const SiteGalleryPage = lazy(() => import('@/pages/khach/GalleryPage'));
+const SiteContactPage = lazy(() => import('@/pages/khach/ContactPage'));
+const SiteNotFoundPage = lazy(() => import('@/pages/khach/NotFoundPage'));
 import ReservationsPage from '@/pages/ReservationsPage';
 import ReservationFormPage from '@/pages/ReservationFormPage';
 import TablesPage from '@/pages/TablesPage';
@@ -68,16 +76,10 @@ import WaiterNotificationsPage from '@/pages/phuc-vu/WaiterNotificationsPage';
  *  - /thu-ngan, /bep, /kho    khu vực Thu ngân / Bếp / Kho
  *  - /phuc-vu                 khu vực Nhân viên phục vụ (giao diện điện thoại)
  *  - /quan-ly/...             Quản lý nhà hàng (MANAGER_HOME trong lib/paths.ts)
- *  - /, /thuc-don, /tin-tuc, /dat-ban …  để dành cho website khách hàng (chưa làm: "/" tạm chuyển về trang của vai trò)
+ *  - /, /gioi-thieu, /thuc-don, /dat-ban, /album, /lien-he   website khách hàng (công khai, PublicLayout);
+ *                             đường dẫn lạ cũng hiện trang "không tìm thấy" của website. Nhân viên vào bằng /dang-nhap.
  * Thêm trang cho Thu ngân: đặt route con trong khối roles={['cashier']}, đường dẫn bắt đầu bằng /thu-ngan.
  */
-
-/** "/" khi chưa có website khách: đã đăng nhập → trang của vai trò; chưa → trang đăng nhập. */
-function HomeRedirect() {
-  const { data: user, isLoading } = useAuth();
-  if (isLoading) return <PageLoader />;
-  return <Navigate to={user ? user.home : '/dang-nhap'} replace />;
-}
 
 /** /mon-an?x=1 → /quan-ly/mon-an?x=1 */
 function LegacyManagerRedirect() {
@@ -218,9 +220,16 @@ export function AppRoutes() {
         <Route key={path} path={path} element={<LegacyManagerRedirect />} />
       ))}
 
-      {/* "/" tạm thời: chưa có website khách hàng → về trang của vai trò (hoặc trang đăng nhập). */}
-      <Route path="/" element={<HomeRedirect />} />
-      <Route path="*" element={<HomeRedirect />} />
+      {/* Website khách hàng (công khai, không đăng nhập) — khung riêng PublicLayout, tải riêng như trang gọi món QR. */}
+      <Route element={<Suspense fallback={<PageLoader />}><PublicLayout /></Suspense>}>
+        <Route path="/" element={<Suspense fallback={null}><SiteHomePage /></Suspense>} />
+        <Route path="/gioi-thieu" element={<Suspense fallback={null}><SiteAboutPage /></Suspense>} />
+        <Route path="/thuc-don" element={<Suspense fallback={null}><SiteMenuPage /></Suspense>} />
+        <Route path="/dat-ban" element={<Suspense fallback={null}><SiteReservationPage /></Suspense>} />
+        <Route path="/album" element={<Suspense fallback={null}><SiteGalleryPage /></Suspense>} />
+        <Route path="/lien-he" element={<Suspense fallback={null}><SiteContactPage /></Suspense>} />
+        <Route path="*" element={<Suspense fallback={null}><SiteNotFoundPage /></Suspense>} />
+      </Route>
     </Routes>
   );
 }

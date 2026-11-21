@@ -1,6 +1,6 @@
 /**
- * Đường dẫn gốc của khu vực Quản lý nhà hàng. Trang "/" và các đường dẫn ngắn (/thuc-don, /tin-tuc, /dat-ban)
- * để dành cho website khách hàng; thu ngân, bếp, kho dùng /thu-ngan, /bep, /kho.
+ * Đường dẫn gốc của khu vực Quản lý nhà hàng. Trang "/" và các đường dẫn ngắn (/gioi-thieu, /thuc-don, /dat-ban,
+ * /album, /lien-he; /tin-tuc để dành) thuộc website khách hàng; thu ngân, bếp, kho dùng /thu-ngan, /bep, /kho.
  * Phải trùng com.rms.auth.StaffAreas.HOME ở backend.
  */
 export const MANAGER_HOME = '/quan-ly';
