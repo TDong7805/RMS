@@ -1,8 +1,8 @@
 # RMS — Hệ thống quản lý nhà hàng Royal Beef
 
 Đề tài nhóm 2. Nhà hàng mẫu: **Royal Beef** (chuyên bò, 38 món đang bán).
-Repo này gồm phần **Quản lý nhà hàng, Quản lý kho, Thu ngân, Bếp, Nhân viên phục vụ** (kèm chấm công khuôn mặt) và **trang gọi món qua QR** cho khách ngồi tại bàn.
-Website khách (giới thiệu, đặt bàn online) nằm ở repo riêng.
+Repo này gồm phần **Quản lý nhà hàng, Quản lý kho, Thu ngân, Bếp, Nhân viên phục vụ** (kèm chấm công khuôn mặt), **trang gọi món qua QR** cho khách ngồi tại bàn
+và **website khách hàng** công khai ở `/` (giới thiệu, thực đơn, album ảnh, liên hệ, đặt bàn trực tuyến — không cần đăng nhập; nội dung do Quản lý cấu hình ở Cấu hình hệ thống → Website khách hàng).
 
 Actor: Quản lý nhà hàng (gộp Quản trị viên), Thu ngân, Nhân viên bếp, Quản lý kho, Nhân viên phục vụ (từ V20), Khách hàng.
 
@@ -11,7 +11,7 @@ Actor: Quản lý nhà hàng (gộp Quản trị viên), Thu ngân, Nhân viên 
 | Tài liệu | Nội dung |
 |---|---|
 | [docs/dac-ta/](docs/dac-ta/) | Đặc tả Use Case (Word): `CodeUC_QLNH.docx` (Quản lý nhà hàng), `DacTa_UC_QuanLyKho.docx`, `DacTa_UC_DatMon_Bep_ThuNgan.docx` |
-| [docs/tien-do/](docs/tien-do/) | Tiến độ từng phần: [Kho](docs/tien-do/TIEN_DO_KHO.md), [Thu ngân – Bếp – Đặt món](docs/tien-do/TIEN_DO_THU_NGAN_BEP.md) (kèm việc để sau, quyết định chờ họp), [Phục vụ – Chấm công khuôn mặt](docs/tien-do/TIEN_DO_PHUC_VU_CHAM_CONG.md) |
+| [docs/tien-do/](docs/tien-do/) | Tiến độ từng phần: [Kho](docs/tien-do/TIEN_DO_KHO.md), [Thu ngân – Bếp – Đặt món](docs/tien-do/TIEN_DO_THU_NGAN_BEP.md) (kèm việc để sau, quyết định chờ họp), [Phục vụ – Chấm công khuôn mặt](docs/tien-do/TIEN_DO_PHUC_VU_CHAM_CONG.md), [Website khách hàng](docs/tien-do/TIEN_DO_WEBSITE_KHACH.md) |
 | [docs/kiem-thu/KICH_BAN_TEST.md](docs/kiem-thu/KICH_BAN_TEST.md) | Kịch bản thử bằng tay theo từng vai |
 | [tests/](tests/README.md) | Kiểm thử API tự động (`node tests/run-all.mjs`) |
 | [docs/du-lieu/DU_LIEU_GIA.md](docs/du-lieu/DU_LIEU_GIA.md) | Chỗ nào còn dữ liệu giả / dữ liệu mẫu và cách thay |
@@ -60,6 +60,9 @@ Mật khẩu chung `Rms@2026`. Không có trang đăng ký — Quản lý cấp 
 | `hung.pham` | Nhân viên bếp | `/bep` |
 | `thao.bui` | Quản lý kho | `/kho` |
 | `nam.hoang` | Nhân viên phục vụ (khu Tầng 1) | `/phuc-vu` — giao diện điện thoại |
+
+Website khách hàng: mở `http://localhost:3000/` (không đăng nhập) — Giới thiệu, Thực đơn, Đặt bàn, Album ảnh, Liên hệ. Lịch khách đặt hiện ở Quản lý → Đặt bàn → Lịch sử đặt bàn (nguồn "Website") kèm thông báo cho Quản lý.
+Nhân viên vào trang làm việc bằng `/dang-nhap` (link "Đăng nhập nhân viên" ở chân website).
 
 Khách gọi món: quét mã QR của bàn (Quản lý → Khu vực bàn → in mã QR), đường dẫn dạng `/goi-mon/<mã QR riêng của bàn>`.
 Thu ngân hoặc phục vụ phải **mở bàn** thì khách mới gửi món được. Khách *gọi nhân viên* → phục vụ của khu đó nhận; *yêu cầu thanh toán* → thu ngân.

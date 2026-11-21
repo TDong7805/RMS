@@ -22,6 +22,8 @@ Flyway xem bảng `flyway_schema_history` và tự chạy những file SQL chưa
 | `src/main/resources/db/migration/V20__nhan_vien_phuc_vu_cham_cong_khuon_mat.sql` | Phục vụ đăng nhập được (quyền), khu vực phụ trách theo ca (`shift_assignments.area_id`), bảng `face_profiles`, cột ảnh / IP / độ lệch / phút trễ – sớm của `attendances` (`source = camera`), cấu hình `attendance.*` | Mọi môi trường |
 | `src/main/resources/db/migration/V21__thong_bao_cham_cong.sql` | Loại thông báo "Chấm công" | Mọi môi trường |
 | `src/main/resources/db/migration/V22__xac_nhan_don_vao_ca.sql` | Món chờ phục vụ xác nhận (`order_items.status = 'unconfirmed'`, `confirmed_by / confirmed_at`, bỏ món `cancel_source = 'waiter'`), cấu hình `order.require_confirm`, `order.confirm_remind_minutes` | Mọi môi trường |
+| `src/main/resources/db/migration/V24__website_khach_hang.sql` | Website khách hàng: `website_content` (1 dòng: slogan, danh hiệu, ảnh banner, giới thiệu, mạng xã hội, bản đồ), `gallery_photos` (album), cột `show_on_website` của `dishes` / `dish_categories`, bộ đếm mã đặt bàn `doc_sequences` 'DB' | Mọi môi trường |
+| `src/main/resources/db/dev/V24_1__website_mau.sql` | Nội dung website mẫu của Royal Beef (danh hiệu, link mạng xã hội là giả), album trống | Chỉ profile `dev` |
 | `src/main/resources/db/dev/V20_1__phuc_vu_khu_vuc_mau.sql` | Gán khu cho các ca mẫu của phục vụ (nam.hoang, vy.ngo → Tầng 1; phuc.do → Tầng 2; quynh.ly → Sân vườn; binh.vu → Phòng VIP) | Chỉ profile `dev` |
 | `backend/database/rms_verify.sql` | 11 phép kiểm tra ràng buộc, tự ROLLBACK | Chạy tay khi cần, trên CSDL phát triển |
 
@@ -65,6 +67,8 @@ Dữ liệu mẫu tính ngày giờ tương đối theo **lúc được tạo**.
    `V3__them_bang_hoa_don.sql`, `V4__them_cot_anh_mon.sql`...
 3. Dữ liệu **cần cho cả môi trường thật** (quyền mới, loại thông báo mới, cấu hình mặc định) để ngay trong file V đó.
    Dữ liệu **chỉ để demo** cho bảng mới thì để ở `db/dev`, đánh số ngay sau: `V3_1__mau_hoa_don.sql`.
+   Trong chú thích `/* … */` **không viết dấu sao đôi ngay sau dấu gạch chéo** (vd. đường dẫn kiểu `/api/x/` + `**`):
+   Flyway hiểu là mở chú thích lồng, bỏ qua cả file mà vẫn ghi "thành công" (bảng không được tạo).
 4. Chạy backend: Flyway áp dụng file mới. Commit file SQL cùng với code dùng nó.
 5. Hai người cùng tạo `V3` trên hai nhánh → người merge sau đổi tên file của mình thành số kế tiếp.
 

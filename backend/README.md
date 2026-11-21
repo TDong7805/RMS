@@ -62,7 +62,9 @@ src/main/java/com/rms/
 ├── audit/         Nhật ký hoạt động (AuditService.log được mọi service gọi sau khi lưu)
 ├── settings/      Thông tin nhà hàng, giờ hoạt động, lịch sao lưu
 ├── table/         Khu vực, bàn, sơ đồ bàn
-└── reservation/   Đặt bàn, cấu hình form đặt bàn, ReservationRules (quy tắc dùng chung)
+├── reservation/   Đặt bàn, cấu hình form đặt bàn, ReservationRules (quy tắc dùng chung)
+└── website/       Website khách hàng (V24): cấu hình nội dung / album / món hiện trên website (Quản lý, /api/website/**),
+                   API công khai /api/public/site/** và đặt bàn POST /api/public/reservations (PublicReservationService)
 
 src/main/resources/
 ├── application.properties        Cấu hình chung (đọc biến môi trường)
@@ -137,6 +139,19 @@ Hiện mọi API khác dưới `/api/**` chỉ dành cho Quản lý nhà hàng.
 | Sẵn sàng triển khai: Flyway, phiên lưu trong MySQL, profile dev/prod, đóng gói một file jar, tài khoản quản lý đầu tiên | ✅ (xem [docs/trien-khai/TRIEN_KHAI.md](../docs/trien-khai/TRIEN_KHAI.md)) |
 | Nhân viên phục vụ (V20): khu vực theo ca, yêu cầu hỗ trợ theo khu, ghép bàn, gọi món hộ, bưng món | ✅ |
 | Chấm công khuôn mặt (V20): đăng ký / duyệt khuôn mặt, WiFi quán, vào ca / tan ca, ảnh tự xóa; "Thông tin của tôi" | ✅ (xem [docs/tien-do/TIEN_DO_PHUC_VU_CHAM_CONG.md](../docs/tien-do/TIEN_DO_PHUC_VU_CHAM_CONG.md)) |
+
+## Website khách hàng (V24)
+
+| Chức năng | API | Ghi chú |
+|---|---|---|
+| Thông tin nhà hàng | `GET /api/public/site` | Tên, logo, liên hệ lấy từ `restaurant_info`; giờ mở cửa; slogan, danh hiệu, giới thiệu, mạng xã hội từ `website_content`; phần cấu hình form đặt bàn khách cần; khu vực cho chọn. Không trả mã số thuế / tên pháp nhân |
+| Thực đơn | `GET /api/public/site/menu?keyword=&categoryId=` | Dùng lại `QrOrderingService.menu()` rồi lọc `show_on_website`; nhóm món gộp thành một mục "từ … đ"; `categoryId=set` chỉ lấy set menu |
+| Album | `GET /api/public/site/gallery` | Chỉ ảnh đang hiện |
+| Đặt bàn | `POST /api/public/reservations` → 201 | `ReservationRules.validate` + giới hạn của khách (đặt trước tối thiểu / tối đa bao nhiêu ngày, email theo cấu hình). Không chọn khu → tự xếp khu còn bàn. Lịch `source='website'`, `created_by NULL`, chưa xếp bàn, "Chờ xác nhận" (hoặc tự xác nhận). Thông báo cho Quản lý. 409 trùng lịch / SĐT đã có 3 lịch sắp tới; 429 quá 5 lượt hợp lệ / IP / 10 phút (`PublicRateLimiter`, lưu trong bộ nhớ) |
+| Cấu hình (Quản lý) | `/api/website/content`, `/api/website/gallery[/{id}[/move]]`, `/api/website/menu/{categories,dishes}/{id}` | Cấu hình hệ thống → tab Website khách hàng. Ảnh theo quy ước `ImageStore` |
+
+Khách không đăng nhập nên **không ghi nhật ký hoạt động** khi đặt bàn (nhật ký gắn với tài khoản); thay bằng thông báo "Đặt bàn".
+Từ V24, **logo** ở Thông tin nhà hàng cũng lưu qua `ImageStore` (trước đây lưu thẳng chuỗi form gửi lên).
 
 ## Nhân viên phục vụ & chấm công khuôn mặt (V20, V21)
 
