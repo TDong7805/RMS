@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Building2, Clock, DatabaseBackup, Landmark, Download, HardDriveDownload, RotateCcw, Save, ScanFace, ScrollText, Trash2 } from 'lucide-react';
+import { Building2, Clock, DatabaseBackup, Globe, Landmark, Download, HardDriveDownload, RotateCcw, Save, ScanFace, ScrollText, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
@@ -23,7 +23,9 @@ import {
 import { PaymentSettingsCard } from '@/features/management/PaymentSettingsCard';
 import { OrderingSettingsCard } from '@/features/management/OrderingSettingsCard';
 import { AttendanceSettingsCard } from '@/features/management/AttendanceSettingsCard';
+import { WebsiteSettings } from '@/features/management/website/WebsiteSettings';
 import { qk, useBackups, useOpeningHours, useRestaurantInfo } from '@/features/management/queries';
+import { ps } from '@/features/public-site/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
@@ -31,8 +33,8 @@ import { WEEKDAYS, formatDateTime } from '@/lib/labels';
 import { downloadBlob } from '@/lib/mock';
 import type { BackupFile, BackupFrequency, BackupSchedule, OpeningDay, RestaurantInfo } from '@/types';
 
-type Tab = 'info' | 'payment' | 'attendance' | 'backup' | 'logs';
-const TABS: Tab[] = ['info', 'payment', 'attendance', 'backup', 'logs'];
+type Tab = 'info' | 'website' | 'payment' | 'attendance' | 'backup' | 'logs';
+const TABS: Tab[] = ['info', 'website', 'payment', 'attendance', 'backup', 'logs'];
 
 export function SettingsPage() {
   const [params, setParams] = useSearchParams();
@@ -42,13 +44,14 @@ export function SettingsPage() {
   return (
     <AppShell meta={{ label: 'Cấu hình hệ thống', parent: 'Hệ thống' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader title="Cấu hình hệ thống" description="Thông tin nhà hàng, giờ hoạt động, tài khoản nhận tiền, chấm công khuôn mặt, sao lưu & phục hồi dữ liệu và nhật ký hoạt động." />
+        <PageHeader title="Cấu hình hệ thống" description="Thông tin nhà hàng, giờ hoạt động, website khách hàng, tài khoản nhận tiền, chấm công khuôn mặt, sao lưu & phục hồi dữ liệu và nhật ký hoạt động." />
         <PageTabs<Tab>
           ariaLabel="Phân khu cấu hình"
           value={tab}
           onChange={(t) => setParams({ tab: t }, { replace: true })}
           items={[
             { value: 'info', label: 'Thông tin nhà hàng', icon: <Building2 size={16} /> },
+            { value: 'website', label: 'Website khách hàng', icon: <Globe size={16} /> },
             { value: 'payment', label: 'Thanh toán', icon: <Landmark size={16} /> },
             { value: 'attendance', label: 'Chấm công', icon: <ScanFace size={16} /> },
             { value: 'backup', label: 'Sao lưu & phục hồi', icon: <DatabaseBackup size={16} /> },
@@ -64,6 +67,7 @@ export function SettingsPage() {
             </div>
           </div>
         ) : null}
+        {tab === 'website' ? <WebsiteSettings /> : null}
         {tab === 'payment' ? <PaymentSettingsCard /> : null}
         {tab === 'attendance' ? <AttendanceSettingsCard /> : null}
         {tab === 'backup' ? <BackupSection /> : null}
@@ -99,7 +103,7 @@ function RestaurantInfoCard() {
   }, [query.data]);
 
   const mutation = useApiMutation(updateRestaurantInfo, {
-    invalidate: [[...qk.settings, 'info']],
+    invalidate: [[...qk.settings, 'info'], ps.site],
     success: 'Đã lưu thông tin nhà hàng',
     onFieldErrors: setErrors,
     onSuccess: load,
