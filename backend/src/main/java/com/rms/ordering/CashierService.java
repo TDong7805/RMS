@@ -34,8 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class CashierService {
 
     /** guests: số khách thu ngân nhập (null = chưa nhập); lateCount: món chờ bếp quá LATE_MINUTES phút. */
+    /** unconfirmedCount: món khách gửi đang chờ phục vụ xác nhận (từ V22). */
     public record OrderBrief(String id, String code, String openedAt, long subtotal, int pendingCount, int readyCount,
-                             boolean locked, Integer guests, int lateCount) {}
+                             boolean locked, Integer guests, int lateCount, int unconfirmedCount) {}
 
     public record ReservationBrief(String id, String time, String customerName, int guests) {}
 
@@ -158,6 +159,7 @@ public class CashierService {
                        COALESCE(SUM(CASE WHEN oi.status <> 'cancelled' THEN oi.unit_price * oi.quantity END), 0) AS subtotal,
                        COALESCE(SUM(oi.status IN ('pending','cooking')), 0) AS pending_count,
                        COALESCE(SUM(oi.status = 'done'), 0) AS ready_count,
+                       COALESCE(SUM(oi.status = 'unconfirmed'), 0) AS unconfirmed_count,
                        COALESCE(SUM(oi.status IN ('pending','cooking') AND oi.created_at < ?), 0) AS late_count,
                        EXISTS (SELECT 1 FROM invoices i WHERE i.order_id = o.id AND i.status = 'unpaid') AS locked
                 FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id
@@ -168,7 +170,7 @@ public class CashierService {
             .query((rs, n) -> Map.entry(rs.getLong("table_id"), new OrderBrief(Ids.str(rs.getLong("id")), rs.getString("code"),
                 iso(Db.dateTime(rs, "created_at")), rs.getBigDecimal("subtotal").longValue(), rs.getInt("pending_count"),
                 rs.getInt("ready_count"), rs.getBoolean("locked"), (Integer) rs.getObject("guests", Integer.class),
-                rs.getInt("late_count"))))
+                rs.getInt("late_count"), rs.getInt("unconfirmed_count"))))
             .list().forEach(e -> orders.put(e.getKey(), e.getValue()));
 
         Map<Long, ReservationBrief> reservations = reservationsToday();
@@ -297,7 +299,7 @@ public class CashierService {
         String[] row = jdbc.sql("SELECT status, dish_name FROM order_items WHERE id = ? FOR UPDATE").param(itemId)
             .query((rs, n) -> new String[] {rs.getString(1), rs.getString(2)}).single();
         if ("cancelled".equals(row[0])) throw new BusinessException("Món đã bị hủy");
-        if (!"pending".equals(row[0])) throw new BusinessException("Món đã bắt đầu chế biến, không thể hủy");
+        if (!"pending".equals(row[0]) && !"unconfirmed".equals(row[0])) throw new BusinessException("Món đã bắt đầu chế biến, không thể hủy");
         jdbc.sql("UPDATE order_items SET status = 'cancelled', cancel_source = 'cashier', cancel_reason = ?, cancelled_by = ?, cancelled_at = ? WHERE id = ?")
             .params(reason, currentUser.get().id(), Times.now(), itemId).update();
         audit.log(module(), "Hủy món", "Hủy " + row[1] + " – đơn " + h.code() + ": " + reason, "order_items", itemId);
@@ -315,7 +317,7 @@ public class CashierService {
         if (started > 0) throw new BusinessException("Đơn có món đã chế biến, không thể hủy. Hãy lập hóa đơn cho các món đã làm.");
         LocalDateTime now = Times.now();
         long user = currentUser.get().id();
-        jdbc.sql("UPDATE order_items SET status = 'cancelled', cancel_source = 'cashier', cancel_reason = ?, cancelled_by = ?, cancelled_at = ? WHERE order_id = ? AND status = 'pending'")
+        jdbc.sql("UPDATE order_items SET status = 'cancelled', cancel_source = 'cashier', cancel_reason = ?, cancelled_by = ?, cancelled_at = ? WHERE order_id = ? AND status IN ('unconfirmed','pending')")
             .params(reason, user, now, orderId).update();
         String note = "Hủy: " + reason;
         jdbc.sql("UPDATE orders SET status = 'cancelled', closed_at = ?, note = ? WHERE id = ?")

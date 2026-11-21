@@ -157,13 +157,22 @@ export function closeTable(orderId: string): Promise<CashierOrderDetail> {
   return api.post<CashierOrderDetail>(tn(`orders/${enc(orderId)}/close`));
 }
 
-/** Cấu hình hệ thống → Gọi món tại bàn: tự đóng bàn mở quá N phút chưa gọi món (0 = tắt). */
-export function getOrderingSettings(): Promise<{ openTableTimeoutMinutes: number }> {
-  return api.get<{ openTableTimeoutMinutes: number }>('/api/settings/ordering');
+/**
+ * Cấu hình hệ thống → Gọi món tại bàn: tự đóng bàn mở quá N phút chưa gọi món (0 = tắt); món khách gửi phải được phục vụ
+ * xác nhận rồi mới xuống bếp (V22); chờ xác nhận quá N phút thì nhắc lại cho mọi phục vụ đã vào ca.
+ */
+export interface OrderingSettings {
+  openTableTimeoutMinutes: number;
+  requireConfirm: boolean;
+  confirmRemindMinutes: number;
 }
 
-export function saveOrderingSettings(openTableTimeoutMinutes: number): Promise<{ openTableTimeoutMinutes: number }> {
-  return api.put<{ openTableTimeoutMinutes: number }>('/api/settings/ordering', { openTableTimeoutMinutes });
+export function getOrderingSettings(): Promise<OrderingSettings> {
+  return api.get<OrderingSettings>('/api/settings/ordering');
+}
+
+export function saveOrderingSettings(s: OrderingSettings): Promise<OrderingSettings> {
+  return api.put<OrderingSettings>('/api/settings/ordering', s);
 }
 
 export function setOrderGuests(orderId: string, guests: number | null): Promise<CashierOrderDetail> {

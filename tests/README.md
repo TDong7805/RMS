@@ -1,7 +1,7 @@
 # Kiểm thử API tự động
 
 Bộ kiểm thử gọi thẳng API của backend đang chạy (giống frontend gọi) và đối chiếu kết quả, kể cả dữ liệu trong MySQL.
-Mỗi bước in `PASS` / `FAIL`. Hiện có **13 bộ, 557 bước** — chạy hết khoảng 1 phút (bộ 05 chờ ~15 giây để thử tự đóng bàn).
+Mỗi bước in `PASS` / `FAIL`. Hiện có **13 bộ, 580 bước** — chạy hết khoảng 1 phút (bộ 05 chờ ~15 giây để thử tự đóng bàn).
 
 Đây là kiểm thử **mức API** (gọi qua HTTP). Kiểm thử đơn vị JUnit cho các công thức tính toán chưa làm — xem mục "Việc để sau" trong [docs/tien-do/TIEN_DO_THU_NGAN_BEP.md](../docs/tien-do/TIEN_DO_THU_NGAN_BEP.md).
 

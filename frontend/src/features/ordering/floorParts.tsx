@@ -13,7 +13,7 @@ export const CELL = 128; // px ở mức 100%
 
 /* ---------------------------------------------------------------- Trạng thái bàn trên sơ đồ */
 
-export type TableState = 'available' | 'reserved' | 'occupied' | 'ready' | 'calling' | 'payment' | 'late' | 'inactive';
+export type TableState = 'available' | 'reserved' | 'occupied' | 'ready' | 'calling' | 'confirm' | 'payment' | 'late' | 'inactive';
 
 export const STATE: Record<TableState, { label: string; bg: string; fg: string }> = {
   available: { label: 'Trống', bg: '#e9edf1', fg: '#5b6673' },
@@ -21,11 +21,12 @@ export const STATE: Record<TableState, { label: string; bg: string; fg: string }
   occupied: { label: 'Có khách', bg: '#2563eb', fg: '#ffffff' },
   ready: { label: 'Món chờ mang ra', bg: '#16a34a', fg: '#ffffff' },
   calling: { label: 'Khách gọi', bg: '#f97316', fg: '#ffffff' },
+  confirm: { label: 'Chờ xác nhận', bg: '#db2777', fg: '#ffffff' },
   payment: { label: 'Chờ thanh toán', bg: '#eab308', fg: '#1f1600' },
   late: { label: 'Quá giờ', bg: '#dc2626', fg: '#ffffff' },
   inactive: { label: 'Ngừng phục vụ', bg: '#9ca3af', fg: '#ffffff' },
 };
-export const LEGEND: TableState[] = ['available', 'reserved', 'occupied', 'ready', 'calling', 'payment', 'late', 'inactive'];
+export const LEGEND: TableState[] = ['available', 'reserved', 'occupied', 'confirm', 'ready', 'calling', 'payment', 'late', 'inactive'];
 export const SOON_MS = 2 * 60 * 60_000; // đặt bàn trong 2 giờ tới thì hiện trên bàn trống
 
 export const minutesSince = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000));
@@ -42,11 +43,12 @@ export function soonReservation(t: FloorTable) {
   return diff <= SOON_MS ? t.reservation : null;
 }
 
-/** Ưu tiên việc cần làm ngay: khách gọi > chờ thanh toán > quá giờ > món chờ mang ra > có khách. */
+/** Ưu tiên việc cần làm ngay: món chờ xác nhận > khách gọi > chờ thanh toán > quá giờ > món chờ mang ra > có khách. */
 export function stateOf(t: FloorTable): TableState {
   if (t.status === 'inactive') return 'inactive';
   const o = t.order;
   if (o) {
+    if (o.unconfirmedCount > 0) return 'confirm';
     if (t.supportRequest) return 'calling';
     if (o.locked || t.paymentRequest) return 'payment';
     if (o.lateCount > 0) return 'late';

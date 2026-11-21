@@ -533,14 +533,14 @@ export function orderStage(order: OrderView | null): Stage | null {
   if (!items.length) return null;
   const n = (s: string) => items.filter((i) => i.status === s).length;
   if (n('served') === items.length) return 'served';
-  if (n('pending') + n('cooking') === 0) return 'ready';
+  if (n('unconfirmed') + n('pending') + n('cooking') === 0) return 'ready';
   // Còn món chờ / đang làm: bếp đã bắt tay (có món đang làm hoặc đã xong) → Đang nấu, chưa thì Đã gửi.
   if (n('cooking') + n('done') + n('served') > 0) return 'cooking';
   return 'sent';
 }
 
 export const STAGE_TEXT: Record<Stage, { title: string; sub: string; short: string }> = {
-  sent: { title: 'Đã gửi tới bếp!', sub: 'Bếp đã nhận món, sắp bắt tay chế biến.', short: 'Đã gửi' },
+  sent: { title: 'Đã gửi món!', sub: 'Nhân viên sẽ xác nhận với bạn rồi chuyển món xuống bếp.', short: 'Đã gửi' },
   cooking: { title: 'Bếp đang chuẩn bị món', sub: 'Nhân viên sẽ mang món ra bàn khi xong.', short: 'Đang nấu' },
   ready: { title: 'Món đã sẵn sàng', sub: 'Nhân viên đang mang món ra bàn của bạn.', short: 'Sẵn sàng' },
   served: { title: 'Chúc ngon miệng!', sub: 'Tất cả món đã được mang ra. Cần thêm gì cứ gọi món nhé.', short: 'Đã mang ra' },

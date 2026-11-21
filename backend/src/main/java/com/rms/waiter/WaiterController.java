@@ -41,6 +41,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * POST /api/phuc-vu/requests/{id}/accept        "Tôi đến"
  * POST /api/phuc-vu/requests/{id}/done
  * POST /api/phuc-vu/requests/{id}/cancel
+ * GET  /api/phuc-vu/confirmations               bàn có món khách gửi đang chờ xác nhận (khu của mình / quá giờ)
+ * POST /api/phuc-vu/orders/{id}/confirm         {rejects: [{itemId, reason}]} xác nhận đơn → bếp; món trong rejects bị bỏ
+ * Mọi thao tác (POST) cần đã chấm công vào ca (WaiterGuard, V22); chưa vào ca vẫn xem được.
  * GET  /api/phuc-vu/stream                      SSE: "change" khi có thay đổi, "layout" {areaId, areaName} khi quản lý sửa sơ đồ
  * Ca làm, chấm công, phiếu lương của mình: /api/toi/** (SelfController).
  */
@@ -51,9 +54,13 @@ public class WaiterController {
     private final QrOrderingService ordering;
     private final ServiceRequestService requests;
     private final LiveEvents live;
+    private final WaiterGuard guard;
+    private final ConfirmService confirms;
 
     public WaiterController(WaiterService service, CashierService cashier, QrOrderingService ordering,
-                            ServiceRequestService requests, LiveEvents live) {
+                            ServiceRequestService requests, LiveEvents live, WaiterGuard guard, ConfirmService confirms) {
+        this.guard = guard;
+        this.confirms = confirms;
         this.service = service;
         this.cashier = cashier;
         this.ordering = ordering;
@@ -73,16 +80,19 @@ public class WaiterController {
 
     @PostMapping("/api/phuc-vu/tables/{id}/open")
     public OrderDetail openTable(@PathVariable String id, @RequestBody(required = false) CashierService.OpenInput in) {
+        guard.requireOnDuty();
         return cashier.openTable(id, in);
     }
 
     @PostMapping("/api/phuc-vu/orders/{id}/close")
     public OrderDetail closeTable(@PathVariable String id) {
+        guard.requireOnDuty();
         return cashier.closeTable(id);
     }
 
     @PostMapping("/api/phuc-vu/orders/{id}/guests")
     public OrderDetail setGuests(@PathVariable String id, @RequestBody CashierService.GuestsInput in) {
+        guard.requireOnDuty();
         return cashier.setGuests(id, in);
     }
 
@@ -93,6 +103,7 @@ public class WaiterController {
 
     @PostMapping("/api/phuc-vu/orders/{id}/move")
     public OrderDetail move(@PathVariable String id, @RequestBody MoveInput in) {
+        guard.requireOnDuty();
         return cashier.move(id, in);
     }
 
@@ -103,6 +114,7 @@ public class WaiterController {
 
     @PostMapping("/api/phuc-vu/orders/{id}/merge")
     public OrderDetail merge(@PathVariable String id, @RequestBody MoveInput in) {
+        guard.requireOnDuty();
         return cashier.merge(id, in);
     }
 
@@ -113,11 +125,13 @@ public class WaiterController {
 
     @PostMapping("/api/phuc-vu/tables/{id}/items")
     public OrderView sendItems(@PathVariable String id, @RequestBody QrOrderingService.SendInput in) {
+        guard.requireOnDuty();
         return ordering.sendByStaff(Ids.parse(id, "Không tìm thấy bàn"), in);
     }
 
     @PostMapping("/api/phuc-vu/serve")
     public WaiterFloor serve(@RequestBody IdsInput in) {
+        guard.requireOnDuty();
         return service.serve(in);
     }
 
@@ -128,17 +142,31 @@ public class WaiterController {
 
     @PostMapping("/api/phuc-vu/requests/{id}/accept")
     public Request accept(@PathVariable String id) {
+        guard.requireOnDuty();
         return requests.accept(id);
     }
 
     @PostMapping("/api/phuc-vu/requests/{id}/done")
     public Request done(@PathVariable String id) {
+        guard.requireOnDuty();
         return requests.doneByWaiter(id);
     }
 
     @PostMapping("/api/phuc-vu/requests/{id}/cancel")
     public Request cancel(@PathVariable String id) {
+        guard.requireOnDuty();
         return requests.cancelByWaiter(id);
+    }
+
+    @GetMapping("/api/phuc-vu/confirmations")
+    public ConfirmService.PendingList confirmations() {
+        return confirms.list();
+    }
+
+    @PostMapping("/api/phuc-vu/orders/{id}/confirm")
+    public OrderView confirm(@PathVariable String id, @RequestBody(required = false) ConfirmService.ConfirmInput in) {
+        guard.requireOnDuty();
+        return confirms.confirm(id, in);
     }
 
     @GetMapping(value = "/api/phuc-vu/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

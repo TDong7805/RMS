@@ -198,7 +198,7 @@ public class InvoiceService {
     private List<String> blockers(long orderId) {
         return jdbc.sql("""
                 SELECT CONCAT(dish_name, ' x', quantity) FROM order_items
-                WHERE order_id = ? AND status IN ('pending','cooking') ORDER BY id
+                WHERE order_id = ? AND status IN ('unconfirmed','pending','cooking') ORDER BY id
                 """).param(orderId).query(String.class).list();
     }
 

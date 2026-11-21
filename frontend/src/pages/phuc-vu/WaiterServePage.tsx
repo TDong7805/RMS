@@ -23,6 +23,7 @@ export default function WaiterServePage() {
 
   const data = q.data;
   const mine = data?.myAreaIds ?? [];
+  const onDuty = data?.clockedIn ?? false;
   const groups = useMemo(() => {
     if (!data) return [];
     const areaOf = new Map(data.floor.tables.map((t) => [t.id, t.areaId]));
@@ -40,7 +41,7 @@ export default function WaiterServePage() {
 
   return (
     <WaiterShell title="MANG MÓN">
-      <div className="mx-auto max-w-2xl space-y-3">
+      <fieldset disabled={!onDuty} className="mx-auto m-0 min-w-0 max-w-2xl space-y-3 border-0 p-0">
         {mine.length ? (
           <div className="grid grid-cols-2 gap-1 rounded-[12px] bg-[var(--bg-subtle)] p-1">
             {([[true, 'Khu của tôi'], [false, 'Tất cả khu']] as const).map(([v, l]) => (
@@ -76,7 +77,7 @@ export default function WaiterServePage() {
             </div>
           ))
         )}
-      </div>
+      </fieldset>
     </WaiterShell>
   );
 }

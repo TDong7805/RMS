@@ -32,6 +32,7 @@ export default function WaiterMenuPage() {
   const menu = useQuery({ queryKey: WAITER_KEYS.menu, queryFn: getWaiterMenu, staleTime: 60_000 });
   const floor = useQuery({ queryKey: WAITER_KEYS.floor, queryFn: getWaiterFloor, enabled: ordering });
   const table = floor.data?.floor.tables.find((t) => t.id === tableId);
+  const onDuty = floor.data?.clockedIn ?? false;
   const [cat, setCat] = useState<string>('');
   const [keyword, setKeyword] = useState('');
   const [detail, setDetail] = useState<MenuDish | null>(null);
@@ -199,7 +200,8 @@ export default function WaiterMenuPage() {
             </ul>
           )}
           <div className="mt-4 flex items-center justify-between text-[15px] font-bold"><span>Tạm tính</span><span className="font-mono text-[var(--accent)]">{formatCurrency(total)}</span></div>
-          <Button className="mt-3 w-full" leadingIcon={<Send size={16} />} disabled={!cart.length} loading={send.isPending} onClick={() => send.mutate()}>Gửi bếp</Button>
+          {!onDuty ? <p className="mt-3 text-center text-[12.5px] font-semibold text-[#b45309]">Bạn chưa vào ca — vào ca để gọi món cho khách.</p> : null}
+          <Button className="mt-3 w-full" leadingIcon={<Send size={16} />} disabled={!cart.length || !onDuty} loading={send.isPending} onClick={() => send.mutate()}>Gửi bếp</Button>
         </Sheet>
       ) : null}
     </WaiterShell>

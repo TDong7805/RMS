@@ -23,8 +23,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WaiterService {
 
-    /** myAreaIds: khu được gán trong ca hiện tại (mở sẵn tab); trống = chưa gán khu / ngoài ca. */
-    public record WaiterFloor(Floor floor, List<String> myAreaIds, String dutyLabel) {}
+    /**
+     * clockedIn: đã chấm công vào ca (chưa tan ca) — chưa vào ca thì chỉ xem (V22). dutyLabel: ca đang làm (đã vào ca);
+     * scheduledLabel: ca theo lịch đang cho vào (khi chưa vào ca). myAreaIds: khu của ca đang làm (mở sẵn tab).
+     * confirmCount: số bàn có món chờ xác nhận mà mình được xử lý.
+     */
+    public record WaiterFloor(Floor floor, List<String> myAreaIds, String dutyLabel, boolean clockedIn, String scheduledLabel,
+                              int confirmCount) {}
 
     public record IdsInput(List<String> ids) {}
 
@@ -33,8 +38,11 @@ public class WaiterService {
     private final DutyService duty;
     private final CurrentUserService currentUser;
     private final LiveEvents live;
+    private final ConfirmService confirms;
 
-    public WaiterService(JdbcClient jdbc, CashierService cashier, DutyService duty, CurrentUserService currentUser, LiveEvents live) {
+    public WaiterService(JdbcClient jdbc, CashierService cashier, DutyService duty, CurrentUserService currentUser, LiveEvents live,
+                         ConfirmService confirms) {
+        this.confirms = confirms;
         this.jdbc = jdbc;
         this.cashier = cashier;
         this.duty = duty;
@@ -51,7 +59,11 @@ public class WaiterService {
             .map(d -> d.shiftName() + " " + Times.hhmm(d.start().toLocalTime()) + "–" + Times.hhmm(d.end().toLocalTime())
                 + (d.areaName() == null ? "" : " · " + d.areaName()))
             .toList());
-        return new WaiterFloor(cashier.floor(true), areas, label);
+        String scheduled = mine.isEmpty() ? duty.checkInWindow(me, now).stream().findFirst()
+            .map(d -> d.shiftName() + " " + Times.hhmm(d.start().toLocalTime()) + "–" + Times.hhmm(d.end().toLocalTime())
+                + (d.areaName() == null ? "" : " · " + d.areaName()))
+            .orElse(null) : null;
+        return new WaiterFloor(cashier.floor(true), areas, label, !mine.isEmpty(), scheduled, confirms.list().count());
     }
 
     /** Bưng món: Đã xong → Đã mang ra (khách và bếp thấy ngay). Món máy khác vừa xử lý thì bỏ qua. */

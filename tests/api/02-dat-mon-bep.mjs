@@ -1,5 +1,7 @@
 // [02-dat-mon-bep.mjs] B, C: khách gọi món qua QR, bếp bắt đầu / xong / Đã lấy / hủy món / món tạm hết
 import { BASE, DB, FIXTURES, OUT, UPLOADS, sql } from '../lib/env.mjs';
+// Bộ này thử luồng bếp / thu ngân: tắt bắt buộc phục vụ xác nhận đơn (V22; luồng xác nhận thử ở bộ 13).
+sql("UPDATE system_settings SET setting_value='false' WHERE setting_key='order.require_confirm'; SELECT 1");
 // Gọi thử API đợt 1 Đặt món / Bếp / Thu ngân trên backend 8081.
 const token = sql(`SELECT qr_token FROM dining_tables WHERE code='T05'`);
 const tokenT03 = sql(`SELECT qr_token FROM dining_tables WHERE code='T03'`);

@@ -146,6 +146,8 @@ Hiện mọi API khác dưới `/api/**` chỉ dành cho Quản lý nhà hàng.
 | Yêu cầu hỗ trợ theo khu | `ServiceRequestService` | Bàn thuộc khu nào → chỉ phục vụ được gán khu đó **trong ca** thấy và nhận thông báo; khu không ai gán → mọi phục vụ trong ca. Thu ngân chỉ còn **yêu cầu thanh toán** |
 | Sơ đồ đổi | `LiveEvents.publishLayout` | Quản lý sửa khu / bàn → sự kiện `layout` {areaId, areaName} tới thu ngân + phục vụ |
 | Thông tin của tôi | `/api/toi/**` (phục vụ, thu ngân, bếp) | Hồ sơ, ca, chấm công của mình, phiếu lương kỳ đã chốt, đăng ký khuôn mặt, vào ca / tan ca |
+| Xác nhận đơn (V22) | `GET /api/phuc-vu/confirmations`, `POST /api/phuc-vu/orders/{id}/confirm` | Món khách gửi qua QR ở `unconfirmed` (bếp chưa thấy) → phục vụ đã vào ca của khu xác nhận (`confirmed_by`) hoặc bỏ món kèm lý do; quá `order.confirm_remind_minutes` phút → nhắc mọi phục vụ đã vào ca. Tắt bằng `order.require_confirm` |
+| Phải vào ca (V22) | `WaiterGuard` | Phục vụ chưa chấm công vào ca: mọi POST ở `/api/phuc-vu/**` trả 409; không nhận thông báo. "Đang làm việc" = lượt chấm công mở (`DutyService.waitersOnDuty`) |
 | Quản lý | `/api/faces/**`, `/api/settings/attendance`, `PUT /api/shift-assignments/{id}/area` | Duyệt / từ chối / yêu cầu đăng ký lại khuôn mặt; WiFi quán, vào sớm, ngưỡng khớp, số ngày giữ ảnh; khu phụ trách theo ca |
 
 **Chấm công khuôn mặt.** Trình duyệt (face-api) tính mã khuôn mặt 128 số và kiểm tra người thật (quay đầu); máy chủ

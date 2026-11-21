@@ -520,6 +520,7 @@ export function SentScreen({ count, total, lines, onMenu, onTrack }: { count: nu
 /* ---------------------------------------------------------------- Món của tôi (UC-KH-04 + theo dõi) */
 
 const STATUS_META: Record<OrderItemStatus, { label: string; cls: string }> = {
+  unconfirmed: { label: 'Chờ nhân viên xác nhận', cls: 'bg-[var(--qr-warn-soft)] text-[var(--qr-warn-text)]' },
   pending: { label: 'Chờ chế biến', cls: 'bg-[var(--qr-surface-2)] text-[var(--qr-muted)]' },
   cooking: { label: 'Đang làm', cls: 'bg-[var(--qr-warn-soft)] text-[var(--qr-warn-text)]' },
   done: { label: 'Đã xong', cls: 'bg-[var(--qr-success-soft)] text-[var(--qr-success)]' },
@@ -529,7 +530,7 @@ const STATUS_META: Record<OrderItemStatus, { label: string; cls: string }> = {
 
 function Progress({ status }: { status: OrderItemStatus }) {
   if (status === 'cancelled') return null;
-  const step = { pending: 1, cooking: 2, done: 3, served: 3 }[status];
+  const step = { unconfirmed: 0.4, pending: 1, cooking: 2, done: 3, served: 3 }[status];
   return (
     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--qr-surface-2)]" aria-hidden>
       <motion.div className="h-full rounded-full bg-[var(--qr-primary)]" initial={{ width: 0 }} animate={{ width: `${(step / 3) * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 20 }} />
@@ -596,6 +597,11 @@ export function MyOrderScreen({ table, order, support, payment, hasInvoice, onBa
         ) : null}
 
         <div className="space-y-3 px-5 pt-5">
+          {order && order.unconfirmedCount > 0 ? (
+            <div className="rounded-2xl bg-[var(--qr-warn-soft)] px-4 py-3 text-[13.5px] text-[var(--qr-warn-text)]">
+              <b>{order.unconfirmedCount} món đang chờ nhân viên xác nhận.</b> Nhân viên sẽ kiểm tra với bạn rồi chuyển món xuống bếp.
+            </div>
+          ) : null}
           {support ? (
             <div className="flex items-center gap-2.5 rounded-2xl bg-[var(--qr-warn-soft)] px-4 py-3 text-[13.5px] text-[var(--qr-warn-text)]">
               <span className="qr-wiggle inline-flex"><Emoji name="bell" size={20} /></span>
@@ -642,7 +648,7 @@ export function MyOrderScreen({ table, order, support, payment, hasInvoice, onBa
                           </div>
                         </div>
                         <Progress status={i.status} />
-                        {i.status === 'pending' && !order.locked ? <button type="button" onClick={() => onCancel(i)} className="mt-2 text-[12.5px] font-semibold text-[var(--qr-danger)]">{i.setId ? 'Hủy cả set' : 'Hủy món'}</button> : null}
+                        {(i.status === 'pending' || i.status === 'unconfirmed') && !order.locked ? <button type="button" onClick={() => onCancel(i)} className="mt-2 text-[12.5px] font-semibold text-[var(--qr-danger)]">{i.setId ? 'Hủy cả set' : 'Hủy món'}</button> : null}
                       </div>
                     ))}
                   </motion.div>

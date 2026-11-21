@@ -134,7 +134,7 @@ public class NotificationService {
             case "purchase_orders" -> warehouse ? "/kho/phieu-mua/" + refId : null;
             case "stocktakes" -> warehouse ? "/kho/kiem-ke/" + refId : manager ? "/quan-ly/kiem-ke/" + refId : null;
             case "reservations" -> manager ? "/quan-ly/dat-ban/lich-su?id=" + refId : null;
-            case "orders" -> cashier ? "/thu-ngan/don/" + refId : null;
+            case "orders" -> cashier ? "/thu-ngan/don/" + refId : waiter ? "/phuc-vu/yeu-cau?order=" + refId : null;
             case "service_requests" -> cashier ? "/thu-ngan/yeu-cau?id=" + refId : waiter ? "/phuc-vu/yeu-cau?id=" + refId : null;
             case "invoices" -> cashier ? "/thu-ngan/hoa-don?id=" + refId : null;
             default -> null;

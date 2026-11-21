@@ -166,11 +166,9 @@ public class ServiceRequestService {
         long id = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
         String title = "Bàn " + t.code() + " (" + t.areaName() + ") gọi nhân viên – " + TYPE_LABEL.get(type);
         String body = content.isEmpty() ? TYPE_LABEL.get(type) : content;
-        List<Long> waiters = duty.waitersFor(t.areaId(), Times.now());
-        if (waiters.isEmpty()) {
-            notifications.sendToRoles("service_request", title, body, "service_requests", id, List.of("waiter"));
-        } else {
-            for (long w : waiters) notifications.sendToUser("service_request", title, body, "service_requests", id, w);
+        // Chỉ phục vụ đã vào ca (V22). Chưa ai vào ca → không gửi; yêu cầu vẫn nằm trong danh sách khi có người vào ca.
+        for (long w : duty.waitersFor(t.areaId(), Times.now())) {
+            notifications.sendToUser("service_request", title, body, "service_requests", id, w);
         }
         live.publish(LiveEvents.WAITER, LiveEvents.table(t.id()));
         return get(id);

@@ -10,11 +10,38 @@ import type { CashierFloor, CashierOrderDetail, MoveTarget, OrderView, QrMenu, R
 const pv = (path: string) => `/api/phuc-vu/${path}`;
 const enc = encodeURIComponent;
 
-/** floor: sơ đồ (không có doanh thu); myAreaIds: khu được gán trong ca hiện tại; dutyLabel: "Ca sáng 06:00–14:00 · Tầng 1". */
+/**
+ * floor: sơ đồ (không có doanh thu); myAreaIds: khu của ca đang làm; dutyLabel: "Ca sáng 06:00–14:00 · Tầng 1".
+ * clockedIn: đã chấm công vào ca — chưa vào ca thì chỉ xem, mọi thao tác bị khóa (V22).
+ * scheduledLabel: ca theo lịch đang cho vào (khi chưa vào ca). confirmCount: số bàn có món chờ mình xác nhận.
+ */
 export interface WaiterFloor {
   floor: CashierFloor;
   myAreaIds: string[];
   dutyLabel: string | null;
+  clockedIn: boolean;
+  scheduledLabel: string | null;
+  confirmCount: number;
+}
+
+/** Một bàn có món khách gửi đang chờ xác nhận (gộp mọi lượt chưa xác nhận). overdue = chờ quá N phút. */
+export interface PendingConfirm {
+  orderId: string;
+  orderCode: string;
+  tableId: string;
+  tableCode: string;
+  areaId: string;
+  areaName: string;
+  since: string;
+  waitingMinutes: number;
+  overdue: boolean;
+  items: { itemId: string; name: string; qty: number; note: string; setId: string | null; setName: string | null; price: number }[];
+}
+
+export interface PendingConfirmList {
+  items: PendingConfirm[];
+  count: number;
+  remindMinutes: number;
 }
 
 export const WAITER_STREAM = '/api/phuc-vu/stream';
@@ -24,7 +51,13 @@ export const WAITER_KEYS = {
   order: (id: string) => ['phuc-vu', 'order', id] as const,
   requests: (status: string) => ['phuc-vu', 'requests', status] as const,
   menu: ['phuc-vu', 'menu'] as const,
+  confirmations: ['phuc-vu', 'confirmations'] as const,
 };
+
+export const getConfirmations = () => api.get<PendingConfirmList>(pv('confirmations'));
+/** Xác nhận mọi món đang chờ của đơn → bếp; rejects: món bị bỏ kèm lý do (khách thấy lý do). */
+export const confirmOrder = (orderId: string, rejects: { itemId: string; reason: string }[] = []) =>
+  api.post<OrderView>(pv(`orders/${enc(orderId)}/confirm`), { rejects });
 
 export const getWaiterFloor = () => api.get<WaiterFloor>(pv('floor'));
 export const getWaiterOrder = (id: string) => api.get<CashierOrderDetail>(pv(`orders/${enc(id)}`));

@@ -14,7 +14,7 @@ import { cn } from '@/lib/cn';
 import { ROLES, ROLE_KEYS, WEEKDAYS_SHORT } from '@/lib/labels';
 import { formatDayMonth } from '@/lib/format';
 import { fromDateKey, toDateKey } from '@/lib/mock';
-import type { Employee, RoleKey, Shift, ShiftInput } from '@/types';
+import type { Employee, RoleKey, Shift, ShiftAssignment, ShiftInput } from '@/types';
 
 type Tab = 'shifts' | 'schedule';
 const COLORS = ['#0f7b5a', '#2563eb', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#64748b'];
@@ -202,7 +202,10 @@ function ShiftModal({ state, onClose }: { state: { open: boolean; shift: Shift |
 function ScheduleBoard() {
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [role, setRole] = useState<RoleKey | ''>('');
-  const [assign, setAssign] = useState<{ employeeId: string; date: string } | null>(null);
+  const [assign, setAssign] = useState<{ employeeId: string; date: string; shiftId?: string } | null>(null);
+  // Mặc định xem theo ca (hàng = ca); "Theo nhân viên" là kiểu cũ (hàng = nhân viên). Nhớ lựa chọn trên máy.
+  const [view, setView] = useState<'shift' | 'staff'>(() => (localStorage.getItem('rms-schedule-view') === 'staff' ? 'staff' : 'shift'));
+  useEffect(() => localStorage.setItem('rms-schedule-view', view), [view]);
   const [areaEdit, setAreaEdit] = useState<{ id: string; label: string; areaId: string | null } | null>(null);
   const areas = useAreas().data ?? [];
   const areaName = (id: string | null) => (id ? areas.find((a) => a.id === id)?.name ?? null : null);
@@ -249,6 +252,11 @@ function ScheduleBoard() {
           <span className="ml-2 font-mono text-[13px] font-semibold">{formatDayMonth(days[0])} – {formatDayMonth(days[6])}/{days[6].getFullYear()}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-[10px] bg-[var(--bg-subtle)] p-1" role="group" aria-label="Kiểu xem lịch">
+            {([['shift', 'Theo ca'], ['staff', 'Theo nhân viên']] as const).map(([v, l]) => (
+              <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn('h-8 rounded-[8px] px-3 text-[13px] font-semibold', view === v ? 'bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm' : 'text-[var(--text-secondary)]')}>{l}</button>
+            ))}
+          </div>
           <SelectInput aria-label="Lọc theo vai trò" value={role} onChange={(e) => setRole(e.target.value as RoleKey | '')} placeholder="Tất cả bộ phận" options={ROLE_KEYS.map((r) => ({ value: r, label: ROLES[r].label }))} className="w-[190px]" />
           <Button size="sm" leadingIcon={<UserPlus size={15} />} onClick={() => setAssign({ employeeId: '', date: from < todayKey ? todayKey : from })}>
             Phân công
@@ -260,6 +268,21 @@ function ScheduleBoard() {
         <div className="p-5"><BlockError onRetry={() => { void employeesQuery.refetch(); void assignmentsQuery.refetch(); }} /></div>
       ) : loading ? (
         <TableSkeleton rows={6} cols={8} />
+      ) : view === 'shift' ? (
+        <div className={cn(assignmentsQuery.isFetching && 'opacity-60')}>
+          <ShiftGrid
+            days={days}
+            shifts={shifts}
+            assignments={assignmentsQuery.data ?? []}
+            employees={employeesQuery.data ?? []}
+            roleFilter={role}
+            areaName={areaName}
+            todayKey={todayKey}
+            onAdd={(date, shiftId) => setAssign({ employeeId: '', date, shiftId })}
+            onUnassign={(id) => unassignMutation.mutate(id)}
+            onArea={(a, label) => setAreaEdit({ id: a.id, label, areaId: a.areaId })}
+          />
+        </div>
       ) : (
         <div className={cn('overflow-x-auto', assignmentsQuery.isFetching && 'opacity-60')}>
           <table className="w-full min-w-[980px] border-collapse text-[13px]">
@@ -370,7 +393,7 @@ function AssignModal({
   areas,
   onClose,
 }: {
-  state: { employeeId: string; date: string } | null;
+  state: { employeeId: string; date: string; shiftId?: string } | null;
   days: Date[];
   employees: Employee[];
   shifts: Shift[];
@@ -388,7 +411,7 @@ function AssignModal({
   useEffect(() => {
     if (!state) return;
     setEmployeeId(state.employeeId);
-    setShiftId('');
+    setShiftId(state.shiftId ?? '');
     setAreaId('');
     setDates(state.date ? [state.date] : []);
     setErrors({});
@@ -491,6 +514,129 @@ function AreaModal({ state, areas, onClose }: { state: { id: string; label: stri
         <SelectInput id="area-edit" value={areaId} onChange={(e) => setAreaId(e.target.value)} placeholder="Không gán khu (thấy mọi khu)" options={areas.map((a) => ({ value: a.id, label: a.name }))} />
       </Field>
     </Modal>
+  );
+}
+
+/* =========================================================== Lịch theo ca (mặc định) */
+
+const ROLE_ORDER: RoleKey[] = ['waiter', 'kitchen', 'cashier', 'warehouse', 'manager'];
+const ROLE_SHORT: Record<RoleKey, string> = { waiter: 'Phục vụ', kitchen: 'Bếp', cashier: 'Thu ngân', warehouse: 'Kho', manager: 'Quản lý' };
+const ROLE_DOT: Record<RoleKey, string> = { waiter: '#0f7b5a', kitchen: '#dc2626', cashier: '#2563eb', warehouse: '#a16207', manager: '#7c3aed' };
+
+/**
+ * Hàng = ca, cột = ngày; trong ô là người làm ca đó chia theo bộ phận (phục vụ kèm khu). Nhìn một lần biết mỗi ca có ai,
+ * ca nào thiếu người. Bấm tên phục vụ (hôm nay / sau này) để đổi khu; dấu × để hủy phân công; "+" để phân công thêm.
+ */
+function ShiftGrid({
+  days,
+  shifts,
+  assignments,
+  employees,
+  roleFilter,
+  areaName,
+  todayKey,
+  onAdd,
+  onUnassign,
+  onArea,
+}: {
+  days: Date[];
+  shifts: Shift[];
+  assignments: ShiftAssignment[];
+  employees: Employee[];
+  roleFilter: RoleKey | '';
+  areaName: (id: string | null) => string | null;
+  todayKey: string;
+  onAdd: (date: string, shiftId: string) => void;
+  onUnassign: (id: string) => void;
+  onArea: (a: ShiftAssignment, label: string) => void;
+}) {
+  const empById = new Map(employees.map((e) => [e.id, e]));
+  const ordered = [...shifts].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  if (!ordered.length) return <p className="p-6 text-center text-[13.5px] text-[var(--text-muted)]">Chưa có ca làm việc nào — thêm ở tab Danh sách ca.</p>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[980px] table-fixed border-collapse text-[13px]">
+        <thead>
+          <tr>
+            <th className="sticky left-0 z-10 w-[150px] border-b border-r border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2.5 text-left text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">Ca</th>
+            {days.map((d) => {
+              const key = toDateKey(d);
+              return (
+                <th key={key} className={cn('border-b border-[var(--border)] px-2 py-2 text-center', key === todayKey ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]')}>
+                  <span className="block text-[11.5px] font-semibold uppercase">{WEEKDAYS_SHORT[d.getDay()]}</span>
+                  <span className="block font-mono text-[12px]">{formatDayMonth(d)}</span>
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {ordered.map((s) => (
+            <tr key={s.id}>
+              <td className="sticky left-0 z-10 border-b border-r border-[var(--border)] bg-[var(--bg-surface)] px-3 py-2 align-top">
+                <span className="flex items-center gap-1.5 font-semibold"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />{s.name}</span>
+                <span className="font-mono text-[12px] text-[var(--text-muted)]">{s.startTime}–{s.endTime}</span>
+              </td>
+              {days.map((d) => {
+                const key = toDateKey(d);
+                const past = key < todayKey;
+                const items = assignments
+                  .filter((a) => a.shiftId === s.id && a.date === key)
+                  .map((a) => ({ a, e: empById.get(a.employeeId) }))
+                  .filter((x): x is { a: ShiftAssignment; e: Employee } => Boolean(x.e) && (!roleFilter || x.e!.role === roleFilter));
+                const groups = ROLE_ORDER.map((r) => ({ r, list: items.filter((x) => x.e.role === r) })).filter((g) => g.list.length);
+                return (
+                  <td key={key} className={cn('group border-b border-[var(--border)] px-2 py-1.5 align-top', past && 'bg-[var(--bg-subtle)]/60', key === todayKey && 'bg-[var(--accent-soft)]/30')}>
+                    <div className={cn('min-h-[52px] space-y-1.5', past && 'opacity-60')}>
+                      {groups.map(({ r, list }) => (
+                        <div key={r}>
+                          <p className="flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: ROLE_DOT[r] }} />{ROLE_SHORT[r]} · {list.length}
+                          </p>
+                          <ul className="space-y-0.5">
+                            {list.map(({ a, e }) => {
+                              const area = areaName(a.areaId);
+                              const short = e.fullName.split(' ').slice(-2).join(' ');
+                              return (
+                                <li key={a.id} className="group/name flex items-center gap-1 leading-tight">
+                                  {e.role === 'waiter' && !past ? (
+                                    <button type="button" title="Đổi khu vực phụ trách" onClick={() => onArea(a, `${e.fullName} – ${s.name} ${formatDayMonth(d)}`)} className="min-w-0 truncate text-left hover:text-[var(--accent)] hover:underline">
+                                      {short}{area ? <span className="text-[11.5px] text-[var(--accent)]"> · {area}</span> : <span className="text-[11.5px] text-[var(--text-muted)]"> · chưa gán khu</span>}
+                                    </button>
+                                  ) : (
+                                    <span className="min-w-0 truncate" title={e.fullName}>{short}{area ? <span className="text-[11.5px] text-[var(--accent)]"> · {area}</span> : null}</span>
+                                  )}
+                                  {!past ? (
+                                    <button type="button" aria-label={`Hủy ${s.name} của ${e.fullName}`} onClick={() => onUnassign(a.id)} className="ml-auto hidden shrink-0 rounded text-[var(--text-muted)] hover:text-[var(--danger)] group-hover/name:block">
+                                      <X size={12} />
+                                    </button>
+                                  ) : null}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ))}
+                      {!groups.length ? <p className="text-[11.5px] text-[var(--text-muted)]">—</p> : null}
+                      {!past ? (
+                        <button
+                          type="button"
+                          aria-label={`Phân công ${s.name} ngày ${formatDayMonth(d)}`}
+                          onClick={() => onAdd(key, s.id)}
+                          className="grid h-6 w-full place-items-center rounded-[8px] border border-dashed border-[var(--border-strong)] text-[var(--text-muted)] opacity-0 transition-opacity hover:border-[var(--accent)] hover:text-[var(--accent)] focus:opacity-100 group-hover:opacity-100"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

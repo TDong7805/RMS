@@ -1,5 +1,7 @@
 // [05-mo-ban.mjs] A2b, B22–B25: mở bàn, đóng bàn, tự đóng, khách đặt trước đến
 import { BASE, DB, FIXTURES, OUT, UPLOADS, sql } from '../lib/env.mjs';
+// Bộ này thử luồng bếp / thu ngân: tắt bắt buộc phục vụ xác nhận đơn (V22; luồng xác nhận thử ở bộ 13).
+sql("UPDATE system_settings SET setting_value='false' WHERE setting_key='order.require_confirm'; SELECT 1");
 // Kiểm thử "Mở bàn": QR chỉ gửi được món khi thu ngân đã mở bàn; đóng bàn; tự đóng; khách đặt trước đến.
 let pass = 0, fail = 0;
 const ok = (n, c, x = '') => { c ? pass++ : fail++; console.log(`${c ? 'PASS' : 'FAIL'} ${n}${c ? '' : ' — ' + JSON.stringify(x).slice(0, 300)}`); };

@@ -2,8 +2,8 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { BellRing, BookOpen, HandPlatter, LayoutGrid, UserRound, Wifi, WifiOff } from 'lucide-react';
-import { getWaiterFloor, getWaiterRequests, WAITER_KEYS, WAITER_STREAM } from '@/api/waiter';
+import { BellRing, BookOpen, HandPlatter, LayoutGrid, Lock, UserRound, Wifi, WifiOff } from 'lucide-react';
+import { getConfirmations, getWaiterFloor, getWaiterRequests, WAITER_KEYS, WAITER_STREAM } from '@/api/waiter';
 import { NotificationMenu } from '@/components/layout/NotificationMenu';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { beep, unlockAudio, useLiveEvents } from '@/features/ordering/live';
@@ -13,7 +13,8 @@ import { cn } from '@/lib/cn';
  * Khu Nhân viên phục vụ — thiết kế cho điện thoại: thanh trên (ca hiện tại, trạng thái kết nối, chuông, tài khoản),
  * nội dung ở giữa, thanh tab dưới đáy (dễ bấm bằng ngón cái). Nền luôn sáng như khu Thu ngân.
  * Cập nhật trực tiếp qua SSE /api/phuc-vu/stream: "change" → tải lại; "layout" → quản lý vừa sửa sơ đồ bàn.
- * Có yêu cầu hỗ trợ mới trong khu của mình → âm báo + rung.
+ * Có yêu cầu hỗ trợ / đơn chờ xác nhận mới trong khu của mình → âm báo + rung (chỉ khi đã vào ca).
+ * Chưa vào ca: thanh nhắc "Vào ca" dưới thanh trên, mọi thao tác bị khóa (V22).
  */
 
 const TABS = [
@@ -28,6 +29,8 @@ export function WaiterShell({ children, title, fill = false }: { children: React
   const navigate = useNavigate();
   const floor = useQuery({ queryKey: WAITER_KEYS.floor, queryFn: getWaiterFloor, refetchInterval: 15_000 });
   const waiting = useQuery({ queryKey: WAITER_KEYS.requests('waiting'), queryFn: () => getWaiterRequests('waiting'), refetchInterval: 15_000 });
+  const confirms = useQuery({ queryKey: WAITER_KEYS.confirmations, queryFn: getConfirmations, refetchInterval: 15_000 });
+  const onDuty = floor.data?.clockedIn ?? false;
   const { connected } = useLiveEvents(WAITER_STREAM, [WAITER_KEYS.all], undefined, {
     layout: (data) => {
       let area = '';
@@ -50,25 +53,31 @@ export function WaiterShell({ children, title, fill = false }: { children: React
     return () => window.removeEventListener('pointerdown', on);
   }, []);
 
-  // Yêu cầu Mới xuất hiện trong khu của mình → âm báo + rung.
+  // Yêu cầu Mới / đơn chờ xác nhận mới (hoặc vừa quá giờ) trong khu của mình → âm báo + rung — chỉ khi đã vào ca.
   const seen = useRef<Set<string> | null>(null);
   useEffect(() => {
-    if (!waiting.data) return;
-    const ids = new Set(waiting.data.items.filter((r) => r.status === 'new').map((r) => r.id));
-    if (seen.current && [...ids].some((id) => !seen.current!.has(id))) {
+    if (!waiting.data || !confirms.data) return;
+    const ids = new Set([
+      ...waiting.data.items.filter((r) => r.status === 'new').map((r) => 'r' + r.id),
+      ...confirms.data.items.map((c) => `c${c.orderId}:${c.items.length}:${c.overdue ? 1 : 0}`),
+    ]);
+    if (onDuty && seen.current && [...ids].some((id) => !seen.current!.has(id))) {
       beep(3);
       // Trình duyệt chỉ cho rung sau khi người dùng đã chạm vào trang.
       if ((navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive) navigator.vibrate?.([200, 100, 200]);
     }
     seen.current = ids;
-  }, [waiting.data]);
+  }, [waiting.data, confirms.data, onDuty]);
 
   // Số món chờ mang ra: chỉ khu của mình (khớp mặc định trang Mang món); chưa gán khu → mọi khu.
   const mine = floor.data?.myAreaIds ?? [];
   const areaOf = new Map((floor.data?.floor.tables ?? []).map((t) => [t.id, t.areaId]));
   const readyCount = (floor.data?.floor.ready ?? []).filter((r) => mine.length === 0 || mine.includes(areaOf.get(r.tableId) ?? '')).length;
-  const counts = { requests: waiting.data?.items.filter((r) => r.status === 'new').length ?? 0, ready: readyCount };
-  const duty = floor.data?.dutyLabel;
+  const counts = {
+    requests: (waiting.data?.items.filter((r) => r.status === 'new').length ?? 0) + (confirms.data?.count ?? 0),
+    ready: readyCount,
+  };
+  const duty = onDuty ? floor.data?.dutyLabel : floor.data?.scheduledLabel ? `Chưa vào ca · ${floor.data.scheduledLabel}` : floor.data ? 'Chưa vào ca' : null;
 
   return (
     <div data-theme="light" className="flex h-dvh flex-col bg-[var(--bg-page)] text-[var(--text-primary)] [color-scheme:light]">
@@ -77,7 +86,7 @@ export function WaiterShell({ children, title, fill = false }: { children: React
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[var(--accent)] text-[14px] font-extrabold text-white">PV</span>
           <span className="min-w-0 text-left leading-tight">
             <span className="block truncate text-[14px] font-extrabold">{title ?? 'PHỤC VỤ'}</span>
-            <span className="block truncate text-[11.5px] text-[var(--text-muted)]">{duty ?? 'Ngoài ca — xem được mọi khu vực'}</span>
+            <span className={cn('block truncate text-[11.5px]', onDuty ? 'text-[var(--text-muted)]' : 'font-semibold text-[#b45309]')}>{duty ?? ''}</span>
           </span>
         </button>
         <span className="ml-auto" />
@@ -87,6 +96,14 @@ export function WaiterShell({ children, title, fill = false }: { children: React
         <NotificationMenu allHref="/phuc-vu/thong-bao" />
         <UserMenu />
       </header>
+
+      {floor.data && !onDuty ? (
+        <button type="button" onClick={() => navigate('/phuc-vu/toi')} className="flex shrink-0 items-center gap-2 border-b border-[#fcd34d] bg-[#fffbeb] px-3 py-2 text-left text-[13px] text-[#92400e]">
+          <Lock size={15} className="shrink-0" />
+          <span className="min-w-0 flex-1">Bạn chưa vào ca — chỉ xem được, không nhận thông báo.</span>
+          <span className="shrink-0 rounded-full bg-[#f59e0b] px-3 py-1 text-[12.5px] font-bold text-white">Vào ca</span>
+        </button>
+      ) : null}
 
       <main className={cn('min-h-0 flex-1', fill ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-3 sm:p-4')}>{children}</main>
 

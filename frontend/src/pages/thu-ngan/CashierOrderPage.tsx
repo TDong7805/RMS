@@ -20,13 +20,14 @@ import type { CashierOrderDetail, Invoice, OrderItemStatus } from '@/types';
 import { CASHIER_KEYS } from './FloorPage';
 
 const STATUS: Record<OrderItemStatus, { label: string; variant: BadgeVariant }> = {
+  unconfirmed: { label: 'Chờ xác nhận', variant: 'warning' },
   pending: { label: 'Chờ chế biến', variant: 'neutral' },
   cooking: { label: 'Đang chế biến', variant: 'warning' },
   done: { label: 'Đã xong', variant: 'accent' },
   served: { label: 'Đã mang ra', variant: 'info' },
   cancelled: { label: 'Đã hủy', variant: 'danger' },
 };
-const CANCEL_BY = { customer: 'Khách', cashier: 'Thu ngân', kitchen: 'Bếp' } as const;
+const CANCEL_BY = { customer: 'Khách', cashier: 'Thu ngân', kitchen: 'Bếp', waiter: 'Phục vụ' } as const;
 const ORDER_STATUS = { open: 'Đang mở', completed: 'Hoàn tất', cancelled: 'Đã hủy' } as const;
 
 /**
@@ -157,6 +158,7 @@ export default function CashierOrderPage() {
                         <p className={i.status === 'cancelled' ? 'line-through' : 'font-semibold'}>{i.name}</p>
                         {i.setName ? <p className="text-[12px] font-medium text-[var(--accent)]">Thuộc {i.setName} · giá đã chia từ giá set</p> : null}
                         {i.note ? <p className="text-[12.5px] text-[var(--text-muted)]">“{i.note}”</p> : null}
+                        {i.confirmedBy && i.status !== 'cancelled' ? <p className="text-[12px] text-[var(--text-muted)]">Xác nhận: {i.confirmedBy}</p> : null}
                         {i.status === 'cancelled' ? (
                           <p className="text-[12.5px] text-[var(--danger)]">
                             {i.cancelSource ? CANCEL_BY[i.cancelSource] : ''} hủy{i.cancelledBy ? ` (${i.cancelledBy})` : ''}{i.cancelReason ? `: ${i.cancelReason}` : ''}

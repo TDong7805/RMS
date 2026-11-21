@@ -229,7 +229,7 @@ function IdlePanel({ floor, onPickTable }: { floor: CashierFloor; onPickTable: (
 
 /* ---------------------------------------------------------------- Bảng bên phải: một bàn */
 
-const ITEM_STATE: Record<OrderItemStatus, string> = { pending: 'Chờ', cooking: 'Đang làm', done: 'Chờ lấy', served: 'Đã mang', cancelled: 'Hủy' };
+const ITEM_STATE: Record<OrderItemStatus, string> = { unconfirmed: 'Chờ xác nhận', pending: 'Chờ', cooking: 'Đang làm', done: 'Chờ lấy', served: 'Đã mang', cancelled: 'Hủy' };
 
 function TablePanel({ table: t, floor, onClose }: { table: FloorTable; floor: CashierFloor; onClose: () => void }) {
   const navigate = useNavigate();

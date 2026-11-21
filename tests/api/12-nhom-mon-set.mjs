@@ -1,5 +1,7 @@
 // [12-nhom-mon-set.mjs] Nhóm món (thẻ gộp nhiều loại) và Set menu: thực đơn QR, gửi set, chia giá, bếp, hóa đơn, quản lý
 import { BASE, DB, FIXTURES, OUT, UPLOADS, sql } from '../lib/env.mjs';
+// Bộ này thử luồng bếp / thu ngân: tắt bắt buộc phục vụ xác nhận đơn (V22; luồng xác nhận thử ở bộ 13).
+sql("UPDATE system_settings SET setting_value='false' WHERE setting_key='order.require_confirm'; SELECT 1");
 
 let pass = 0, fail = 0;
 const ok = (n, c, x = '') => { c ? pass++ : fail++; console.log(`${c ? 'PASS' : 'FAIL'} ${n}${c ? '' : ' — ' + JSON.stringify(x).slice(0, 300)}`); };

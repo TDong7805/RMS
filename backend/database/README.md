@@ -21,6 +21,7 @@ Flyway xem bảng `flyway_schema_history` và tự chạy những file SQL chưa
 | `src/main/resources/db/dev/V3_1__mon_an_mau.sql` | Thêm món (đủ 25 món), danh mục đang tắt, combo, vài đơn hàng đã hoàn tất (để thử "món đã bán không xóa được") | Chỉ profile `dev` |
 | `src/main/resources/db/migration/V20__nhan_vien_phuc_vu_cham_cong_khuon_mat.sql` | Phục vụ đăng nhập được (quyền), khu vực phụ trách theo ca (`shift_assignments.area_id`), bảng `face_profiles`, cột ảnh / IP / độ lệch / phút trễ – sớm của `attendances` (`source = camera`), cấu hình `attendance.*` | Mọi môi trường |
 | `src/main/resources/db/migration/V21__thong_bao_cham_cong.sql` | Loại thông báo "Chấm công" | Mọi môi trường |
+| `src/main/resources/db/migration/V22__xac_nhan_don_vao_ca.sql` | Món chờ phục vụ xác nhận (`order_items.status = 'unconfirmed'`, `confirmed_by / confirmed_at`, bỏ món `cancel_source = 'waiter'`), cấu hình `order.require_confirm`, `order.confirm_remind_minutes` | Mọi môi trường |
 | `src/main/resources/db/dev/V20_1__phuc_vu_khu_vuc_mau.sql` | Gán khu cho các ca mẫu của phục vụ (nam.hoang, vy.ngo → Tầng 1; phuc.do → Tầng 2; quynh.ly → Sân vườn; binh.vu → Phòng VIP) | Chỉ profile `dev` |
 | `backend/database/rms_verify.sql` | 11 phép kiểm tra ràng buộc, tự ROLLBACK | Chạy tay khi cần, trên CSDL phát triển |
 

@@ -1,8 +1,9 @@
 /* Kiểu dữ liệu Đặt món (khách tại bàn), Bếp, Thu ngân (DacTa_UC_DatMon_Bep_ThuNgan). */
 
-export type OrderItemStatus = 'pending' | 'cooking' | 'done' | 'served' | 'cancelled';
+/** unconfirmed = khách gửi qua QR, chờ nhân viên phục vụ xác nhận (bếp chưa thấy) — từ V22. */
+export type OrderItemStatus = 'unconfirmed' | 'pending' | 'cooking' | 'done' | 'served' | 'cancelled';
 export type OrderStatus = 'open' | 'completed' | 'cancelled';
-export type CancelSource = 'customer' | 'cashier' | 'kitchen';
+export type CancelSource = 'customer' | 'cashier' | 'kitchen' | 'waiter';
 
 export interface OrderItem {
   id: string;
@@ -23,6 +24,9 @@ export interface OrderItem {
   /** Món con của một set khách gọi (null = món gọi lẻ); price của món con là phần giá set đã chia. */
   setId: string | null;
   setName: string | null;
+  /** Người xác nhận món (phục vụ xác nhận đơn khách, hoặc người gọi hộ) — người chịu trách nhiệm. */
+  confirmedBy: string | null;
+  confirmedAt: string | null;
 }
 
 /** Set khách đã gọi trong đơn: price = giá set lúc gọi; activeTotal = tổng món con chưa hủy. */
@@ -48,6 +52,8 @@ export interface OrderView {
   readyCount: number;
   items: OrderItem[];
   sets: OrderSetLine[];
+  /** Số món khách gửi đang chờ phục vụ xác nhận. */
+  unconfirmedCount: number;
 }
 
 /* ---------------------------------------------------------------- Trang đặt món (QR) */
@@ -227,7 +233,7 @@ export interface FloorTable {
   x: number;
   y: number;
   status: 'available' | 'reserved' | 'occupied' | 'inactive';
-  order: { id: string; code: string; openedAt: string; subtotal: number; pendingCount: number; readyCount: number; locked: boolean; guests: number | null; lateCount: number } | null;
+  order: { id: string; code: string; openedAt: string; subtotal: number; pendingCount: number; readyCount: number; locked: boolean; guests: number | null; lateCount: number; unconfirmedCount: number } | null;
   reservation: { id: string; time: string; customerName: string; guests: number } | null;
   supportRequest: boolean;
   paymentRequest: boolean;

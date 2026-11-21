@@ -306,7 +306,12 @@ Mỗi dòng: làm đúng cột *Thao tác*, so với cột *Kết quả mong đ�
 | H15 | Thu ngân → Văn phòng → **Chấm công** | Dòng nguồn "Khuôn mặt", có Trễ / Về sớm; bấm biểu tượng camera xem ảnh vào / tan ca kèm độ lệch | [ ] | |
 | H16 | Tab **Tôi** → Ca làm / Lịch sử / Phiếu lương / Hồ sơ | Ca theo tuần có khu; lịch sử theo tháng xem được ảnh; phiếu lương kỳ đã chốt in được; sửa email / SĐT được | [ ] | |
 | H17 | Thu ngân bấm **Chấm công** trên thanh trên; Bếp bấm tab **Chấm công** | Cùng trang "Thông tin của tôi" như phục vụ | [ ] | |
-| H18 | Quản lý → Quản lý ca làm → lọc Nhân viên phục vụ → bấm ô ca hôm nay → đổi khu | Ô ca hiện khu mới; phục vụ thấy khu mặc định đổi trên sơ đồ | [ ] | |
+| H18 | Quản lý → Quản lý ca làm (mặc định **Theo ca**) → bấm tên phục vụ trong ô ca hôm nay → đổi khu | Ô ca hiện khu mới; phục vụ thấy khu mặc định đổi trên sơ đồ; nút "Theo nhân viên" đổi về kiểu cũ | [ ] | |
+| H19 | Phục vụ **chưa vào ca** mở `/phuc-vu`, bấm một bàn | Thanh vàng "Bạn chưa vào ca — chỉ xem"; mọi nút trong bảng bàn bị khóa; khách gọi nhân viên → không có âm báo / thông báo | [ ] | |
+| H20 | Phục vụ đã vào ca; khách ở khu đó gửi 2 món qua QR | Bàn hiện thẻ hồng **Chờ xác nhận** ở đầu danh sách, có âm báo; bếp chưa thấy món; khách thấy "đang chờ nhân viên xác nhận" | [ ] | |
+| H21 | Tab **Yêu cầu** → Đơn chờ xác nhận → bấm **Bỏ món** ở 1 món, nhập lý do → **Xác nhận 1 món, chuyển bếp** | Bếp thấy món còn lại; khách thấy món bị bỏ kèm lý do; thu ngân xem đơn thấy "Xác nhận: <tên phục vụ>" | [ ] | |
+| H22 | Khách gửi món, không ai xác nhận trong 3 phút | Thẻ tô đỏ, nhắc lại, phục vụ khu khác cũng thấy và xác nhận được; thu ngân không lập hóa đơn được khi bàn còn món chờ xác nhận | [ ] | |
+| H23 | Sơ đồ bàn: đổi giữa **Danh sách** và **Sơ đồ** | Danh sách: thẻ chữ to, bàn cần xử lý lên đầu. Sơ đồ: vị trí thật, vừa màn hình (khu rộng vuốt ngang) | [ ] | |
 
 ---
 

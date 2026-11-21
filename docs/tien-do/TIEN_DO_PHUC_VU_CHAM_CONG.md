@@ -54,7 +54,22 @@ Phục vụ → chấm công khuôn mặt + "Thông tin của tôi" → phía Qu
 - Đã thử trên trình duyệt thật (Chrome, cỡ điện thoại 390×844): sơ đồ, mở bàn, gọi món hộ, mang món, ghép bàn, thông báo
   sơ đồ đổi, camera (camera giả của Chrome), duyệt khuôn mặt, cấu hình WiFi, ảnh chấm công.
 
+## Cập nhật 21/11/2026 (V22) — theo góp ý sau khi nhóm thử
+
+| Góp ý | Đã sửa |
+|---|---|
+| Phục vụ chưa chấm công vẫn nhận thông báo, mở bàn… | "Đang làm việc" = **đã chấm công vào ca, chưa tan ca** (trước: chỉ cần có lịch ca). Chưa vào ca: chỉ xem; mọi thao tác bị chặn ở máy chủ (`WaiterGuard`) và khóa trên giao diện, có thanh nhắc "Vào ca"; không nhận thông báo / âm báo. Khu phụ trách lấy theo ca đã chấm công vào. Thu ngân, bếp không bị ảnh hưởng |
+| Khách đặt món phải được nhân viên xác nhận rồi mới xuống bếp (người xác nhận chịu trách nhiệm) | Món khách gửi qua QR ở trạng thái **Chờ xác nhận** (bếp chưa thấy, khách vẫn tự hủy được). Phục vụ đã vào ca của khu xác nhận cả lượt hoặc **bỏ từng món kèm lý do** (khách thấy lý do); tên người xác nhận ghi vào từng món (`order_items.confirmed_by`). Quá 3 phút (cấu hình): tô đỏ, nhắc lại, hiện cho mọi phục vụ đã vào ca — không tự chuyển bếp. Món phục vụ gọi hộ: coi như đã xác nhận. Thu ngân không lập hóa đơn khi còn món chờ xác nhận. Công tắc "Bắt buộc xác nhận" ở Cấu hình → Gọi món tại bàn (mặc định bật) |
+| Sơ đồ bàn chưa tối ưu cho điện thoại | Mặc định **lưới thẻ bàn** chữ to, bàn cần xử lý lên đầu (chờ xác nhận → khách gọi → món chờ lâu → món chờ mang…). Nút **Sơ đồ**: vị trí thật, chỉ lấy vùng có bàn và thu vừa màn hình (khu quá rộng thì vuốt ngang) |
+| Lịch phân công của quản lý rối mắt | Mặc định xem **theo ca**: hàng = ca, cột = ngày, trong ô là người chia theo bộ phận (phục vụ kèm khu); nút chuyển về kiểu cũ "Theo nhân viên" |
+
+CSDL: `V22__xac_nhan_don_vao_ca.sql`. Kiểm thử: bộ 13 thêm 23 bước (chưa vào ca bị chặn, không ai vào ca thì không gửi thông báo,
+xác nhận / bỏ món / quá giờ / khách hủy món chờ, thu ngân không lập hóa đơn khi còn món chờ). Toàn bộ **13 bộ, 580 bước đạt**.
+
 ## Giới hạn & việc để sau
+
+- Cả quán **không có phục vụ nào đang vào ca** thì đơn khách gửi nằm chờ (đúng yêu cầu: chỉ phục vụ xác nhận). Lúc vắng người,
+  quản lý tạm tắt "Bắt buộc xác nhận" ở Cấu hình → Gọi món tại bàn.
 
 - **Chưa thử nhận diện với khuôn mặt thật** trên trình duyệt (máy phát triển không có video khuôn mặt mẫu). Phần so khớp
   ở máy chủ đã có kiểm thử API. Cần thử bằng webcam / điện thoại thật (mục H10–H14).

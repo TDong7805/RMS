@@ -89,9 +89,22 @@ public class QrOrderingService {
     private final ImageStore images;
     private final ServiceRequestService requests;
     private final InvoiceService invoices;
+    private final com.rms.common.SystemSettings settings;
+    private final com.rms.shift.DutyService duty;
+    private final com.rms.notification.NotificationService notifications;
+    private final com.rms.common.CurrentUserService currentUser;
+
+    /** Cấu hình (V22): món khách gửi qua QR phải được phục vụ xác nhận rồi mới xuống bếp. */
+    public static final String REQUIRE_CONFIRM_KEY = "order.require_confirm";
 
     public QrOrderingService(JdbcClient jdbc, OrderCore core, LiveEvents live, WarehouseCodes codes, ImageStore images,
-                             ServiceRequestService requests, InvoiceService invoices) {
+                             ServiceRequestService requests, InvoiceService invoices, com.rms.common.SystemSettings settings,
+                             com.rms.shift.DutyService duty, com.rms.notification.NotificationService notifications,
+                             com.rms.common.CurrentUserService currentUser) {
+        this.settings = settings;
+        this.duty = duty;
+        this.notifications = notifications;
+        this.currentUser = currentUser;
         this.jdbc = jdbc;
         this.core = core;
         this.live = live;
@@ -340,7 +353,14 @@ public class QrOrderingService {
         return send(table(token), in, false);
     }
 
-    /** Nhân viên phục vụ gọi món hộ khách: như khách gửi giỏ, món ghi added_via = 'staff'. Bàn phải đã mở. */
+    public boolean requireConfirm() {
+        return !"false".equalsIgnoreCase(settings.string(REQUIRE_CONFIRM_KEY, "true"));
+    }
+
+    /**
+     * Nhân viên phục vụ gọi món hộ khách: như khách gửi giỏ, món ghi added_via = 'staff'. Bàn phải đã mở.
+     * Người gọi chịu trách nhiệm → món coi như đã xác nhận (confirmed_by = người gọi), xuống bếp ngay.
+     */
     @Transactional
     public OrderView sendByStaff(long tableId, SendInput in) {
         TableRow t = core.table(tableId);
@@ -397,12 +417,15 @@ public class QrOrderingService {
                 : "Bàn chưa được mở. Vui lòng gọi nhân viên để mở bàn trước khi gọi món.");
         }
         String via = staff ? "staff" : "customer";
+        // V22: món khách gửi chờ phục vụ xác nhận (trừ khi quản lý tắt); món nhân viên gọi hộ xuống bếp ngay.
+        String status = !staff && requireConfirm() ? "unconfirmed" : "pending";
+        Long confirmer = staff ? currentUser.get().id() : null;
         int batch = jdbc.sql("SELECT COALESCE(MAX(batch_no), 0) + 1 FROM order_items WHERE order_id = ?").param(orderId)
             .query(Integer.class).single();
         for (Planned p : plan) {
             if (p.set() == null) {
                 Piece c = p.pieces().get(0);
-                insertItem(orderId, batch, null, c.dish(), c.dish().price(), c.qty(), c.note(), via);
+                insertItem(orderId, batch, null, c.dish(), c.dish().price(), c.qty(), c.note(), via, status, confirmer);
                 continue;
             }
             for (int k = 0; k < p.qty(); k++) {
@@ -411,21 +434,31 @@ public class QrOrderingService {
                 long setId = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
                 for (Object[] row : allocate(p.pieces(), p.set().price())) {
                     Piece c = (Piece) row[0];
-                    insertItem(orderId, batch, setId, c.dish(), (long) row[1], (int) row[2], c.note(), via);
+                    insertItem(orderId, batch, setId, c.dish(), (long) row[1], (int) row[2], c.note(), via, status, confirmer);
                 }
             }
         }
         jdbc.sql("UPDATE dining_tables SET status = 'occupied' WHERE id = ? AND status IN ('available','reserved')").param(t.id()).update();
-        live.publish(LiveEvents.KITCHEN, LiveEvents.CASHIER, LiveEvents.table(t.id()));
+        if ("unconfirmed".equals(status)) {
+            int n = plan.stream().mapToInt(p -> p.set() == null ? p.pieces().get(0).qty() : p.qty()).sum();
+            String title = "Bàn " + t.code() + " (" + t.areaName() + ") gọi " + n + " món – chờ xác nhận";
+            for (long w : duty.waitersFor(t.areaId(), Times.now())) {
+                notifications.sendToUser("service_request", title, "Kiểm tra với khách rồi xác nhận để chuyển bếp", "orders", orderId, w);
+            }
+        }
+        live.publish(LiveEvents.KITCHEN, LiveEvents.CASHIER, LiveEvents.WAITER, LiveEvents.table(t.id()));
         return core.order(orderId);
     }
 
-    private void insertItem(long orderId, int batch, Long setId, DishRow d, long unitPrice, int qty, String note, String via) {
+    private void insertItem(long orderId, int batch, Long setId, DishRow d, long unitPrice, int qty, String note, String via,
+                            String status, Long confirmer) {
         jdbc.sql("""
-                INSERT INTO order_items (order_id, order_set_id, batch_no, dish_id, dish_name, unit_price, quantity, note, status, added_via)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+                INSERT INTO order_items (order_id, order_set_id, batch_no, dish_id, dish_name, unit_price, quantity, note, status,
+                                         added_via, confirmed_by, confirmed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)
-            .params(orderId, setId, batch, d.id(), d.name(), unitPrice, qty, note == null || note.isEmpty() ? null : note, via).update();
+            .params(orderId, setId, batch, d.id(), d.name(), unitPrice, qty, note == null || note.isEmpty() ? null : note, status, via,
+                confirmer, confirmer == null ? null : Times.now()).update();
     }
 
     /**
@@ -509,7 +542,7 @@ public class QrOrderingService {
         return rows;
     }
 
-    /** UC-KH-04: khách hủy món còn Chờ chế biến. */
+    /** UC-KH-04: khách hủy món còn Chờ xác nhận / Chờ chế biến. */
     @Transactional
     public OrderView cancelItem(String token, String itemIdText) {
         TableRow t = table(token);
@@ -525,18 +558,18 @@ public class QrOrderingService {
         if (it.tableId() != t.id() || !"open".equals(it.orderStatus())) throw BusinessException.notFound("Không tìm thấy món");
         if (core.isLocked(it.orderId())) throw new BusinessException("Bàn đang chờ thanh toán, không hủy món được.");
         if ("cancelled".equals(it.status())) return core.order(it.orderId());
-        if (!"pending".equals(it.status())) {
+        if (!"pending".equals(it.status()) && !"unconfirmed".equals(it.status())) {
             throw new BusinessException("Bếp đã bắt đầu chế biến món này, không thể hủy. Vui lòng gọi nhân viên nếu cần hỗ trợ.");
         }
         Long setId = jdbc.sql("SELECT order_set_id FROM order_items WHERE id = ?").param(itemId).query(Long.class).optional().orElse(null);
         if (setId != null) {
             // Món trong set: khách chỉ hủy được cả set, khi bếp chưa bắt đầu món nào của set.
-            int started = jdbc.sql("SELECT COUNT(*) FROM order_items WHERE order_set_id = ? AND status NOT IN ('pending','cancelled')")
+            int started = jdbc.sql("SELECT COUNT(*) FROM order_items WHERE order_set_id = ? AND status NOT IN ('unconfirmed','pending','cancelled')")
                 .param(setId).query(Integer.class).single();
             if (started > 0) {
                 throw new BusinessException("Bếp đã bắt đầu làm món trong set này, không thể hủy set. Vui lòng gọi nhân viên nếu cần hỗ trợ.");
             }
-            jdbc.sql("UPDATE order_items SET status = 'cancelled', cancel_source = 'customer', cancel_reason = 'Khách hủy set', cancelled_at = ? WHERE order_set_id = ? AND status = 'pending'")
+            jdbc.sql("UPDATE order_items SET status = 'cancelled', cancel_source = 'customer', cancel_reason = 'Khách hủy set', cancelled_at = ? WHERE order_set_id = ? AND status IN ('unconfirmed','pending')")
                 .params(Times.now(), setId).update();
         } else {
             jdbc.sql("UPDATE order_items SET status = 'cancelled', cancel_source = 'customer', cancel_reason = 'Khách hủy', cancelled_at = ? WHERE id = ?")
