@@ -1,4 +1,4 @@
-import { Bell, CalendarCheck, Check, ChefHat, ClipboardCheck, ClipboardList, ConciergeBell, PackageSearch } from 'lucide-react';
+import { Bell, CalendarCheck, Check, ChefHat, ClipboardCheck, ClipboardList, ConciergeBell, PackageSearch, ScanFace, Star } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { Button } from '@/components/common/Button';
@@ -17,7 +17,14 @@ export const NOTIFICATION_TYPE_META: Record<
   service_request: { label: 'Yêu cầu của khách', icon: ConciergeBell },
   kitchen: { label: 'Bếp', icon: ChefHat },
   system: { label: 'Hệ thống', icon: Bell },
+  attendance: { label: 'Chấm công', icon: ScanFace },
+  review: { label: 'Đánh giá của khách', icon: Star },
 };
+
+/** Loại thông báo backend mới thêm mà giao diện chưa biết → hiện như "Hệ thống" thay vì làm trắng màn hình. */
+export function notificationMeta(type: string) {
+  return NOTIFICATION_TYPE_META[type as NotificationType] ?? { label: 'Thông báo', icon: Bell };
+}
 
 export interface NotificationItemProps {
   item: AppNotification;
@@ -36,7 +43,7 @@ export function NotificationItem({
   pending = false,
   variant = 'full',
 }: NotificationItemProps) {
-  const meta = NOTIFICATION_TYPE_META[item.type];
+  const meta = notificationMeta(item.type);
   const Icon = meta.icon;
   const compact = variant === 'compact';
 
@@ -169,5 +176,5 @@ export function NotificationItem({
 
 /** Nhãn loại thông báo, dùng lại khi cần hiển thị riêng. */
 export function notificationTypeLabel(type: NotificationType): string {
-  return NOTIFICATION_TYPE_META[type].label;
+  return notificationMeta(type).label;
 }

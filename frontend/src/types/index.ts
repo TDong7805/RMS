@@ -80,7 +80,7 @@ export interface TopDishesResponse {
   hasData: boolean;
 }
 
-export type NotificationType = 'reservation' | 'inventory' | 'purchase' | 'stocktake' | 'service_request' | 'kitchen' | 'system';
+export type NotificationType = 'reservation' | 'inventory' | 'purchase' | 'stocktake' | 'service_request' | 'kitchen' | 'system' | 'attendance' | 'review';
 
 export interface AppNotification {
   id: string;
