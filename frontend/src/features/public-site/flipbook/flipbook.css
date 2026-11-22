@@ -1,0 +1,1030 @@
+/*
+ * Sách thực đơn (FlipMenu.tsx). Hiệu ứng lật / cong góc / bóng đổ do thư viện page-flip vẽ (PageFlipBook.tsx);
+ * file này lo khung, thanh công cụ, giấy, thẻ món, bìa. Chỉ áp dụng trong .site-root (website khách hàng).
+ * Ảnh nền ở /images/menu/ (ảnh tạm — xem tools/menu-textures/README.md).
+ */
+
+/* ------------------------------------------------------------ Nền trang theo phương án (theme.ts / ?nen=1|2|3) */
+/* Màu chữ đã kiểm tra tương phản WCAG AA trên cả vùng sáng lẫn vùng loang tối nhất của từng ảnh nền. */
+.site-root .fb-root {
+  --fb-paper-img: url('/images/menu/paper-cream.webp');
+  --fb-paper-color: #f6eddc;
+  --fb-card-bg: rgba(255, 251, 244, 0.55);
+  --fb-ink: #2a1f1a;
+  --fb-desc: #54443a;
+  --fb-price: #8e1b22;
+  --fb-title: #7d5f26; /* vàng đồng */
+  --fb-foot: #5f4e40;
+}
+
+.site-root .fb-root[data-paper='lineart'] {
+  --fb-paper-img: url('/images/menu/paper-lineart.webp');
+  --fb-paper-color: #fbf7f0;
+}
+
+.site-root .fb-root[data-paper='kraft'] {
+  --fb-paper-img: url('/images/menu/paper-kraft.webp');
+  --fb-paper-color: #cfae84;
+  --fb-card-bg: rgba(255, 251, 244, 0.62); /* lớp phủ dày hơn để chữ đạt tương phản trên nền kraft */
+  --fb-title: #5a3c12;
+  --fb-foot: #3f3024;
+}
+
+/* ------------------------------------------------------------ Khung: vừa đúng màn hình, trừ thanh đầu trang */
+.site-root .fb-root {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--site-header-h));
+  height: calc(100dvh - var(--site-header-h)); /* dvh: không bị thanh địa chỉ điện thoại che */
+  min-height: 360px;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Điện thoại xoay ngang (màn thấp): thanh đầu trang không dính (site-theme.css) → sách dùng trọn chiều cao. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .site-root .fb-root {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 300px;
+  }
+}
+
+/* ------------------------------------------------------------ Thanh trên cùng (không lật theo trang) */
+.site-root .fb-toolbar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 16px;
+  background: var(--site-bg-glass);
+  border-bottom: 1px solid var(--site-border);
+}
+
+.site-root .fb-search {
+  position: relative;
+  flex: 1 1 280px;
+  max-width: 460px;
+}
+
+.site-root .fb-toolbar__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+@media (max-width: 639px) {
+  .site-root .fb-toolbar {
+    padding: 8px 12px;
+  }
+  .site-root .fb-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .site-root .fb-toolbar__nav {
+    width: 100%;
+    margin-left: 0;
+  }
+  .site-root .fb-indicator {
+    min-width: 58px;
+    flex: 1;
+  }
+}
+
+.site-root .fb-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 1px solid var(--site-border);
+  border-radius: 999px;
+  background: var(--site-surface);
+  color: var(--site-text);
+}
+
+.site-root .fb-icon-btn:hover:not(:disabled) {
+  border-color: var(--site-primary);
+  color: var(--site-primary);
+}
+
+.site-root .fb-icon-btn:disabled,
+.site-root .fb-side:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.site-root .fb-indicator {
+  min-width: 76px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------ Thanh mục lục (CategoryTabs) — chữ + gạch chân vàng đồng trượt */
+.site-root .fb-tabs {
+  position: relative;
+  flex: 1 1 100%;
+  min-width: 0;
+  margin: 0 -16px -10px;
+  border-top: 1px solid var(--site-border);
+}
+
+/* Hai đầu mờ dần khi còn mục bị khuất */
+.site-root .fb-tabs--fade-left .fb-tabs__scroller {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40px);
+  mask-image: linear-gradient(to right, transparent, #000 40px);
+}
+
+.site-root .fb-tabs--fade-right .fb-tabs__scroller {
+  -webkit-mask-image: linear-gradient(to left, transparent, #000 40px);
+  mask-image: linear-gradient(to left, transparent, #000 40px);
+}
+
+.site-root .fb-tabs--fade-left.fb-tabs--fade-right .fb-tabs__scroller {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+}
+
+.site-root .fb-tabs__scroller {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  padding: 0 16px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.site-root .fb-tabs__scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.site-root .fb-tabs__tab {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 12px;
+  font-family: var(--site-display);
+  font-size: 15.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: var(--site-muted);
+  transition: color 0.25s;
+}
+
+.site-root .fb-tabs__tab:hover,
+.site-root .fb-tabs__tab:focus-visible {
+  color: var(--site-text);
+}
+
+/* Gạch nhạt khi rê chuột — gợi ý bấm được, không lấn gạch chân vàng của mục đang xem */
+.site-root .fb-tabs__tab::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 8px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0;
+  transform: scaleX(0.4);
+  transition: opacity 0.25s, transform 0.25s;
+}
+
+.site-root .fb-tabs__tab:hover::after {
+  opacity: 0.35;
+  transform: scaleX(1);
+}
+
+.site-root .fb-tabs__tab--on {
+  color: var(--site-primary);
+  font-weight: 600;
+}
+
+.site-root .fb-tabs__tab--on::after {
+  display: none;
+}
+
+.site-root .fb-tabs__tab--toc {
+  font-family: var(--site-font);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Gạch chân vàng đồng trượt tới mục đang xem, hai đầu có hạt kim cương nhỏ */
+.site-root .fb-tabs__ink {
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(to right, transparent, var(--site-gold) 18%, var(--site-gold) 82%, transparent);
+  pointer-events: none;
+  transition: transform 0.45s cubic-bezier(0.4, 0.1, 0.2, 1), width 0.45s cubic-bezier(0.4, 0.1, 0.2, 1);
+}
+
+.site-root .fb-tabs__ink::before,
+.site-root .fb-tabs__ink::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  background: var(--site-gold);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.site-root .fb-tabs__ink::before { left: -2px; }
+.site-root .fb-tabs__ink::after { right: -2px; }
+
+@media (max-width: 639px) {
+  .site-root .fb-tabs {
+    margin: 0 -12px -8px;
+  }
+  .site-root .fb-tabs__tab {
+    height: 42px;
+    padding: 0 10px;
+    font-size: 15px;
+  }
+}
+
+/* Màn rộng: ô tìm — thanh mục lục — nút điều hướng trên CÙNG một hàng → nhường chiều cao cho sách */
+@media (min-width: 1100px) {
+  .site-root .fb-toolbar {
+    flex-wrap: nowrap;
+  }
+  .site-root .fb-search {
+    order: 1;
+    flex: 0 1 300px;
+  }
+  .site-root .fb-tabs {
+    order: 2;
+    flex: 1 1 0;
+    margin: -10px 0;
+    border-top: 0;
+  }
+  .site-root .fb-tabs__tab {
+    height: 60px;
+  }
+  .site-root .fb-tabs__ink {
+    bottom: 14px;
+  }
+  .site-root .fb-toolbar__nav {
+    order: 3;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-root .fb-tabs__ink {
+    transition: none;
+  }
+}
+
+/* Danh sách kết quả tìm kiếm */
+.site-root .fb-search__list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--site-border);
+  border-radius: 16px;
+  background: var(--site-surface);
+  box-shadow: 0 16px 40px rgba(40, 20, 10, 0.18);
+}
+
+.site-root .fb-search__option {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.site-root .fb-search__option--active {
+  background: var(--site-primary-soft);
+}
+
+.site-root .fb-search__name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.site-root .fb-search__meta,
+.site-root .fb-search__empty {
+  font-size: 13px;
+  color: var(--site-muted);
+}
+
+.site-root .fb-search__empty {
+  padding: 12px;
+}
+
+/* ------------------------------------------------------------ Sân khấu: nền vân gỗ sáng bao quanh cuốn sách */
+.site-root .fb-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(255, 255, 255, 0.25), rgba(80, 55, 25, 0.18) 85%),
+    url('/images/menu/wood-light.webp') center / 900px auto repeat,
+    #e8dcc5;
+}
+
+/* Dời sách nửa trang khi chỉ có bìa (FlipMenu: bookShift) — trượt mượt về giữa khi mở / gập sách */
+.site-root .fb-book-shift {
+  flex: none;
+  transition: transform 0.6s cubic-bezier(0.45, 0.05, 0.25, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-root .fb-book-shift {
+    transition: none;
+  }
+}
+
+/* Khung sách của page-flip: thư viện tự tạo .stf__parent / .stf__block / .stf__item và vẽ bóng khi lật */
+.site-root .fb-pf-host {
+  position: relative;
+  flex: none;
+}
+
+.site-root .fb-pf {
+  position: relative;
+}
+
+.site-root .fb-sheet {
+  overflow: hidden;
+}
+
+/* Nút ‹ › hai bên (màn rộng) */
+.site-root .fb-side {
+  position: absolute;
+  top: 50%;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  background: var(--site-surface);
+  color: var(--site-text);
+  box-shadow: 0 6px 18px rgba(40, 20, 10, 0.18);
+  transform: translateY(-50%);
+}
+
+.site-root .fb-side:hover:not(:disabled) {
+  color: var(--site-primary);
+}
+
+.site-root .fb-side--prev {
+  left: 12px;
+}
+
+.site-root .fb-side--next {
+  right: 12px;
+}
+
+/* ------------------------------------------------------------ Giấy */
+.site-root .fb-paper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: var(--fb-pad) var(--fb-pad) var(--fb-footer);
+  background: var(--fb-paper-img) center / cover, var(--fb-paper-color);
+  color: var(--fb-ink);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Bóng gáy sách: trang trái tối dần về mép phải, trang phải tối dần về mép trái */
+.site-root .fb-paper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.site-root .fb-paper--left::after {
+  background: linear-gradient(to left, rgba(60, 35, 15, 0.2), rgba(60, 35, 15, 0.04) 6%, transparent 12%);
+}
+
+.site-root .fb-paper--right::after,
+.site-root .fb-paper--single::after {
+  background: linear-gradient(to right, rgba(60, 35, 15, 0.2), rgba(60, 35, 15, 0.04) 6%, transparent 12%);
+}
+
+.site-root .fb-content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tiêu đề danh mục: chữ hoa, giãn chữ, vàng đồng */
+.site-root .fb-head--first {
+  height: var(--fb-first-head);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+.site-root .fb-head h2 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.15;
+  text-transform: uppercase;
+  color: var(--fb-title);
+}
+
+.site-root .fb-head--first h2 {
+  font-size: 30px;
+  letter-spacing: 0.12em;
+}
+
+.site-root .fb-head__rule {
+  display: block;
+  width: 56px;
+  height: 2px;
+  background: var(--fb-title);
+}
+
+.site-root .fb-head--cont {
+  height: var(--fb-cont-head);
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+
+.site-root .fb-head--cont h2 {
+  font-size: 18px;
+  letter-spacing: 0.12em;
+}
+
+.site-root .fb-head--cont span {
+  font-family: var(--site-font);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--fb-foot);
+}
+
+/* ------------------------------------------------------------ Thẻ món: ảnh lớn, chữ to */
+.site-root .fb-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: var(--fb-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-root .fb-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px 8px 10px;
+  border-radius: 14px;
+  background: var(--fb-card-bg);
+  box-shadow: 0 2px 10px rgba(60, 35, 20, 0.08);
+}
+
+.site-root .fb-card__img {
+  position: relative;
+  flex: none;
+  height: var(--fb-img-h);
+  overflow: hidden;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #efe3cf, #e4d2b3);
+  box-shadow: 0 6px 16px rgba(40, 20, 10, 0.18);
+}
+
+.site-root .fb-card__img img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* đúng tỉ lệ, không méo */
+}
+
+.site-root .fb-card__badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(20, 10, 5, 0.66);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.site-root .fb-card__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 6px 0;
+  overflow: hidden;
+}
+
+.site-root .fb-card__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.site-root .fb-card__name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  font-family: var(--site-font);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--fb-ink);
+}
+
+.site-root .fb-card__spicy {
+  display: inline-flex;
+  margin-left: 6px;
+  color: #b42318;
+  vertical-align: 1px;
+}
+
+.site-root .fb-card__price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--fb-price);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.site-root .fb-card__price small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fb-desc);
+}
+
+.site-root .fb-card__price s {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--fb-desc);
+}
+
+/* Thẻ hẹp (2 cột ~190px, hoặc trang nhỏ): tên chiếm trọn bề ngang (2 dòng), giá xuống dòng riêng — không cắt tên */
+.site-root .fb-grid--stack .fb-card__top {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
+.site-root .fb-grid--stack .fb-card__price {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.site-root .fb-card__desc {
+  display: -webkit-box;
+  -webkit-line-clamp: var(--fb-desc-lines);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-height: calc(var(--fb-desc-lines) * 22px);
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 22px;
+  color: var(--fb-desc);
+}
+
+.site-root .fb-card--soldout .fb-card__img img {
+  filter: grayscale(0.7);
+  opacity: 0.8;
+}
+
+/* Món vừa chọn từ ô tìm kiếm: viền vàng nhấp nháy */
+@keyframes fb-flash {
+  0%, 65% { box-shadow: 0 0 0 3px var(--site-gold), 0 2px 10px rgba(60, 35, 20, 0.08); background: rgba(244, 234, 210, 0.92); }
+  100% { box-shadow: 0 2px 10px rgba(60, 35, 20, 0.08); }
+}
+
+.site-root .fb-card--highlight {
+  animation: fb-flash 2.6s ease-out;
+}
+
+/* Chân trang: tên danh mục | tên quán | số trang */
+.site-root .fb-foot {
+  position: absolute;
+  left: var(--fb-pad);
+  right: var(--fb-pad);
+  bottom: calc((var(--fb-footer) - 16px) / 2);
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--fb-foot);
+}
+
+.site-root .fb-foot > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.site-root .fb-foot__num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mục lục */
+.site-root .fb-toc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.site-root .fb-toc__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: var(--fb-toc-row);
+  font-size: 17px;
+  text-align: left;
+  color: var(--fb-ink);
+}
+
+.site-root .fb-toc__row:hover .fb-toc__title,
+.site-root .fb-toc__row:focus-visible .fb-toc__title {
+  color: var(--fb-price);
+}
+
+/* Ảnh tròn nhỏ của danh mục, viền vàng đồng mảnh */
+.site-root .fb-toc__thumb {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: calc(var(--fb-toc-row) - 12px);
+  height: calc(var(--fb-toc-row) - 12px);
+  overflow: hidden;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 1.5px var(--site-gold-line), 0 2px 6px rgba(60, 35, 20, 0.12);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.site-root .fb-toc__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.site-root .fb-toc__thumb span {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fb-title);
+}
+
+.site-root .fb-toc__row:hover .fb-toc__thumb,
+.site-root .fb-toc__row:focus-visible .fb-toc__thumb {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 2px var(--site-gold), 0 4px 10px rgba(60, 35, 20, 0.18);
+}
+
+/* Rê chuột: đường chấm dẫn và số trang chuyển vàng đồng, số trang nhích nhẹ */
+.site-root .fb-toc__row:hover .fb-toc__dots,
+.site-root .fb-toc__row:focus-visible .fb-toc__dots {
+  border-bottom-color: var(--site-gold);
+}
+
+.site-root .fb-toc__page {
+  transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.site-root .fb-toc__row:hover .fb-toc__page,
+.site-root .fb-toc__row:focus-visible .fb-toc__page {
+  color: var(--fb-title);
+  transform: translateX(-3px);
+}
+
+/* Lần đầu lật tới mục lục: các dòng lần lượt hiện lên (như được viết ra), đường chấm dẫn kéo dài ra */
+@keyframes fb-toc-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fb-toc-dots {
+  from { transform: translateY(5px) scaleX(0); }
+  to { transform: translateY(5px) scaleX(1); }
+}
+
+.site-root .fb-toc > li {
+  opacity: 0;
+}
+
+.site-root .fb-toc--revealed > li {
+  animation: fb-toc-in 0.5s cubic-bezier(0.2, 0.6, 0.2, 1) forwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.site-root .fb-toc--revealed .fb-toc__dots {
+  transform-origin: left center;
+  animation: fb-toc-dots 0.6s cubic-bezier(0.2, 0.6, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms + 180ms);
+}
+
+.site-root .fb-root--reduce .fb-toc > li {
+  opacity: 1;
+  animation: none;
+}
+
+.site-root .fb-root--reduce .fb-toc__dots {
+  animation: none;
+}
+
+.site-root .fb-toc__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.site-root .fb-toc__dots {
+  flex: 1;
+  min-width: 16px;
+  border-bottom: 1.5px dotted rgba(90, 70, 50, 0.45);
+  transform: translateY(5px);
+}
+
+.site-root .fb-toc__page {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--fb-price);
+}
+
+.site-root .fb-empty {
+  color: var(--fb-desc);
+  font-size: 15px;
+}
+
+/* ------------------------------------------------------------ Bìa trước / bìa sau / trang trống */
+.site-root .fb-paper--cover,
+.site-root .fb-paper--back {
+  padding: 0;
+  background: var(--site-dark);
+  color: var(--site-on-dark);
+}
+
+.site-root .fb-paper--cover::after,
+.site-root .fb-paper--back::after {
+  display: none;
+}
+
+/* Trang trống cuối sách: nền hoa văn line-art (giống mặt sau trang) */
+.site-root .fb-paper--blank {
+  background: url('/images/menu/paper-lineart.webp') center / cover, #fbf7f0;
+}
+
+.site-root .fb-cover {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+
+.site-root .fb-cover__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.45;
+}
+
+.site-root .fb-cover__inner {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 14px;
+  padding: 24px;
+  border: 1px solid var(--site-gold-line);
+  border-radius: 8px;
+  text-align: center;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.65));
+}
+
+.site-root .fb-cover__logo,
+.site-root .fb-cover__mono {
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.site-root .fb-cover__mono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--site-primary);
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.site-root .fb-cover__kicker {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--site-gold);
+}
+
+.site-root .fb-cover__name {
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.site-root .fb-cover__slogan {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.site-root .fb-cover__award {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--site-gold-line);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--site-gold);
+}
+
+.site-root .fb-cover__hint {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--site-on-dark-muted);
+}
+
+.site-root .fb-back {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  padding: 26px;
+  font-size: 14px;
+}
+
+.site-root .fb-back__name {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.site-root .fb-back__list {
+  display: grid;
+  gap: 6px;
+}
+
+.site-root .fb-back__list li,
+.site-root .fb-back__hours > p {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.site-root .fb-back__list svg,
+.site-root .fb-back__hours svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--site-gold);
+}
+
+.site-root .fb-back__hours ul {
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--site-on-dark-muted);
+}
+
+.site-root .fb-back__hours li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.site-root .fb-back__thanks {
+  font-size: 19px;
+  color: var(--site-gold);
+}
+
+.site-root .fb-blank {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  color: rgba(60, 35, 20, 0.12);
+}
+
+/* ------------------------------------------------------------ Trang nhỏ (điện thoại xoay ngang, màn hẹp) */
+.site-root .fb-paper--compact .fb-head--first h2 { font-size: 22px; letter-spacing: 0.1em; }
+.site-root .fb-paper--compact .fb-head--cont h2 { font-size: 15px; }
+.site-root .fb-paper--compact .fb-card { padding: 6px 6px 8px; border-radius: 10px; }
+.site-root .fb-paper--compact .fb-card__body { padding: 6px 4px 0; gap: 4px; }
+.site-root .fb-paper--compact .fb-card__name { font-size: 17px; }
+.site-root .fb-paper--compact .fb-card__price { font-size: 16px; }
+.site-root .fb-paper--compact .fb-card__desc { font-size: 13.5px; line-height: 19px; max-height: calc(var(--fb-desc-lines) * 19px); }
+.site-root .fb-paper--compact .fb-toc__row { font-size: 14.5px; }
+.site-root .fb-paper--compact .fb-foot { font-size: 10px; letter-spacing: 0.1em; }
+.site-root .fb-paper--compact .fb-cover__name { font-size: 26px; }
+.site-root .fb-paper--compact .fb-cover__logo,
+.site-root .fb-paper--compact .fb-cover__mono { width: 48px; height: 48px; font-size: 22px; }
+.site-root .fb-paper--compact .fb-back { padding: 16px; gap: 8px; font-size: 12px; }
+.site-root .fb-paper--compact .fb-back__name { font-size: 20px; }
+.site-root .fb-paper--compact .fb-back__hours ul { font-size: 11px; gap: 0; }
+
+/* ------------------------------------------------------------ Giảm chuyển động: StaticBook, mờ dần */
+@keyframes fb-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.site-root .fb-static {
+  position: relative;
+  flex: none;
+  touch-action: pan-y;
+}
+
+.site-root .fb-static__view {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  animation: fb-fade 0.28s ease;
+  box-shadow: 0 18px 40px rgba(40, 20, 10, 0.25);
+}
+
+.site-root .fb-static__page {
+  position: relative;
+  flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-root .fb-card--highlight {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--site-gold);
+  }
+}

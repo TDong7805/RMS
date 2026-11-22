@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CalendarCheck, Search, SearchX, UtensilsCrossed, X } from 'lucide-react';
+import { CalendarCheck, SearchX, UtensilsCrossed } from 'lucide-react';
 import { usePublicMenu } from '@/features/public-site/queries';
 import { MenuItemCard, PageBanner, SiteEmpty, SiteError, SiteImage, SiteSkeleton, useSiteData } from '@/features/public-site/parts';
 import { useDebounced } from '@/hooks/use-debounced';
 import { cn } from '@/lib/cn';
+import { SearchField } from '@/features/public-site/SearchField';
 import { formatCurrency } from '@/lib/format';
 import type { PublicMenuItem, PublicSetMenu } from '@/types';
 
@@ -55,24 +56,16 @@ export default function MenuPage() {
       <PageBanner eyebrow="Thực đơn" title={`Thực đơn ${brand.name}`} subtitle="Món có thể thay đổi theo mùa và lượng hàng trong ngày. Tìm món không cần gõ dấu." />
       <section className="site-container py-10">
         <div className="sticky top-[var(--site-header-h)] z-30 -mx-4 space-y-3 bg-[var(--site-bg-glass)] px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
-          <div className="relative max-w-[520px]">
-            <label htmlFor="menu-search" className="sr-only">Tìm món</label>
-            <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--site-muted)]" aria-hidden />
-            <input
-              id="menu-search"
-              type="search"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Tìm món: bít tết, phở, lẩu…"
-              className="site-input rounded-full pl-11 pr-11"
-              maxLength={60}
-            />
-            {keyword ? (
-              <button type="button" onClick={() => setKeyword('')} aria-label="Xóa từ khóa" className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full hover:bg-[var(--site-surface-2)]">
-                <X size={15} aria-hidden />
-              </button>
-            ) : null}
-          </div>
+          <SearchField
+            id="menu-search"
+            label="Tìm món"
+            value={keyword}
+            onChange={setKeyword}
+            onClear={() => setKeyword('')}
+            placeholder="Tìm món: bít tết, phở, lẩu…"
+            maxLength={60}
+            className="max-w-[520px]"
+          />
           {categories.length ? (
             <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Lọc theo danh mục">
               <Chip active={!category} onClick={() => setCategory('')}>Tất cả</Chip>

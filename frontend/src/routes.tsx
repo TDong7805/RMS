@@ -16,6 +16,7 @@ const PublicLayout = lazy(() => import('@/features/public-site/PublicLayout'));
 const SiteHomePage = lazy(() => import('@/pages/khach/HomePage'));
 const SiteAboutPage = lazy(() => import('@/pages/khach/AboutPage'));
 const SiteMenuPage = lazy(() => import('@/pages/khach/MenuPage'));
+const SiteFlipMenuPage = lazy(() => import('@/pages/khach/FlipMenuPage'));
 const SiteReservationPage = lazy(() => import('@/pages/khach/ReservationPage'));
 const SiteGalleryPage = lazy(() => import('@/pages/khach/GalleryPage'));
 const SiteContactPage = lazy(() => import('@/pages/khach/ContactPage'));
@@ -224,7 +225,9 @@ export function AppRoutes() {
       <Route element={<Suspense fallback={<PageLoader />}><PublicLayout /></Suspense>}>
         <Route path="/" element={<Suspense fallback={null}><SiteHomePage /></Suspense>} />
         <Route path="/gioi-thieu" element={<Suspense fallback={null}><SiteAboutPage /></Suspense>} />
-        <Route path="/thuc-don" element={<Suspense fallback={null}><SiteMenuPage /></Suspense>} />
+        {/* Thực đơn dạng sách lật trang; dạng danh sách cũ giữ ở /thuc-don/danh-sach để có thể quay lại */}
+        <Route path="/thuc-don" element={<Suspense fallback={null}><SiteFlipMenuPage /></Suspense>} />
+        <Route path="/thuc-don/danh-sach" element={<Suspense fallback={null}><SiteMenuPage /></Suspense>} />
         <Route path="/dat-ban" element={<Suspense fallback={null}><SiteReservationPage /></Suspense>} />
         <Route path="/album" element={<Suspense fallback={null}><SiteGalleryPage /></Suspense>} />
         <Route path="/lien-he" element={<Suspense fallback={null}><SiteContactPage /></Suspense>} />

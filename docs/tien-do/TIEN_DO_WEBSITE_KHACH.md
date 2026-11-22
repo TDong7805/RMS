@@ -21,6 +21,43 @@ Cập nhật: 22/11/2026.
 - **Dữ liệu:** migration `V24`, mẫu `V24_1`. **API:** `com.rms.website` (xem `backend/README.md` → Website khách hàng). **Kiểm thử:** `tests/api/15-website-khach.mjs`.
 - **Sửa lỗi có sẵn:** logo nhà hàng giờ lưu qua `ImageStore`. Trước đây form gửi ảnh dạng data URL mà cột chỉ có 500 ký tự.
 
+## Thực đơn dạng sách lật trang (flipbook)
+- `/thuc-don` hiển thị dạng sách (`features/public-site/flipbook/FlipMenu`). Dạng danh sách cũ vẫn giữ ở `/thuc-don/danh-sach` (nút ☰ trên thanh sách).
+- Hiệu ứng lật dùng thư viện **`page-flip` 2.0.7** (StPageFlip, MIT), bọc trong `PageFlipBook.tsx`:
+  - Rê chuột vào 4 góc ngoài thì góc cong lên (vùng kích hoạt 72px, cong theo con trỏ). Bấm vào góc đang cong thì lật hẳn.
+  - Kéo hoặc vuốt thì trang gập theo đường chéo, bám con trỏ, có bóng dọc nếp gập. Thả quá nửa (hoặc vuốt nhanh) thì lật; chưa đủ thì bật về chỗ cũ. Lật mất 700ms.
+  - Trên màn cảm ứng: khi mở menu, góc dưới-phải tự cong nhẹ một lần mỗi phiên để gợi ý menu lật được.
+  - Thư viện tự di chuyển các trang trong DOM, nên các `<div>` trang được tạo bằng JavaScript; React chỉ vẽ nội dung vào trong qua portal.
+- Thư viện không làm được (đã tự bổ sung hoặc là giới hạn):
+  - Vùng góc mặc định là 1/5 đường chéo trang và không có tùy chọn để chỉnh. Mình thu về 72px bằng cách ghi đè `isPointOnCorners` trên từng phiên bản sách.
+  - Không có lệnh "cong một nửa". Gợi ý cong góc trên màn cảm ứng dùng hàm nội bộ `showCorner()` của thư viện.
+  - Không có hiệu ứng mờ dần. Khi bật giảm chuyển động, dùng `StaticBook` thay thế.
+  - Không tự chia lại trang khi xoay máy. Sách được dựng lại tại trang đang xem (`startPage`).
+  - **Mặt sau của trang đang lật luôn là trang kế tiếp** (giống sách in thật), không đặt riêng được một ảnh nền. Ảnh line-art chỉ dùng cho trang trống cuối sách, hoặc cho mọi trang khi chọn `?nen=2`.
+- Thẻ món có ảnh lớn:
+  - Màn ngang: 2 cột, 2–4 món/trang. Màn dọc: 1 cột, 2–3 món/trang, ảnh gần hết bề ngang.
+  - Trang đầu mỗi danh mục có ít món hơn nên ảnh to hơn.
+  - Cỡ chữ: tiêu đề danh mục 30px chữ hoa màu vàng đồng; tên món 21px; giá 19px; mô tả 15,5px.
+  - Chân trang ghi: danh mục | tên quán | số trang.
+- Nền trang có 3 phương án: giấy kem (mặc định), line-art, kraft. Đổi mặc định ở `flipbook/theme.ts`, xem thử nhanh bằng `?nen=1|2|3`. Nền bao quanh sách là vân gỗ sáng.
+  - Đây là ảnh tạm, tạo bằng `tools/menu-textures/gen-textures.mjs`. Danh sách file cần thay có trong `tools/menu-textures/README.md`.
+  - Màu chữ đạt WCAG AA trên cả ba nền.
+- Bố cục theo màn hình:
+  - Màn ngang: 2 trang mở cạnh nhau. Màn dọc: 1 trang.
+  - Xoay máy thì chia lại trang, nhưng vẫn giữ món đang xem.
+  - Trang giữ tỉ lệ 3:4, khung cao `100dvh`.
+- Cách lật trang:
+  - Vuốt trên điện thoại hoặc máy tính bảng.
+  - Kéo mép hoặc góc trang bằng chuột.
+  - Nút ‹ ›, phím ← → (không lật khi đang gõ trong ô tìm).
+  - Chọn mục lục, hoặc chọn một kết quả tìm kiếm (sách lật tới món đó và làm món nhấp nháy nổi bật).
+- Thứ tự trang: bìa trước → mục lục → mỗi danh mục bắt đầu một trang mới → set menu → bìa sau (địa chỉ, liên hệ, giờ mở cửa).
+- Tự chia món sang trang sau theo chiều cao trang thật. Lưới thẻ có số hàng cố định trên mỗi trang nên không món nào bị cắt giữa hai trang.
+- Chỉ vẽ các trang đang hiện. Ảnh của 1–2 trang kế tiếp được tải trước.
+- Khi người dùng bật giảm chuyển động (`prefers-reduced-motion`), đổi trang bằng hiệu ứng mờ dần thay vì lật.
+- Ô tìm kiếm dùng component `SearchField`, viết lại để sửa lỗi kính lúp đè lên chữ. Font ô nhập 16px nên iOS không tự phóng to khi chạm vào.
+- Website chưa có thông tin wifi để in ở bìa sau. Nếu cần, thêm trường vào `website_content` bằng một migration mới.
+
 ## Lưu ý
 - Danh hiệu "Michelin Selected 2026" và link mạng xã hội trong dữ liệu mẫu là **giả** (chỉ có ở dev).
 - Album mẫu trống. Tải ảnh ở tab Website khách hàng.

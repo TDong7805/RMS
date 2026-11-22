@@ -10,6 +10,7 @@ import { CalendarCheck, Clock, Mail, MapPin, Menu, Phone, Search, X } from 'luci
 import { cn } from '@/lib/cn';
 import { useSite } from './queries';
 import { HoursList, SiteError, SiteSkeleton, SocialLinks, telHref, weekdayOf } from './parts';
+import { SearchField } from './SearchField';
 import type { PublicSite } from '@/types';
 
 /** Menu chính của website khách hàng (đường dẫn ngắn để dành cho khách — xem lib/paths.ts). */
@@ -90,23 +91,13 @@ function SiteHeader({ site }: { site: PublicSite | undefined }) {
 
   const name = site?.brand.name ?? '';
   const search = (id: string) => (
-    <form role="search" onSubmit={submit} className="relative">
-      <label htmlFor={id} className="sr-only">Tìm món ăn</label>
-      <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--site-muted)]" aria-hidden />
-      <input
-        id={id}
-        type="search"
-        value={keyword}
-        onChange={(e) => setKeyword(e.target.value)}
-        placeholder="Tìm món ăn…"
-        className="site-input h-10 rounded-full pl-10 text-[14px]"
-        maxLength={60}
-      />
+    <form role="search" onSubmit={submit}>
+      <SearchField id={id} label="Tìm món ăn" value={keyword} onChange={setKeyword} placeholder="Tìm món ăn…" maxLength={60} compact />
     </form>
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--site-border)] bg-[var(--site-bg-glass)] backdrop-blur">
+    <header className="site-header sticky top-0 z-40 border-b border-[var(--site-border)] bg-[var(--site-bg-glass)] backdrop-blur">
       <a href="#noi-dung" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:rounded focus:bg-white focus:px-3 focus:py-2">
         Bỏ qua thanh điều hướng
       </a>

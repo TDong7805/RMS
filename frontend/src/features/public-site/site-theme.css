@@ -74,7 +74,8 @@
   border: 1px solid var(--site-border);
   background: var(--site-surface);
   padding-inline: 14px;
-  font-size: 15px;
+  /* ≥ 16px: iOS Safari không tự phóng to trang khi chạm vào ô nhập. */
+  font-size: 16px;
   color: var(--site-text);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -99,6 +100,105 @@
 
 .site-root .site-input::placeholder {
   color: var(--site-muted);
+}
+
+/*
+ * Ô tìm kiếm (SearchField.tsx). Khoảng cách tính theo biến để không lệch:
+ *   chữ bắt đầu = mép trái icon (14px) + độ rộng icon (18px) + khoảng cách tới chữ (8px) = 40px.
+ * Viết ở đây (cùng độ ưu tiên với .site-input) thay vì class Tailwind pl-10 — trước đây .site-root .site-input
+ * { padding-inline: 14px } ghi đè pl-10 nên chữ nằm dưới kính lúp.
+ */
+.site-root .site-search {
+  --search-h: 46px;
+  --search-icon: 18px;
+  --search-edge: 14px;
+  --search-gap: 8px;
+  --search-clear: 32px;
+  position: relative;
+  width: 100%;
+}
+
+.site-root .site-search--compact {
+  --search-h: 40px;
+  --search-icon: 16px;
+}
+
+.site-root .site-search__input {
+  display: block;
+  width: 100%;
+  height: var(--search-h);
+  margin: 0;
+  border: 1px solid var(--site-border);
+  border-radius: 999px;
+  background: var(--site-surface);
+  color: var(--site-text);
+  font: inherit;
+  font-size: 16px;
+  line-height: normal;
+  padding: 0 var(--search-edge) 0 calc(var(--search-edge) + var(--search-icon) + var(--search-gap));
+  outline: none;
+  /* Bỏ kiểu riêng của ô type=search trên iOS / Chrome (bo góc, bóng, khoảng thụt trái) */
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.site-root .site-search--clearable .site-search__input {
+  padding-right: calc(var(--search-clear) + 10px);
+}
+
+/* Nút X mặc định của trình duyệt bị ẩn — đã có nút X riêng, tránh hiện hai nút. */
+.site-root .site-search__input::-webkit-search-cancel-button,
+.site-root .site-search__input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.site-root .site-search__input::placeholder {
+  color: var(--site-muted);
+  opacity: 1;
+}
+
+.site-root .site-search__input:focus {
+  border-color: var(--site-primary);
+  box-shadow: 0 0 0 3px var(--site-primary-soft);
+}
+
+.site-root .site-search__icon {
+  position: absolute;
+  left: var(--search-edge);
+  top: 50%;
+  width: var(--search-icon);
+  height: var(--search-icon);
+  transform: translateY(-50%);
+  color: var(--site-muted);
+  pointer-events: none;
+}
+
+.site-root .site-search__clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--search-clear);
+  height: var(--search-clear);
+  border-radius: 999px;
+  transform: translateY(-50%);
+  color: var(--site-muted);
+}
+
+.site-root .site-search__clear:hover {
+  background: var(--site-surface-2);
+  color: var(--site-text);
+}
+
+/* Điện thoại xoay ngang (màn thấp): thanh đầu trang không dính, nhường chiều cao cho nội dung (sách thực đơn). */
+@media (orientation: landscape) and (max-height: 520px) {
+  .site-root .site-header {
+    position: relative;
+  }
 }
 
 /* Nút */
