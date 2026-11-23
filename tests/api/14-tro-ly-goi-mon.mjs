@@ -131,6 +131,37 @@ sql(`UPDATE dishes SET sold_out_date = NULL WHERE id = ${out.id}; SELECT 1`);
 r = await ask('x'.repeat(2000));
 ok('câu quá dài vẫn trả lời (cắt còn 300 ký tự)', r.status === 200, r.status);
 
+// ---- Lưu hội thoại → Quản lý Chatbot: Lịch sử hội thoại, Thống kê
+const sid = '11111111-2222-4333-8444-' + String(Date.now()).slice(-12).padStart(12, '0');
+const tableCode = sql(`SELECT code FROM dining_tables WHERE qr_token='${token}'`);
+await ask('đồ uống dưới 50k', { sessionId: sid });
+let r2 = await ask('lẩu nào ngon', { sessionId: sid });
+const convId = sql(`SELECT id FROM chat_conversations WHERE session_token='${sid}'`);
+ok('cùng phiên chat → một hội thoại, đủ 4 tin (2 khách, 2 bot), gắn đúng bàn', convId && sql(`SELECT COUNT(*) FROM chat_messages WHERE conversation_id=${convId}`) === '4'
+  && sql(`SELECT t.code FROM chat_conversations c JOIN dining_tables t ON t.id=c.table_id WHERE c.id=${convId}`) === tableCode, convId);
+ok('món bot gợi ý được ghi lại (món được hỏi nhiều)', Number(sql(`SELECT COUNT(*) FROM chat_message_dishes md JOIN chat_messages m ON m.id=md.message_id WHERE m.conversation_id=${convId}`)) > 0);
+ok('hội thoại bot trả lời được → answered, câu bot ghi nguồn rules', sql(`SELECT status FROM chat_conversations WHERE id=${convId}`) === 'answered'
+  && sql(`SELECT GROUP_CONCAT(DISTINCT source) FROM chat_messages WHERE conversation_id=${convId} AND sender='bot'`) === 'rules');
+await ask('asdfgh qwerty', { sessionId: sid });
+ok('có câu bot không trả lời được → fallback', sql(`SELECT status FROM chat_conversations WHERE id=${convId}`) === 'fallback');
+await ask('gọi nhân viên giúp', { sessionId: sid });
+ok('khách cần nhân viên → handoff (chỉ nâng, không hạ)', sql(`SELECT status FROM chat_conversations WHERE id=${convId}`) === 'handoff');
+const goiY = r2.body.items.find((i) => i.kind === 'dish');
+let ad = await fetch(`${BASE}/api/public/qr/${token}/assistant/added`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: sid, items: [{ kind: 'dish', id: goiY.id, qty: 2 }, { kind: 'dish', id: '999999', qty: 1 }] }) }).then(j);
+ok('khách bấm Thêm từ gợi ý → ghi lại (bỏ món không tồn tại)', ad.status === 200 && ad.body.saved === 1, ad.body);
+let cv = await mg('GET', `/api/chatbot/conversations?status=handoff&keyword=${encodeURIComponent('asdfgh')}`);
+const mine = cv.body.items?.find((c) => c.id === convId);
+ok('quản lý: lịch sử lọc theo trạng thái + từ khóa, đủ tin nhắn, món khách thêm', cv.status === 200 && mine && mine.messages.length === 8 && mine.messages[0].from === 'customer'
+  && mine.tableCode === tableCode && mine.addedToCart.length === 1 && /^2 × /.test(mine.addedToCart[0]), mine ?? cv.body);
+cv = await mg('GET', '/api/chatbot/conversations?status=answered&keyword=asdfgh');
+ok('lọc trạng thái khác → không lẫn hội thoại này', cv.status === 200 && !cv.body.items.some((c) => c.id === convId), cv.body.total);
+let st = await mg('GET', '/api/chatbot/stats?days=7');
+ok('thống kê 7 ngày: tổng hội thoại / tin nhắn, tỉ lệ, món được hỏi nhiều, theo ngày', st.status === 200 && st.body.totalConversations >= 1 && st.body.totalMessages >= 8
+  && st.body.handoffRate > 0 && st.body.cartConversion > 0 && st.body.topAskedDishes.length > 0 && st.body.daily.length === 7
+  && st.body.daily[6].conversations >= 1, st.body);
+const anonConv = (await fetch(`${BASE}/api/chatbot/conversations`)).status;
+ok('khách không xem được lịch sử hội thoại', anonConv === 401 || anonConv === 403, anonConv);
+
 await mg('PUT', '/api/chatbot/ai', { enabled: aiBefore.enabled, apiKeyRef: aiBefore.apiKeyRef });
 
 console.log(`\n${pass} PASS, ${fail} FAIL`);

@@ -40,7 +40,7 @@ import org.springframework.stereotype.Service;
 public class MenuAssistant {
 
     /** history: tối đa 4 câu khách hỏi trước (để hiểu "rẻ hơn", "món khác"); shown: id món đã gợi ý; cart: id món trong giỏ. */
-    public record Ask(String message, List<String> history, List<String> shown, List<String> cart) {}
+    public record Ask(String message, List<String> history, List<String> shown, List<String> cart, String sessionId) {}
 
     /** kind = dish | set; qty = số phần gợi ý; note = lý do ngắn hiện dưới tên món. */
     public record Suggestion(String kind, String id, int qty, String note) {}
@@ -61,8 +61,12 @@ public class MenuAssistant {
     private final ChatbotConfigService chatbot;
     private final JdbcClient jdbc;
     private final GeminiAssistant gemini;
+    private final ChatLogService chatLog;
+    /** Lượt trả lời hiện tại có câu bot không trả lời được (đánh dấu bởi logUnanswered) → lưu hội thoại "fallback". */
+    private static final ThreadLocal<Boolean> UNANSWERED = ThreadLocal.withInitial(() -> false);
 
-    public MenuAssistant(QrOrderingService qr, ChatbotConfigService chatbot, JdbcClient jdbc, GeminiAssistant gemini) {
+    public MenuAssistant(QrOrderingService qr, ChatbotConfigService chatbot, JdbcClient jdbc, GeminiAssistant gemini, ChatLogService chatLog) {
+        this.chatLog = chatLog;
         this.gemini = gemini;
         this.qr = qr;
         this.chatbot = chatbot;
@@ -76,6 +80,18 @@ public class MenuAssistant {
     }
 
     public Reply reply(String token, Ask in) {
+        UNANSWERED.set(false);
+        try {
+            Reply r = answer(token, in);
+            String q = Vi.collapse(in.message());
+            chatLog.record(qr.table(token).id(), in.sessionId(), q.length() > MAX_MESSAGE ? q.substring(0, MAX_MESSAGE) : q, r, UNANSWERED.get());
+            return r;
+        } finally {
+            UNANSWERED.remove();
+        }
+    }
+
+    private Reply answer(String token, Ask in) {
         String message = Vi.collapse(in == null ? "" : in.message());
         if (message.isEmpty()) throw new BusinessException("Bạn hãy nhập câu hỏi");
         if (message.length() > MAX_MESSAGE) message = message.substring(0, MAX_MESSAGE);
@@ -126,6 +142,7 @@ public class MenuAssistant {
 
     /** Câu khách không trả lời được → "Câu hỏi chưa giải đáp" (Quản lý Chatbot), cùng câu thì cộng số lần hỏi. */
     private void logUnanswered(String message) {
+        UNANSWERED.set(true);
         String q = message.length() > 300 ? message.substring(0, 300) : message;
         int n = jdbc.sql("UPDATE unanswered_questions SET asked_count = asked_count + 1, last_asked_at = NOW() WHERE status = 'open' AND question = ?")
             .param(q).update();

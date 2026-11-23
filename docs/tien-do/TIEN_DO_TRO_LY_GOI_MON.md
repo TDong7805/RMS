@@ -99,6 +99,27 @@ Khách không bao giờ thấy lỗi.
 
 **Lưu ý:** ở gói miễn phí, Google có thể dùng nội dung chat để cải thiện sản phẩm của họ. Muốn dùng thật cho khách thì nên chuyển sang gói trả phí.
 
+## Lưu hội thoại (cập nhật 23/11/2026, V26)
+
+Mỗi câu khách hỏi và câu bot trả lời trên trang QR đều được lưu lại. Quản lý xem ở **Quản lý Chatbot → Lịch sử hội thoại** và **Thống kê & báo cáo** (trước đây hai tab này dùng dữ liệu giả).
+
+- **Một hội thoại** = một phiên chat trên một thiết bị: trình duyệt tạo mã phiên, giữ tới khi đóng tab. Hội thoại gắn với bàn và đơn đang mở.
+- **Kết quả của hội thoại:**
+  - *Đã trả lời*: bot trả lời được hết.
+  - *Ngoài phạm vi*: có câu bot không trả lời được (câu đó cũng vào "Câu hỏi chưa giải đáp").
+  - *Chuyển nhân viên*: khách hỏi gọi nhân viên hoặc thanh toán.
+  - Kết quả chỉ nâng lên, không hạ xuống.
+- **Các thông tin được ghi lại:**
+  - món bot gợi ý → "Món được hỏi nhiều";
+  - món khách bấm **Thêm** từ thẻ gợi ý → "Khách thêm món sau tư vấn";
+  - nguồn câu trả lời của bot (Gemini hay theo luật).
+- **API:**
+  - `GET /api/chatbot/conversations?keyword=&date=&status=&page=`
+  - `GET /api/chatbot/stats?days=7`
+  - `POST /api/public/qr/{token}/assistant/added`
+- **Mã nguồn:** `ordering/ChatLogService.java`, `ordering/ChatLogController.java`.
+- Lưu hội thoại bị lỗi thì khách vẫn được trả lời bình thường.
+
 ## Giới hạn / bước sau (cách 2)
 
 - Trợ lý chỉ hiểu theo từ khóa và mẫu câu, nên câu dài, vòng vo hoặc nhiều ý lồng nhau có thể hiểu chưa đúng. Những câu không hiểu đều được ghi lại để quản lý xem.

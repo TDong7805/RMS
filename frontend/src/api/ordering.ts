@@ -244,7 +244,7 @@ export type AssistantReply = { text: string; items: AssistantSuggestion[]; chips
 /** history: các câu khách hỏi trước (cũ → mới); shown: id món đã gợi ý; cart: id món trong giỏ. */
 export function askAssistant(
   token: string,
-  body: { message: string; history: string[]; shown: string[]; cart: string[] },
+  body: { message: string; history: string[]; shown: string[]; cart: string[]; sessionId?: string },
 ): Promise<AssistantReply> {
   return api.post<AssistantReply>(`${qr(token)}/assistant`, body);
 }
@@ -254,4 +254,9 @@ export type AssistantIntro = { active: boolean; botName: string; avatar: string;
 /** Tên, ảnh đại diện, lời chào, câu gợi ý nhanh của trợ lý (Quản lý Chatbot); active = false → ẩn trợ lý. */
 export function getAssistantIntro(token: string): Promise<AssistantIntro> {
   return api.get<AssistantIntro>(`${qr(token)}/assistant`);
+}
+
+/** Khách bấm "Thêm" trên thẻ gợi ý của trợ lý → thống kê "khách thêm món nhờ chatbot" (Quản lý Chatbot). */
+export function reportAssistantAdds(token: string, sessionId: string, items: { kind: 'dish' | 'set'; id: string; qty: number }[]) {
+  return api.post<{ saved: number }>(`${qr(token)}/assistant/added`, { sessionId, items });
 }

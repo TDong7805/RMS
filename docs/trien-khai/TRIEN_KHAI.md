@@ -251,7 +251,7 @@ Có quản lý khác: người đó vào Tài khoản → Đặt lại mật kh�
 
 Danh sách đầy đủ, kèm cách thay: [DU_LIEU_GIA.md](../du-lieu/DU_LIEU_GIA.md).
 
-- Trang Thông báo, Dashboard và phần lịch sử hội thoại / thống kê của Chatbot AI vẫn dùng
+- Trang Dashboard vẫn dùng
   dữ liệu giả trong trình duyệt (mất khi tải lại trang).
 - Các phân hệ Thu ngân, Bếp, Kho, Khách hàng chưa xây dựng.
 - Tự động sao lưu chạy trong tiến trình backend: chạy nhiều máy chủ cùng lúc thì mỗi máy đều sao lưu (nên bật lịch

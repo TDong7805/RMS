@@ -1,6 +1,3 @@
-import { conversationSeed, dishMentionSeed } from '@/mocks/chatbot';
-import { matchesKeyword } from '@/lib/normalize';
-import { delay, paginate, toDateKey } from '@/lib/mock';
 import { api } from '@/lib/http';
 import type {
   ChatbotConfig,
@@ -18,7 +15,6 @@ import type {
   UnansweredQuestion,
 } from '@/types';
 
-const conversations: Conversation[] = conversationSeed;
 
 export const CONVERSATION_PAGE_SIZE = 8;
 
@@ -112,58 +108,20 @@ export function dismissUnanswered(id: string): Promise<void> {
   return api.delete(`/api/chatbot/unanswered/${encodeURIComponent(id)}`);
 }
 
-/* ------------------------------------------------------------ Lịch sử hội thoại — DỮ LIỆU GIẢ
- * Chỉ có dữ liệu thật khi khách chat với bot (phân hệ Khách hàng). Xem DU_LIEU_GIA.md. */
+/* ------------------------------------------------------------ Lịch sử hội thoại + thống kê (dữ liệu thật)
+ * Ghi từ trợ lý gọi món trên trang QR (mỗi phiên chat trên một thiết bị là một hội thoại). */
 
-/** [BACKEND-TODO] GET /api/chatbot/conversations?keyword=&date=&status=&page= */
-export async function getConversations(filter: ConversationFilter): Promise<Paged<Conversation>> {
-  await delay(300);
-  const items = conversations
-    .filter((c) => (filter.status === 'all' ? true : c.status === filter.status))
-    .filter((c) => (filter.date ? toDateKey(new Date(c.startedAt)) === filter.date : true))
-    .filter(
-      (c) =>
-        !filter.keyword.trim() ||
-        matchesKeyword(c.tableCode, filter.keyword) ||
-        c.messages.some((m) => matchesKeyword(m.text, filter.keyword)),
-    )
-    .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
-  return paginate(items, filter.page, CONVERSATION_PAGE_SIZE);
+/** GET /api/chatbot/conversations?keyword=&date=&status=&page= */
+export function getConversations(filter: ConversationFilter): Promise<Paged<Conversation>> {
+  return api.get<Paged<Conversation>>('/api/chatbot/conversations', {
+    keyword: filter.keyword.trim() || undefined,
+    date: filter.date || undefined,
+    status: filter.status === 'all' ? undefined : filter.status,
+    page: filter.page,
+  });
 }
 
-/* ------------------------------------------------------------ Thống kê — DỮ LIỆU GIẢ
- * Tính từ lịch sử hội thoại thật khi có phân hệ Khách hàng. Xem DU_LIEU_GIA.md. */
-
-/** [BACKEND-TODO] GET /api/chatbot/stats?days=7 */
-export async function getChatbotStats(): Promise<ChatbotStats> {
-  await delay(380);
-  const total = conversations.length;
-  const count = (s: Conversation['status']) => conversations.filter((c) => c.status === s).length;
-  const messages = conversations.reduce((s, c) => s + c.messages.length, 0);
-  const daily: ChatbotStats['daily'] = [];
-  for (let i = 6; i >= 0; i -= 1) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const key = toDateKey(d);
-    const base = 18 + ((d.getDate() * 7) % 13) + (d.getDay() === 0 || d.getDay() === 6 ? 12 : 0);
-    const real = conversations.filter((c) => toDateKey(new Date(c.startedAt)) === key);
-    daily.push({
-      label: `${['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`,
-      conversations: base + real.length,
-      fallback: Math.round(base * 0.12) + real.filter((c) => c.status === 'fallback').length,
-    });
-  }
-  return {
-    totalConversations: total,
-    totalMessages: messages,
-    answerRate: total ? (count('answered') / total) * 100 : 0,
-    fallbackRate: total ? (count('fallback') / total) * 100 : 0,
-    handoffRate: total ? (count('handoff') / total) * 100 : 0,
-    avgMessages: total ? messages / total : 0,
-    cartConversion: total ? (conversations.filter((c) => c.addedToCart.length > 0).length / total) * 100 : 0,
-    topAskedDishes: Object.entries(dishMentionSeed)
-      .map(([name, n]) => ({ dishId: name, name, count: n }))
-      .sort((a, b) => b.count - a.count),
-    daily,
-  };
+/** GET /api/chatbot/stats?days=7 */
+export function getChatbotStats(): Promise<ChatbotStats> {
+  return api.get<ChatbotStats>('/api/chatbot/stats', { days: 7 });
 }

@@ -23,8 +23,6 @@ ls backend/src/main/resources/db/dev                  # loại B
 
 | Trang / chức năng | File | Vì sao còn giả | Cần gì để thay |
 |---|---|---|---|
-| **Chatbot AI — Lịch sử hội thoại** | `mocks/chatbot.ts` (`conversationSeed`), `api/chatbot.ts` (`getConversations`) | Chỉ có khi **khách chat với bot** (phân hệ Khách hàng) | Làm phần bot trả lời khách, ghi bảng `chat_conversations` / `chat_messages`, rồi viết API đọc |
-| **Chatbot AI — Thống kê & báo cáo** | `api/chatbot.ts` (`getChatbotStats`), `mocks/chatbot.ts` (`dishMentionSeed`) | Tính từ lịch sử hội thoại (chưa có). Số theo ngày đang là công thức giả | Như trên, tính từ `chat_conversations`, `chat_message_dishes`, `unanswered_questions` |
 | **Ô tìm kiếm — "Trang truy cập gần đây"** | `mocks/notifications.ts` (`recentPagePaths`), `api/search.ts` | Chỉ là tiện ích giao diện | Có thể lưu vào `localStorage` của trình duyệt; không cần backend |
 
 **Không phải dữ liệu giả** (cấu hình giao diện, giữ nguyên được): cấu trúc menu bên trái (`mocks/menu.ts`), danh sách
