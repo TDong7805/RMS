@@ -10,7 +10,12 @@ Actor: Quản lý nhà hàng (gộp Quản trị viên), Thu ngân, Nhân viên 
 
 Trợ lý trên trang gọi món QR trả lời bằng **Gemini** nếu máy chạy backend có API key; không có key thì tự trả lời theo luật (vẫn dùng được).
 1. Lấy key miễn phí ở [Google AI Studio](https://aistudio.google.com) → *Get API key*.
-2. PowerShell: `setx GEMINI_API_KEY "khóa-của-bạn"` → đóng mở lại terminal / VS Code → chạy backend.
+2. **Dán key:** mở file **`backend/.env.properties`** (file riêng của từng máy, git bỏ qua — cùng file chứa mật khẩu MySQL;
+   chưa có thì copy từ `backend/.env.properties.example`), thêm một dòng ở cuối rồi lưu:
+   ```properties
+   GEMINI_API_KEY=dán-key-của-bạn-vào-đây
+   ```
+   Khởi động lại backend. (Cách khác: PowerShell `setx GEMINI_API_KEY "key"` rồi mở lại terminal / VS Code.)
 3. *Quản lý Chatbot → Cấu hình → Trí tuệ nhân tạo (Google Gemini)*: bật / tắt, đổi model, **Thử kết nối**.
 
 Key **không** để trong code hay CSDL (chỉ lưu tên biến `GEMINI_API_KEY`), mỗi người dùng key của mình — đừng commit / gửi key.

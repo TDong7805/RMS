@@ -57,8 +57,8 @@ Trợ lý giờ trả lời bằng **Google Gemini** khi máy chủ có API key;
 
 **Cài key (mỗi máy chạy backend làm một lần):**
 1. Lấy key ở Google AI Studio (aistudio.google.com → Get API key).
-2. Mở PowerShell, chạy `setx GEMINI_API_KEY "khóa-của-bạn"`.
-3. Đóng **mọi** cửa sổ PowerShell / terminal / VS Code đang mở (để chúng đọc biến mới), rồi chạy lại backend như bình thường.
+2. Mở file `backend/.env.properties` (file riêng của máy, git bỏ qua), thêm dòng `GEMINI_API_KEY=khóa-của-bạn`. Hoặc đặt biến môi trường bằng PowerShell: `setx GEMINI_API_KEY "khóa-của-bạn"`.
+3. Khởi động lại backend. Nếu dùng `setx`: đóng **mọi** cửa sổ PowerShell / terminal / VS Code đang mở trước (để chúng đọc biến mới).
 4. Vào **Quản lý Chatbot → Cấu hình**, xem thẻ "Trí tuệ nhân tạo" báo *Máy chủ đã có key* → bấm **Thử kết nối**.
 
 Mỗi người dùng key của chính mình: key nằm trong máy, không đi theo code lên GitHub. Máy không có key thì trợ lý tự trả lời theo luật.

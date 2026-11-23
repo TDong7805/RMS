@@ -7,6 +7,7 @@ import com.rms.common.Vi;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>CÁCH DÙNG GEMINI:
  * <ol>
  *   <li>Lấy key ở Google AI Studio (aistudio.google.com → Get API key).</li>
- *   <li>Trên máy chạy backend: {@code setx GEMINI_API_KEY "khóa-của-bạn"} (PowerShell), đóng mở lại terminal / IDE.</li>
+ *   <li>Dán key vào file {@code backend/.env.properties} (file riêng của máy, git bỏ qua): dòng {@code GEMINI_API_KEY=khóa-của-bạn}.
+ *       Hoặc đặt biến môi trường: {@code setx GEMINI_API_KEY "khóa-của-bạn"} rồi đóng mở lại terminal / IDE.</li>
  *   <li>Chạy backend; Quản lý Chatbot → Cấu hình → thẻ "Trí tuệ nhân tạo" → Thử kết nối.</li>
  * </ol>
  * Không có key / tắt Gemini → trợ lý trả lời theo luật (MenuAssistant). Mỗi máy dùng key riêng, key không lên GitHub.
@@ -40,8 +42,10 @@ public class AiModelService {
     private final GeminiClient gemini;
     private final AuditService audit;
     private final CurrentUserService currentUser;
+    private final Environment env;
 
-    public AiModelService(JdbcClient jdbc, GeminiClient gemini, AuditService audit, CurrentUserService currentUser) {
+    public AiModelService(JdbcClient jdbc, GeminiClient gemini, AuditService audit, CurrentUserService currentUser, Environment env) {
+        this.env = env;
         this.jdbc = jdbc;
         this.gemini = gemini;
         this.audit = audit;
@@ -57,11 +61,10 @@ public class AiModelService {
             .orElse(new AiConfig(false, "google", "gemini-3.5-flash-lite", 0.4, 1024, "", "GEMINI_API_KEY", key("GEMINI_API_KEY").isPresent()));
     }
 
-    /** Key từ biến môi trường (hoặc thuộc tính JVM cùng tên). */
+    /** Key theo tên: biến môi trường, thuộc tính JVM hoặc dòng trong backend/.env.properties (Spring gộp chung). */
     public Optional<String> key(String ref) {
         if (ref == null || ref.isBlank()) return Optional.empty();
-        String v = System.getenv(ref);
-        if (v == null || v.isBlank()) v = System.getProperty(ref);
+        String v = env.getProperty(ref);
         return v == null || v.isBlank() ? Optional.empty() : Optional.of(v.trim());
     }
 
@@ -102,7 +105,7 @@ public class AiModelService {
         AiConfig c = get();
         Optional<String> k = key(c.apiKeyRef());
         if (k.isEmpty())
-            return new TestResult(false, "Máy chủ chưa có biến môi trường " + c.apiKeyRef() + " — đặt key rồi khởi động lại backend", 0, "");
+            return new TestResult(false, "Máy chủ chưa có biến môi trường " + c.apiKeyRef() + " — thêm dòng " + c.apiKeyRef() + "=khóa vào backend/.env.properties (hoặc setx) rồi khởi động lại backend", 0, "");
         long t = System.currentTimeMillis();
         try {
             String reply = gemini.generate(k.get(), c.modelName(), "Trả lời bằng tiếng Việt, một câu ngắn.", "Chào bạn, bạn là ai?",
