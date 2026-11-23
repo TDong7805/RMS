@@ -11,6 +11,7 @@ import { cn } from '@/lib/cn';
 import { useSite } from './queries';
 import { HoursList, SiteError, SiteSkeleton, SocialLinks, telHref, weekdayOf } from './parts';
 import { SearchField } from './SearchField';
+import { SiteAssistant } from './SiteAssistant';
 import type { PublicSite } from '@/types';
 
 /** Menu chính của website khách hàng (đường dẫn ngắn để dành cho khách — xem lib/paths.ts). */
@@ -62,6 +63,7 @@ export default function PublicLayout() {
         )}
       </main>
       {site.data ? <SiteFooter site={site.data} /> : null}
+      {site.data ? <SiteAssistant /> : null}
     </div>
   );
 }

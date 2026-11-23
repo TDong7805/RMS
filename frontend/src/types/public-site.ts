@@ -196,3 +196,47 @@ export interface WebsiteMenuCategory {
   showOnWebsite: boolean;
   dishes: WebsiteMenuDish[];
 }
+
+/* ------------------------------------------------------------ Chatbot tư vấn trên website (V27) */
+
+/** active = công tắc chung VÀ "Hiện trên website khách hàng" (Quản lý Chatbot) đều bật. */
+export interface SiteAssistantIntro {
+  active: boolean;
+  botName: string;
+  avatar: string;
+  greeting: string;
+  chips: string[];
+}
+
+/** Thẻ món / set chatbot gợi ý; id theo thực đơn website (món, hoặc "g" + id nhóm). */
+export interface SiteAssistantCard {
+  kind: 'dish' | 'set';
+  id: string;
+  name: string;
+  price: number;
+  priceFrom: boolean;
+  image: string | null;
+  note: string | null;
+  qty: number;
+  soldOut: boolean;
+}
+
+export type SiteAssistantAction = 'reservation' | 'contact';
+
+export interface SiteAssistantReply {
+  text: string;
+  cards: SiteAssistantCard[];
+  chips: string[];
+  actions: SiteAssistantAction[];
+  /** ai = Gemini, rules = bộ trả lời theo luật. */
+  source?: 'ai' | 'rules';
+}
+
+export interface SiteAssistantQuestion {
+  message: string;
+  /** Vài câu khách hỏi trước (cũ → mới). */
+  history: string[];
+  /** Id các thẻ đã hiện — để gợi ý món khác khi khách hỏi "món khác". */
+  shown: string[];
+  sessionId: string;
+}

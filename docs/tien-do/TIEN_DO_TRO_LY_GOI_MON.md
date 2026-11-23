@@ -120,6 +120,11 @@ Mỗi câu khách hỏi và câu bot trả lời trên trang QR đều được 
 - **Mã nguồn:** `ordering/ChatLogService.java`, `ordering/ChatLogController.java`.
 - Lưu hội thoại bị lỗi thì khách vẫn được trả lời bình thường.
 
+## Website khách hàng (cập nhật 23/11/2026, V27)
+- Cùng trợ lý này chạy trên website công khai (nút "Tư vấn món"), qua `MenuAssistant.replyWebsite` với ngữ cảnh `Site` (không giỏ, chỉ món đang hiện trên website, thông tin nhà hàng). Chi tiết ở `TIEN_DO_WEBSITE_KHACH.md`.
+- `Reply` có thêm `actions` (`reservation`, `contact`); trang QR luôn nhận mảng rỗng.
+- Công tắc riêng `website_enabled`; hội thoại website có `channel = 'website'`.
+
 ## Giới hạn / bước sau (cách 2)
 
 - Trợ lý chỉ hiểu theo từ khóa và mẫu câu, nên câu dài, vòng vo hoặc nhiều ý lồng nhau có thể hiểu chưa đúng. Những câu không hiểu đều được ghi lại để quản lý xem.

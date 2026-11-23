@@ -1,5 +1,8 @@
 package com.rms.website;
 
+import com.rms.ordering.MenuAssistant.Intro;
+import com.rms.website.SiteAssistantService.Answer;
+import com.rms.website.SiteAssistantService.Question;
 import com.rms.website.PublicReservationService.ReservationInput;
 import com.rms.website.PublicReservationService.ReservationResult;
 import com.rms.website.PublicSiteService.GalleryPhoto;
@@ -20,6 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
  * GET  /api/public/site                               thương hiệu, giới thiệu, liên hệ, giờ mở cửa, cấu hình form đặt bàn, khu vực
  * GET  /api/public/site/menu?keyword=&categoryId=      thực đơn hiện trên website (categoryId = "set": chỉ set menu)
  * GET  /api/public/site/gallery                        album ảnh đang hiện
+ * GET  /api/public/site/assistant                      chatbot tư vấn: bật/tắt, tên, ảnh, lời chào, câu gợi ý
+ * POST /api/public/site/assistant                      {message, history, shown, sessionId} → {text, cards, chips, actions, source}
+ *      409 khi chatbot đang tắt trên website
  * POST /api/public/reservations                        {customerName, phone, email, guests, date, time, areaId, note} → 201
  *      422 lỗi theo trường · 409 trùng lịch / quá số lịch của một SĐT · 429 gửi quá nhiều lần
  */
@@ -27,10 +33,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class PublicSiteController {
     private final PublicSiteService site;
     private final PublicReservationService reservations;
+    private final SiteAssistantService assistant;
 
-    public PublicSiteController(PublicSiteService site, PublicReservationService reservations) {
+    public PublicSiteController(PublicSiteService site, PublicReservationService reservations, SiteAssistantService assistant) {
         this.site = site;
         this.reservations = reservations;
+        this.assistant = assistant;
     }
 
     @GetMapping("/api/public/site")
@@ -46,6 +54,16 @@ public class PublicSiteController {
     @GetMapping("/api/public/site/gallery")
     public List<GalleryPhoto> gallery() {
         return site.gallery();
+    }
+
+    @GetMapping("/api/public/site/assistant")
+    public Intro assistant() {
+        return assistant.intro();
+    }
+
+    @PostMapping("/api/public/site/assistant")
+    public Answer ask(@RequestBody Question in, HttpServletRequest request) {
+        return assistant.ask(in, request.getRemoteAddr());
     }
 
     @PostMapping("/api/public/reservations")

@@ -45,8 +45,27 @@ public class MenuAssistant {
     /** kind = dish | set; qty = số phần gợi ý; note = lý do ngắn hiện dưới tên món. */
     public record Suggestion(String kind, String id, int qty, String note) {}
 
-    /** addAll = hiện nút "Thêm tất cả" (thực đơn đề xuất cho cả bàn); source = ai (Gemini) | rules (theo luật). */
-    public record Reply(String text, List<Suggestion> items, List<String> chips, boolean addAll, String source) {}
+    /**
+     * addAll = hiện nút "Thêm tất cả" (thực đơn đề xuất cho cả bàn); source = ai (Gemini) | rules (theo luật).
+     * actions = nút hành động kèm câu trả lời (website khách hàng): "reservation" (Đặt bàn), "contact" (Liên hệ / chỉ đường).
+     */
+    public record Reply(String text, List<Suggestion> items, List<String> chips, boolean addAll, String source, List<String> actions) {
+        public Reply(String text, List<Suggestion> items, List<String> chips, boolean addAll, String source) {
+            this(text, items, chips, addAll, source, List.of());
+        }
+
+        Reply withActions(List<String> more) {
+            List<String> all = new ArrayList<>(actions);
+            more.stream().filter((a) -> !all.contains(a)).forEach(all::add);
+            return new Reply(text, items, chips, addAll, source, all);
+        }
+    }
+
+    /**
+     * Ngữ cảnh website khách hàng (khách tham khảo trước khi tới quán — không có bàn, không có giỏ):
+     * thông tin nhà hàng để trả lời địa chỉ / giờ / điện thoại, và id món đang hiện trên website (show_on_website).
+     */
+    public record Site(String name, String phone, String address, String hours, Set<String> visibleDishIds) {}
 
     static final int MAX_MESSAGE = 300;
     static final int MAX_ITEMS = 5;
@@ -82,39 +101,77 @@ public class MenuAssistant {
     public Reply reply(String token, Ask in) {
         UNANSWERED.set(false);
         try {
-            Reply r = answer(token, in);
-            String q = Vi.collapse(in.message());
-            chatLog.record(qr.table(token).id(), in.sessionId(), q.length() > MAX_MESSAGE ? q.substring(0, MAX_MESSAGE) : q, r, UNANSWERED.get());
+            Config config = chatbot.config();
+            if (!config.active()) throw new BusinessException("Trợ lý gọi món đang tạm tắt — bạn bấm chuông để gọi nhân viên nhé", HttpStatus.CONFLICT);
+            Reply r = answer(qr.menu(token), token, in, config, null);
+            chatLog.record(qr.table(token).id(), in.sessionId(), question(in), r, UNANSWERED.get());
             return r;
         } finally {
             UNANSWERED.remove();
         }
     }
 
-    private Reply answer(String token, Ask in) {
+    /* ======================================================================= Website khách hàng */
+
+    /** Khung chat trên website: bật khi công tắc chung VÀ công tắc "Hiện trên website" (V27) đều bật. */
+    public Intro introWebsite() {
+        Config c = chatbot.config();
+        return new Intro(c.active() && c.websiteEnabled(), c.botName(), c.avatar(), c.greeting(), WEBSITE_CHIPS);
+    }
+
+    static final List<String> WEBSITE_CHIPS = List.of("Món bán chạy", "Nhóm 4 người dưới 1 triệu", "Món không cay", "Set menu", "Giờ mở cửa", "Đặt bàn");
+
+    /**
+     * Khách hỏi trên website (không đăng nhập, không có bàn): cùng bộ não với trang QR (Gemini → theo luật, FAQ, cấu hình),
+     * nhưng: không có giỏ hàng, chỉ gợi ý món đang hiện trên website, trả lời địa chỉ / giờ / điện thoại từ cấu hình nhà hàng
+     * và kèm nút "Đặt bàn" khi khách tính tới quán. clientKey: khóa giới hạn số câu hỏi (IP) cho Gemini.
+     */
+    public Reply replyWebsite(Ask in, String clientKey, Site site) {
+        UNANSWERED.set(false);
+        try {
+            Config config = chatbot.config();
+            if (!config.active() || !config.websiteEnabled())
+                throw new BusinessException("Trợ lý tư vấn đang tạm tắt — bạn gọi hotline " + site.phone() + " để được hỗ trợ nhé", HttpStatus.CONFLICT);
+            Ask web = new Ask(in == null ? null : in.message(), in == null ? null : in.history(), in == null ? null : in.shown(), List.of(),
+                in == null ? null : in.sessionId());
+            Reply r = answer(qr.menu(), "web:" + clientKey, web, config, site);
+            // Thực đơn cho cả nhóm → khách đang tính tới quán: mời đặt bàn.
+            if (r.addAll()) r = r.withActions(List.of("reservation"));
+            chatLog.record(null, web.sessionId(), question(web), r, UNANSWERED.get());
+            return r;
+        } finally {
+            UNANSWERED.remove();
+        }
+    }
+
+    private static String question(Ask in) {
+        String q = Vi.collapse(in == null ? "" : in.message());
+        return q.length() > MAX_MESSAGE ? q.substring(0, MAX_MESSAGE) : q;
+    }
+
+    /** site = null: trang gọi món tại bàn (QR); có site: website khách hàng. rateKey: khóa giới hạn số câu hỏi Gemini. */
+    private Reply answer(Menu menu, String rateKey, Ask in, Config config, Site site) {
         String message = Vi.collapse(in == null ? "" : in.message());
         if (message.isEmpty()) throw new BusinessException("Bạn hãy nhập câu hỏi");
         if (message.length() > MAX_MESSAGE) message = message.substring(0, MAX_MESSAGE);
-        Menu menu = qr.menu(token);
-        Config config = chatbot.config();
-        if (!config.active()) throw new BusinessException("Trợ lý gọi món đang tạm tắt — bạn bấm chuông để gọi nhân viên nhé", HttpStatus.CONFLICT);
-        // Chỉ gợi ý món Quản lý đã bật "cho AI gợi ý" (Quản lý Chatbot → Thực đơn)
+        // Chỉ gợi ý món Quản lý đã bật "cho AI gợi ý" (Quản lý Chatbot → Thực đơn); trên website: thêm điều kiện đang hiện trên website.
         Set<String> aiIds = new HashSet<>(jdbc.sql("SELECT id FROM dishes WHERE ai_enabled = 1").query(Long.class).list()
             .stream().map(String::valueOf).toList());
+        if (site != null) aiIds.retainAll(site.visibleDishIds());
         List<Faq> faqs = jdbc.sql("SELECT id, question, answer FROM faqs WHERE is_active = 1")
             .query((rs, n) -> new Faq(rs.getLong("id"), rs.getString("question"), rs.getString("answer"), faqTokens(rs.getString("question"))))
             .list();
         // Có Gemini (đang bật + có key) → hỏi Gemini; không dùng được / lỗi → trả lời theo luật như cũ.
         List<QrOrderingService.MenuDish> available = menu.dishes().stream().filter((d) -> !d.soldOut() && aiIds.contains(d.id())).toList();
         List<String> history = safe(in.history()).stream().limit(4).toList();
-        GeminiAssistant.AiResult ai = gemini.answer(token, menu, available,
+        GeminiAssistant.AiResult ai = gemini.answer(rateKey, menu, available,
             faqs.stream().map((f) -> new GeminiAssistant.FaqPair(f.question(), f.answer())).toList(), config, message,
-            history, safe(in.cart()), budgetOf(message, history));
+            history, safe(in.cart()), budgetOf(message, history), site);
         if (ai != null) {
             if (!ai.answered()) logUnanswered(message);
             return ai.reply();
         }
-        return new Turn(menu, message, safe(in.history()), safe(in.shown()), safe(in.cart()), config, aiIds, faqs).answer();
+        return new Turn(menu, message, safe(in.history()), safe(in.shown()), safe(in.cart()), config, aiIds, faqs, site).answer();
     }
 
     /**
@@ -264,6 +321,10 @@ public class MenuAssistant {
         return " " + Vi.normalize(s).replaceAll("[^a-z0-9]+", " ").trim() + " ";
     }
 
+    static boolean blank(String s) {
+        return s == null || s.isBlank();
+    }
+
     static boolean has(String n, String kw) {
         return n.contains(" " + kw + " ");
     }
@@ -386,8 +447,11 @@ public class MenuAssistant {
         final Map<String, Integer> rank = new HashMap<>();
         /** Món được gợi ý: đang bán, chưa hết hôm nay, Quản lý bật "cho AI gợi ý". */
         final List<MenuDish> available;
+        /** null: trang gọi món tại bàn (QR); có giá trị: website khách hàng. */
+        final Site site;
 
-        Turn(Menu menu, String raw, List<String> history, List<String> shown, List<String> cart, Config config, Set<String> aiIds, List<Faq> faqs) {
+        Turn(Menu menu, String raw, List<String> history, List<String> shown, List<String> cart, Config config, Set<String> aiIds, List<Faq> faqs, Site site) {
+            this.site = site;
             this.menu = menu;
             this.raw = raw;
             this.n = norm(raw);
@@ -396,7 +460,7 @@ public class MenuAssistant {
             this.cart = cart;
             this.config = config;
             this.faqs = faqs;
-            this.startChips = chips(config);
+            this.startChips = site != null ? WEBSITE_CHIPS : chips(config);
             for (MenuCategory c : menu.categories()) { catName.put(c.id(), c.name()); catKey.put(c.id(), Vi.normalize(c.name())); }
             List<String> best = menu.bestSellers();
             for (int i = 0; i < best.size(); i++) rank.put(best.get(i), i);
@@ -419,6 +483,10 @@ public class MenuAssistant {
 
         Reply fallback() {
             logUnanswered(raw);
+            if (site != null)
+                return reply("Câu này mình chưa trả lời được 😅 Bạn gọi hotline" + (blank(site.phone()) ? "" : " **" + site.phone() + "**")
+                    + " để được nhân viên hỗ trợ nhé.\nBạn cũng có thể hỏi kiểu: *\"4 người dưới 1 triệu\"*, *\"món không cay cho bé\"*, *\"lẩu nào ngon\"*.",
+                    List.of(), startChips).withActions(List.of("contact"));
             return reply(config.fallbackMessage() + "\nBạn cũng có thể hỏi kiểu: *\"2 người dưới 500k\"*, *\"món không cay cho bé\"*, *\"lẩu nào ngon\"*.", List.of(), startChips);
         }
 
@@ -487,6 +555,11 @@ public class MenuAssistant {
             // 0) Câu hỏi thường gặp do Quản lý nhập (giờ mở cửa, đậu xe, VAT…)
             Faq faq = matchFaq(need.hasCoreSubject() || namedDish() != null);
             if (faq != null) return reply(faq.answer(), List.of(), startChips);
+
+            if (site != null) {
+                Reply web = website(need);
+                if (web != null) return web;
+            }
 
             if (any(n, "goi nhan vien", "nhan vien", "phuc vu", "ho tro", "giup do") && !need.hasCoreSubject() && !need.hasFilter())
                 return reply("Bạn bấm nút **chuông** ở góc trên trang để gọi nhân viên nhé — nhân viên khu vực của bàn sẽ tới ngay.", List.of(), startChips);
@@ -615,6 +688,51 @@ public class MenuAssistant {
             return reply(sb.toString(), List.of(new Suggestion("set", s.id(), 1, null)), List.of("Set khác", "Đồ uống", "Tráng miệng"));
         }
 
+        /* ------------------------------------------------ Website khách hàng */
+
+        /** Câu hỏi riêng của khách xem website (chưa tới quán). null = không khớp, đi tiếp luồng tư vấn món chung. */
+        Reply website(Need need) {
+            List<String> chips = List.of("Món bán chạy", "Set menu", "Nhóm 4 người dưới 1 triệu");
+            String hotline = blank(site.phone()) ? "" : " hoặc gọi hotline **" + site.phone() + "**";
+            if (any(n, "dat ban", "dat cho", "giu ban", "giu cho", "book", "dat truoc", "dat tiec", "dat lich", "con ban", "con cho"))
+                return reply("Bạn bấm **Đặt bàn** bên dưới, chọn ngày giờ và số khách — nhà hàng sẽ xác nhận lại qua điện thoại" + hotline + " nhé.",
+                    List.of(), chips).withActions(List.of("reservation"));
+            if (any(n, "dia chi", "o dau", "cho nao", "duong nao", "chi duong", "ban do", "map", "toi quan", "den quan", "gui xe", "dau xe", "do xe"))
+                return reply(blank(site.address())
+                    ? "Bạn xem trang **Liên hệ** để có địa chỉ và bản đồ chỉ đường nhé."
+                    : "Nhà hàng ở **" + site.address() + "**. Bạn bấm **Liên hệ** để xem bản đồ chỉ đường nhé.", List.of(), chips)
+                    .withActions(List.of("contact", "reservation"));
+            if (any(n, "gio mo cua", "mo cua", "dong cua", "may gio", "gio nao", "gio phuc vu", "lam viec", "nghi le", "ngay nghi"))
+                return reply(blank(site.hours())
+                    ? "Bạn xem giờ mở cửa ở trang **Liên hệ** nhé."
+                    : "Giờ mở cửa của " + site.name() + ":\n" + site.hours(), List.of(), chips).withActions(List.of("reservation"));
+            if (any(n, "so dien thoai", "sdt", "hotline", "lien he", "lien lac", "zalo", "email"))
+                return reply(blank(site.phone())
+                    ? "Bạn xem thông tin liên hệ ở trang **Liên hệ** nhé."
+                    : "Bạn gọi hotline **" + site.phone() + "** để được nhân viên hỗ trợ nhé.", List.of(), chips).withActions(List.of("contact"));
+            if (any(n, "goi nhan vien", "nhan vien", "ho tro", "tu van vien", "nguoi that") && !need.hasCoreSubject() && !need.hasFilter())
+                return reply("Bạn cần nhân viên hỗ trợ thì gọi" + (blank(site.phone()) ? " số điện thoại ở trang **Liên hệ**" : " hotline **" + site.phone() + "**")
+                    + " nhé. Còn chọn món, mình tư vấn được ngay!", List.of(), chips).withActions(List.of("contact"));
+            if (any(n, "thanh toan", "tinh tien", "hoa don", "tra tien", "chuyen khoan", "the tin dung", "vat") && !need.hasCoreSubject())
+                return reply("Tại quán, bạn gọi món và thanh toán ngay trên điện thoại bằng cách **quét mã QR trên bàn** — chọn tiền mặt, thẻ hoặc chuyển khoản.",
+                    List.of(), chips);
+            if (any(n, "wifi", "mat khau", "pass"))
+                return reply("Quán có WiFi miễn phí — khi tới nơi bạn hỏi nhân viên mật khẩu nhé.", List.of(), chips);
+            if (any(n, "cam on", "thanks", "thank"))
+                return reply("Dạ không có gì! Hẹn gặp bạn tại " + site.name() + " 🥩", List.of(), chips).withActions(List.of("reservation"));
+            // Hỏi "ăn kèm gì" trên website: chưa có giỏ → gợi ý món gọi thêm và đồ uống hay đi cùng.
+            if (any(n, "an kem", "kem theo", "di kem", "hop voi", "goi them gi", "them gi", "uong gi hop", "nen goi them") && namedDish() == null) {
+                List<Suggestion> items = new ArrayList<>();
+                available.stream().filter(this::isAddon).sorted(Comparator.comparingInt(this::rankOf)).limit(2)
+                    .forEach((d) -> items.add(new Suggestion("dish", d.id(), 1, "Gọi thêm")));
+                available.stream().filter(this::isDrink).sorted(Comparator.comparingInt(this::rankOf)).limit(2)
+                    .forEach((d) -> items.add(new Suggestion("dish", d.id(), 1, "Đồ uống")));
+                return reply("Bít tết hợp với **sốt thêm, khoai nghiền** và một ly **vang đỏ**; gọi lẩu thì thêm **đĩa bò nhúng, rau nấm**. Vài món hay được gọi kèm:",
+                    items, List.of("Tráng miệng", "Đồ uống", "Món bán chạy"));
+            }
+            return null;
+        }
+
         /* ------------------------------------------------ Ăn kèm theo giỏ */
 
         Reply pairing() {
@@ -729,7 +847,7 @@ public class MenuAssistant {
             if (total != null) sb.append(" (ngân sách ").append(vnd(total)).append(')');
             sb.append(": tổng khoảng **").append(vnd(sum)).append("**");
             if (p > 1) sb.append(" — ~").append(vnd(Math.round(sum / (double) p / 1000) * 1000)).append("/người");
-            sb.append(". Bấm **Thêm tất cả** hoặc chọn từng món.");
+            sb.append(site != null ? ". Bấm vào món để xem trong thực đơn, rồi **Đặt bàn** để giữ chỗ nhé." : ". Bấm **Thêm tất cả** hoặc chọn từng món.");
             describeFilters(sb, dishNeed);
             if (!sets.isEmpty()) {
                 MenuSet s = sets.get(0);
@@ -783,7 +901,7 @@ public class MenuAssistant {
             }
             boolean onlySets = need.combo && !items.isEmpty() && need.cats.isEmpty() && need.words.isEmpty();
             if (onlySets)
-                return reply("Các set menu đang bán — gọi theo set rẻ hơn gọi lẻ. Bấm **Xem set** để chọn món trong set:", items, List.of("Nhóm 4 người", "Món bán chạy", "Đồ uống"));
+                return reply("Các set menu đang bán — gọi theo set rẻ hơn gọi lẻ. " + (site != null ? "Bấm vào set để xem các món trong set:" : "Bấm **Xem set** để chọn món trong set:"), items, List.of("Nhóm 4 người", "Món bán chạy", "Đồ uống"));
             fresh.stream().limit(MAX_ITEMS - Math.min(items.size(), 2)).forEach((d) -> items.add(new Suggestion("dish", d.id(), 1, noteFor(d, need))));
 
             if (items.isEmpty() && any(n, "re hon", "it tien hon") && !need.cats.isEmpty())

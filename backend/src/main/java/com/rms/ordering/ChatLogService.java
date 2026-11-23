@@ -66,20 +66,31 @@ public class ChatLogService {
         return false;
     }
 
-    /** Hội thoại của phiên (tạo mới nếu chưa có). */
-    private long conversation(long tableId, String session) {
-        var found = jdbc.sql("SELECT id FROM chat_conversations WHERE session_token = ?").param(session).query(Long.class).optional();
+    /**
+     * Hội thoại của phiên (tạo mới nếu chưa có). tableId = null: khách trên website (kênh "website", không gắn bàn / đơn).
+     */
+    private long conversation(Long tableId, String session) {
+        String channel = tableId == null ? "website" : "qr";
+        // Theo cả kênh: mã phiên của website không nối vào hội thoại tại bàn (và ngược lại).
+        var found = jdbc.sql("SELECT id FROM chat_conversations WHERE session_token = ? AND channel = ?").params(session, channel)
+            .query(Long.class).optional();
         if (found.isPresent()) return found.get();
-        Long order = jdbc.sql("SELECT id FROM orders WHERE table_id = ? AND status = 'open' ORDER BY id DESC LIMIT 1")
+        Long order = tableId == null ? null : jdbc.sql("SELECT id FROM orders WHERE table_id = ? AND status = 'open' ORDER BY id DESC LIMIT 1")
             .param(tableId).query(Long.class).optional().orElse(null);
-        jdbc.sql("INSERT INTO chat_conversations (table_id, order_id, session_token, status, started_at) VALUES (?, ?, ?, 'answered', ?)")
-            .params(tableId, order, session, Times.now()).update();
+        jdbc.sql("""
+                INSERT INTO chat_conversations (table_id, order_id, channel, session_token, status, started_at)
+                VALUES (?, ?, ?, ?, 'answered', ?)
+                """)
+            .params(tableId, order, channel, session, Times.now()).update();
         return jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
     }
 
-    /** Ghi một lượt hỏi – đáp. Lỗi chỉ ghi log (REQUIRES_NEW: không ảnh hưởng giao dịch khác). */
+    /**
+     * Ghi một lượt hỏi – đáp. tableId = null: hội thoại trên website khách hàng.
+     * Lỗi chỉ ghi log (REQUIRES_NEW: không ảnh hưởng giao dịch khác).
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void record(long tableId, String sessionId, String question, Reply reply, boolean fallback) {
+    public void record(Long tableId, String sessionId, String question, Reply reply, boolean fallback) {
         try {
             String session = cleanSession(sessionId);
             if (session == null) session = UUID.randomUUID().toString();
@@ -135,8 +146,11 @@ public class ChatLogService {
         if (d != null) { where.append(" AND c.started_at >= ? AND c.started_at < ?"); params.add(d.atStartOfDay()); params.add(d.plusDays(1).atStartOfDay()); }
         String kw = Vi.collapse(keyword);
         if (!kw.isEmpty()) {
-            where.append(" AND (t.code LIKE ? OR EXISTS (SELECT 1 FROM chat_messages m WHERE m.conversation_id = c.id AND m.content LIKE ?))");
+            // Gõ "website" → lọc hội thoại trên website khách hàng.
+            where.append(" AND (t.code LIKE ? OR (c.channel = 'website' AND ? = 'website')"
+                + " OR EXISTS (SELECT 1 FROM chat_messages m WHERE m.conversation_id = c.id AND m.content LIKE ?))");
             params.add("%" + kw + "%");
+            params.add(Vi.normalize(kw));
             params.add("%" + kw + "%");
         }
         String from = " FROM chat_conversations c LEFT JOIN dining_tables t ON t.id = c.table_id";
@@ -147,9 +161,11 @@ public class ChatLogService {
         pageParams.add(PAGE_SIZE);
         pageParams.add((p - 1) * PAGE_SIZE);
         record Head(long id, String table, LocalDateTime started, String status) {}
-        List<Head> heads = jdbc.sql("SELECT c.id, t.code, c.started_at, c.status" + from + where + " ORDER BY c.started_at DESC, c.id DESC LIMIT ? OFFSET ?")
+        // Hội thoại trên website khách hàng không gắn bàn → hiện "Website" ở cột Bàn.
+        List<Head> heads = jdbc.sql("SELECT c.id, t.code, c.started_at, c.status, c.channel" + from + where + " ORDER BY c.started_at DESC, c.id DESC LIMIT ? OFFSET ?")
             .params(pageParams)
-            .query((rs, n) -> new Head(rs.getLong(1), rs.getString(2), Db.dateTime(rs, "started_at"), rs.getString(4))).list();
+            .query((rs, n) -> new Head(rs.getLong(1), "website".equals(rs.getString("channel")) ? "Website" : rs.getString(2),
+                Db.dateTime(rs, "started_at"), rs.getString(4))).list();
         if (heads.isEmpty()) return new Paged<>(List.of(), total, p, pages);
         String ids = String.join(",", heads.stream().map((h) -> Long.toString(h.id())).toList());
         Map<Long, List<Message>> msgs = new HashMap<>();

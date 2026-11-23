@@ -33,11 +33,13 @@ public class ChatbotConfigService {
     private static final Set<String> TONES = Set.of("friendly", "professional", "playful");
     private static final Set<String> FALLBACK_ACTIONS = Set.of("suggest_staff", "show_menu", "rephrase");
 
-    public record Config(String botName, String avatar, boolean active, String greeting, List<String> quickReplies,
+    /** websiteEnabled: hiện chatbot trên website khách hàng (V27); active là công tắc chung của cả trang QR lẫn website. */
+    public record Config(String botName, String avatar, boolean active, boolean websiteEnabled, String greeting, List<String> quickReplies,
                          String fallbackMessage, String fallbackAction, String tone, String personality,
                          String allergyDisclaimer, String updatedAt) {}
 
-    public record ConfigInput(String botName, String avatar, Boolean active, String greeting, List<String> quickReplies,
+    /** websiteEnabled = null (client cũ không gửi) → giữ nguyên giá trị đang có. */
+    public record ConfigInput(String botName, String avatar, Boolean active, Boolean websiteEnabled, String greeting, List<String> quickReplies,
                               String fallbackMessage, String fallbackAction, String tone, String personality,
                               String allergyDisclaimer) {}
 
@@ -66,11 +68,11 @@ public class ChatbotConfigService {
     public Config config() {
         List<String> replies = jdbc.sql("SELECT label FROM chatbot_quick_replies ORDER BY sort_order, id").query(String.class).list();
         return jdbc.sql("""
-                SELECT bot_name, avatar, is_active, greeting, fallback_message, fallback_action, tone, personality,
+                SELECT bot_name, avatar, is_active, website_enabled, greeting, fallback_message, fallback_action, tone, personality,
                        allergy_disclaimer, updated_at
                 FROM chatbot_config WHERE id = 1
                 """)
-            .query((rs, n) -> new Config(rs.getString("bot_name"), rs.getString("avatar"), rs.getBoolean("is_active"),
+            .query((rs, n) -> new Config(rs.getString("bot_name"), rs.getString("avatar"), rs.getBoolean("is_active"), rs.getBoolean("website_enabled"),
                 rs.getString("greeting"), replies, rs.getString("fallback_message"), rs.getString("fallback_action"),
                 rs.getString("tone"), Objects.toString(rs.getString("personality"), ""), rs.getString("allergy_disclaimer"),
                 Times.iso(Db.dateTime(rs, "updated_at"))))
@@ -117,13 +119,14 @@ public class ChatbotConfigService {
         v.throwIfAny();
 
         boolean active = in.active() == null || in.active();
+        boolean website = in.websiteEnabled() == null ? config().websiteEnabled() : in.websiteEnabled();
         jdbc.sql("""
-                UPDATE chatbot_config SET bot_name = ?, avatar = ?, is_active = ?, greeting = ?, fallback_message = ?,
+                UPDATE chatbot_config SET bot_name = ?, avatar = ?, is_active = ?, website_enabled = ?, greeting = ?, fallback_message = ?,
                        fallback_action = ?, tone = ?, personality = ?, allergy_disclaimer = ?, updated_by = ?,
                        updated_at = CURRENT_TIMESTAMP
                 WHERE id = 1
                 """)
-            .params(botName, avatar, active, greeting, fallback, action, tone, personality.isEmpty() ? null : personality,
+            .params(botName, avatar, active, website, greeting, fallback, action, tone, personality.isEmpty() ? null : personality,
                 disclaimer, currentUser.get().id())
             .update();
         jdbc.sql("DELETE FROM chatbot_quick_replies").update();
@@ -131,7 +134,7 @@ public class ChatbotConfigService {
             jdbc.sql("INSERT INTO chatbot_quick_replies (label, sort_order) VALUES (?, ?)").params(replies.get(i), i + 1).update();
         }
         audit.log("chatbot", "Cập nhật cấu hình",
-            "Cấu hình trợ lý \"" + botName + "\" (" + (active ? "đang bật" : "đang tắt") + ")", "chatbot_config", 1L);
+            "Cấu hình trợ lý \"" + botName + "\" (" + (active ? "đang bật" : "đang tắt") + (active && !website ? ", ẩn trên website" : "") + ")", "chatbot_config", 1L);
         return config();
     }
 

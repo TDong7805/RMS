@@ -85,8 +85,15 @@ export function ChatbotConfigTab() {
               </div>
             </Field>
           </div>
-          <div className="mt-4">
-            <ToggleRow title="Bật Chatbot AI trên QR Menu" description="Tắt để ẩn khung chat với khách; khách vẫn xem thực đơn và gọi nhân viên bình thường." checked={form.active} onChange={(v) => set('active', v)} />
+          <div className="mt-4 space-y-2">
+            <ToggleRow title="Bật Chatbot AI" description="Công tắc chung. Tắt để ẩn khung chat ở cả QR Menu và website khách hàng; khách vẫn xem thực đơn và gọi nhân viên bình thường." checked={form.active} onChange={(v) => set('active', v)} />
+            <ToggleRow
+              title="Hiện trên website khách hàng"
+              description={form.active ? 'Nút "Tư vấn món" ở góc phải mọi trang website: gợi ý món, trả lời giờ mở cửa, địa chỉ và mời đặt bàn.' : 'Bật Chatbot AI trước để dùng trên website.'}
+              checked={form.websiteEnabled}
+              disabled={!form.active}
+              onChange={(v) => set('websiteEnabled', v)}
+            />
           </div>
         </Card>
 
