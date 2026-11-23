@@ -45,8 +45,8 @@ public class MenuAssistant {
     /** kind = dish | set; qty = số phần gợi ý; note = lý do ngắn hiện dưới tên món. */
     public record Suggestion(String kind, String id, int qty, String note) {}
 
-    /** addAll = hiện nút "Thêm tất cả" (thực đơn đề xuất cho cả bàn). */
-    public record Reply(String text, List<Suggestion> items, List<String> chips, boolean addAll) {}
+    /** addAll = hiện nút "Thêm tất cả" (thực đơn đề xuất cho cả bàn); source = ai (Gemini) | rules (theo luật). */
+    public record Reply(String text, List<Suggestion> items, List<String> chips, boolean addAll, String source) {}
 
     static final int MAX_MESSAGE = 300;
     static final int MAX_ITEMS = 5;
@@ -60,8 +60,10 @@ public class MenuAssistant {
     private final QrOrderingService qr;
     private final ChatbotConfigService chatbot;
     private final JdbcClient jdbc;
+    private final GeminiAssistant gemini;
 
-    public MenuAssistant(QrOrderingService qr, ChatbotConfigService chatbot, JdbcClient jdbc) {
+    public MenuAssistant(QrOrderingService qr, ChatbotConfigService chatbot, JdbcClient jdbc, GeminiAssistant gemini) {
+        this.gemini = gemini;
         this.qr = qr;
         this.chatbot = chatbot;
         this.jdbc = jdbc;
@@ -86,7 +88,36 @@ public class MenuAssistant {
         List<Faq> faqs = jdbc.sql("SELECT id, question, answer FROM faqs WHERE is_active = 1")
             .query((rs, n) -> new Faq(rs.getLong("id"), rs.getString("question"), rs.getString("answer"), faqTokens(rs.getString("question"))))
             .list();
+        // Có Gemini (đang bật + có key) → hỏi Gemini; không dùng được / lỗi → trả lời theo luật như cũ.
+        List<QrOrderingService.MenuDish> available = menu.dishes().stream().filter((d) -> !d.soldOut() && aiIds.contains(d.id())).toList();
+        List<String> history = safe(in.history()).stream().limit(4).toList();
+        GeminiAssistant.AiResult ai = gemini.answer(token, menu, available,
+            faqs.stream().map((f) -> new GeminiAssistant.FaqPair(f.question(), f.answer())).toList(), config, message,
+            history, safe(in.cart()), budgetOf(message, history));
+        if (ai != null) {
+            if (!ai.answered()) logUnanswered(message);
+            return ai.reply();
+        }
         return new Turn(menu, message, safe(in.history()), safe(in.shown()), safe(in.cart()), config, aiIds, faqs).answer();
+    }
+
+    /**
+     * Ngân sách khách nêu (tổng tiền tối đa, đ) — đọc bằng bộ phân tích câu theo luật: câu hiện tại, không có thì câu trước gần nhất.
+     * "mỗi người 200k" + "4 người" → 800.000đ. null = không nêu.
+     */
+    static Long budgetOf(String message, List<String> history) {
+        List<String> texts = new ArrayList<>(List.of(message));
+        for (int i = history.size() - 1; i >= 0; i--) texts.add(history.get(i));
+        Integer party = null;
+        for (String t : texts) {
+            Need n = parse(t);
+            if (party == null) party = n.party;
+            if (n.maxPrice != null) {
+                Integer p = n.party != null ? n.party : party;
+                return n.perPerson && p != null ? n.maxPrice * p : n.maxPrice;
+            }
+        }
+        return null;
     }
 
     private static List<String> chips(Config c) {
@@ -687,7 +718,7 @@ public class MenuAssistant {
                 MenuSet s = sets.get(0);
                 sb.append("\nNhà hàng cũng có set **").append(s.name()).append("** — ").append(vnd(s.price())).append(" (bấm \"Set menu\" để xem).");
             }
-            return new Reply(sb.toString(), items, List.of("Rẻ hơn", "Không ăn cay", "Thêm tráng miệng", "Set menu"), items.size() > 1);
+            return new Reply(sb.toString(), items, List.of("Rẻ hơn", "Không ăn cay", "Thêm tráng miệng", "Set menu"), items.size() > 1, "rules");
         }
 
         int countMains(List<MenuDish> picks) {
@@ -826,7 +857,7 @@ public class MenuAssistant {
         }
 
         Reply reply(String text, List<Suggestion> items, List<String> chips) {
-            return new Reply(text, items, chips, false);
+            return new Reply(text, items, chips, false, "rules");
         }
     }
 }

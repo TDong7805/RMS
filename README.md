@@ -6,6 +6,16 @@ và **website khách hàng** công khai ở `/` (giới thiệu, thực đơn, a
 
 Actor: Quản lý nhà hàng (gộp Quản trị viên), Thu ngân, Nhân viên bếp, Quản lý kho, Nhân viên phục vụ (từ V20), Khách hàng.
 
+## Chatbot tư vấn món dùng Google Gemini
+
+Trợ lý trên trang gọi món QR trả lời bằng **Gemini** nếu máy chạy backend có API key; không có key thì tự trả lời theo luật (vẫn dùng được).
+1. Lấy key miễn phí ở [Google AI Studio](https://aistudio.google.com) → *Get API key*.
+2. PowerShell: `setx GEMINI_API_KEY "khóa-của-bạn"` → đóng mở lại terminal / VS Code → chạy backend.
+3. *Quản lý Chatbot → Cấu hình → Trí tuệ nhân tạo (Google Gemini)*: bật / tắt, đổi model, **Thử kết nối**.
+
+Key **không** để trong code hay CSDL (chỉ lưu tên biến `GEMINI_API_KEY`), mỗi người dùng key của mình — đừng commit / gửi key.
+Chi tiết: `docs/tien-do/TIEN_DO_TRO_LY_GOI_MON.md`.
+
 ## Tài liệu
 
 | Tài liệu | Nội dung |

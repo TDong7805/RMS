@@ -26,6 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
  * DELETE /api/chatbot/faqs/{id}
  * GET    /api/chatbot/unanswered          câu khách hay hỏi mà bot chưa trả lời được (chưa xử lý)
  * DELETE /api/chatbot/unanswered/{id}     bỏ qua (đánh dấu dismissed, không xóa)
+ * GET    /api/chatbot/ai                  cấu hình mô hình AI (Gemini) cho trợ lý gọi món — keyPresent, không trả key
+ * PUT    /api/chatbot/ai                  {enabled, modelName, temperature, maxTokens, systemPrompt, apiKeyRef}
+ * POST   /api/chatbot/ai/test             thử gọi Gemini với cấu hình hiện tại
  *
  * Lịch sử hội thoại / thống kê chưa có API: cần dữ liệu từ phân hệ Khách hàng (xem DU_LIEU_GIA.md).
  */
@@ -33,9 +36,26 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/chatbot")
 public class ChatbotConfigController {
     private final ChatbotConfigService service;
+    private final AiModelService ai;
 
-    public ChatbotConfigController(ChatbotConfigService service) {
+    public ChatbotConfigController(ChatbotConfigService service, AiModelService ai) {
         this.service = service;
+        this.ai = ai;
+    }
+
+    @GetMapping("/ai")
+    public AiModelService.AiConfig aiConfig() {
+        return ai.get();
+    }
+
+    @PutMapping("/ai")
+    public AiModelService.AiConfig updateAi(@RequestBody AiModelService.AiConfigInput in) {
+        return ai.update(in);
+    }
+
+    @PostMapping("/ai/test")
+    public AiModelService.TestResult testAi() {
+        return ai.test();
     }
 
     @GetMapping("/config")

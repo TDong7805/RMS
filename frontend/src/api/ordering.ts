@@ -239,7 +239,7 @@ export const CASHIER_STREAM = '/api/thu-ngan/stream';
 /* ---------------------------------------------------------------- Trợ lý gọi món (trang QR, dựa trên luật) */
 
 export type AssistantSuggestion = { kind: 'dish' | 'set'; id: string; qty: number; note: string | null };
-export type AssistantReply = { text: string; items: AssistantSuggestion[]; chips: string[]; addAll: boolean };
+export type AssistantReply = { text: string; items: AssistantSuggestion[]; chips: string[]; addAll: boolean; source?: 'ai' | 'rules' };
 
 /** history: các câu khách hỏi trước (cũ → mới); shown: id món đã gợi ý; cart: id món trong giỏ. */
 export function askAssistant(

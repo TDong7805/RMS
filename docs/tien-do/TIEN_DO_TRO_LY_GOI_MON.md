@@ -51,8 +51,55 @@ _Cập nhật 21/11/2026_
 - Không cần migration mới (dùng các bảng chatbot_config, faqs, unanswered_questions, dishes.ai_enabled, dish_ai_tags có từ V1).
 - Kiểm thử: `tests/api/14-tro-ly-goi-mon.mjs` (26 bước).
 
+## Gemini AI (cập nhật 23/11/2026, V25)
+
+Trợ lý giờ trả lời bằng **Google Gemini** khi máy chủ có API key; bộ trả lời theo luật ở trên vẫn giữ làm **dự phòng**.
+
+**Cài key (mỗi máy chạy backend làm một lần):**
+1. Lấy key ở Google AI Studio (aistudio.google.com → Get API key).
+2. Mở PowerShell, chạy `setx GEMINI_API_KEY "khóa-của-bạn"`.
+3. Đóng **mọi** cửa sổ PowerShell / terminal / VS Code đang mở (để chúng đọc biến mới), rồi chạy lại backend như bình thường.
+4. Vào **Quản lý Chatbot → Cấu hình**, xem thẻ "Trí tuệ nhân tạo" báo *Máy chủ đã có key* → bấm **Thử kết nối**.
+
+Mỗi người dùng key của chính mình: key nằm trong máy, không đi theo code lên GitHub. Máy không có key thì trợ lý tự trả lời theo luật.
+
+Key **không** nằm trong mã nguồn hay CSDL: bảng `ai_model_config.api_key_ref` chỉ lưu tên biến `GEMINI_API_KEY`.
+
+**Quản lý Chatbot → Cấu hình → "Trí tuệ nhân tạo (Google Gemini)":**
+- bật / tắt Gemini;
+- chọn model (mặc định `gemini-3.5-flash-lite`: khoảng 1,5 giây mỗi câu, có gói miễn phí);
+- chỉnh độ sáng tạo;
+- ghi tên biến môi trường chứa key;
+- thêm hướng dẫn riêng cho AI;
+- nút **Thử kết nối**.
+
+**Cách chạy mỗi câu hỏi:**
+- Gửi kèm cho Gemini: thực đơn hôm nay (chỉ món đang bán, chưa hết, được bật "cho AI gợi ý"), set menu, FAQ, giỏ món, 4 câu hỏi trước, và ngân sách khách nêu nếu có. Tên bot, giọng điệu, lời nhắc dị ứng và câu trả lời khi ngoài phạm vi lấy từ trang Quản lý Chatbot.
+- Gemini trả JSON (câu trả lời, món gợi ý theo id, câu gợi ý nhanh). Khung chat hiện thẻ món kèm nút **Thêm** như trước, có thêm nhãn "✨ Gemini AI".
+
+**Máy chủ kiểm tra lại kết quả của Gemini:**
+- Bỏ những món không có trong thực đơn hoặc đã hết.
+- Giá luôn lấy từ CSDL.
+- Máy chủ **tự cộng tiền**: vượt ngân sách khách nêu thì dùng câu trả lời theo luật. Lý do là model hay cộng sai.
+
+**Tự quay về trả lời theo luật khi:**
+- Gemini bị tắt hoặc chưa có key;
+- một bàn hỏi quá 8 câu / phút (tránh bị phá làm cạn lượt miễn phí);
+- lỗi mạng, quá 12 giây, Google quá tải (503), JSON sai hoặc bị cắt.
+
+Khách không bao giờ thấy lỗi.
+
+**Mã nguồn:**
+- `chatbot/GeminiClient.java`, `chatbot/AiModelService.java` (cấu hình, thử kết nối);
+- `ordering/GeminiAssistant.java`;
+- `MenuAssistant.reply` gọi Gemini trước;
+- `frontend/src/features/chatbot/AiModelCard.tsx`.
+
+**Kiểm thử:** bộ `14-tro-ly-goi-mon.mjs` (32 bước) tắt Gemini rồi thử phần theo luật và trang cấu hình AI, nên chạy được cả khi không có mạng hay key.
+
+**Lưu ý:** ở gói miễn phí, Google có thể dùng nội dung chat để cải thiện sản phẩm của họ. Muốn dùng thật cho khách thì nên chuyển sang gói trả phí.
+
 ## Giới hạn / bước sau (cách 2)
 
 - Trợ lý chỉ hiểu theo từ khóa và mẫu câu, nên câu dài, vòng vo hoặc nhiều ý lồng nhau có thể hiểu chưa đúng. Những câu không hiểu đều được ghi lại để quản lý xem.
-- Muốn trò chuyện tự nhiên hơn thì dùng mô hình AI thật (Claude) ở **cách 2**: chỉ cần thay phần thân `MenuAssistant.reply`, giao diện và API giữ nguyên.
-  - Cách 2 cần API key, đặt trong biến môi trường (bảng `ai_model_config.api_key_ref` chỉ lưu *tên* biến), và tốn phí theo lượng dùng.
+- Đã có Gemini (mục trên). Bộ theo luật vẫn dùng khi Gemini không sẵn sàng.

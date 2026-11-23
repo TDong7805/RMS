@@ -6,6 +6,7 @@ import { BlockError } from '@/components/common/EmptyState';
 import { Field, SelectInput, TextArea, TextInput, ToggleRow } from '@/components/common/Form';
 import { Skeleton } from '@/components/common/Skeleton';
 import { updateChatbotConfig } from '@/api/chatbot';
+import { AiModelCard } from '@/features/chatbot/AiModelCard';
 import { qk, useChatbotConfig } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { cn } from '@/lib/cn';
@@ -67,6 +68,7 @@ export function ChatbotConfigTab() {
       className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]"
     >
       <div className="min-w-0 space-y-4">
+        <AiModelCard />
         <Card padded>
           <CardHeader title="Tên & avatar" description={query.data ? `Cập nhật lần cuối ${formatDateTime(query.data.updatedAt)}` : undefined} />
           <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">

@@ -1,4 +1,4 @@
-// [14-tro-ly-goi-mon.mjs] Trợ lý gọi món trên trang QR (dựa trên luật): POST /api/public/qr/{token}/assistant
+// [14-tro-ly-goi-mon.mjs] Trợ lý gọi món trên trang QR (theo luật + cấu hình Gemini): POST /api/public/qr/{token}/assistant
 import { BASE, sql } from '../lib/env.mjs';
 let pass = 0, fail = 0;
 const ok = (n, c, x = '') => { c ? pass++ : fail++; console.log(`${c ? 'PASS' : 'FAIL'} ${n}${c ? '' : ' — ' + JSON.stringify(x).slice(0, 300)}`); };
@@ -12,6 +12,24 @@ const ask = (message, extra = {}) => fetch(`${BASE}/api/public/qr/${token}/assis
   body: JSON.stringify({ message, history: [], shown: [], cart: [], ...extra }),
 }).then(j);
 const dishesOf = (r) => (r.body?.items ?? []).filter((i) => i.kind === 'dish').map((i) => byId.get(i.id));
+
+// ---- Cấu hình AI (Gemini) — Quản lý Chatbot. Các bước sau thử bộ trả lời THEO LUẬT → tắt Gemini cho chắc (máy có key cũng vậy).
+const lr = await fetch(`${BASE}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'tuan.nguyen', password: 'Rms@2026' }) });
+const ck = lr.headers.get('set-cookie').split(';')[0];
+const mg = (method, path, body) => fetch(BASE + path, { method, headers: { 'Content-Type': 'application/json', Cookie: ck }, body: body === undefined ? undefined : JSON.stringify(body) }).then(j);
+const aiBefore = (await mg('GET', '/api/chatbot/ai')).body;
+ok('GET cấu hình AI: Gemini, tên biến môi trường, không trả key', aiBefore.provider === 'google' && /^[A-Za-z_]\w*$/.test(aiBefore.apiKeyRef) && typeof aiBefore.keyPresent === 'boolean' && !('apiKey' in aiBefore), aiBefore);
+let a = await mg('PUT', '/api/chatbot/ai', { apiKeyRef: 'AIzaSyFakeKey-123.abc', modelName: 'Gemini Pro!', temperature: 3 });
+ok('dán key vào ô tên biến / model sai / nhiệt độ > 1 → 422', a.status === 422 && a.body.fields.apiKeyRef && a.body.fields.modelName && a.body.fields.temperature, a.body);
+a = await mg('PUT', '/api/chatbot/ai', { enabled: true, apiKeyRef: 'RMS_KHONG_CO_BIEN_NAY' });
+ok('trỏ tới biến môi trường không có → keyPresent = false', a.status === 200 && a.body.keyPresent === false, a.body);
+a = await mg('POST', '/api/chatbot/ai/test');
+ok('thử kết nối khi chưa có key → báo rõ, không lỗi 500', a.status === 200 && a.body.ok === false && /chưa có biến môi trường/.test(a.body.message), a.body);
+let fb = await ask('xin chào');
+ok('Gemini bật nhưng không có key → tự trả lời theo luật', fb.status === 200 && fb.body.source === 'rules', fb.body);
+const anon = (await fetch(`${BASE}/api/chatbot/ai`)).status;
+ok("khách không gọi được API cấu hình AI", anon === 401 || anon === 403, anon);
+await mg('PUT', '/api/chatbot/ai', { enabled: false, apiKeyRef: aiBefore.apiKeyRef });
 
 let r = await ask('');
 ok('câu trống → 400/422', r.status >= 400 && r.status < 500, r);
@@ -112,5 +130,7 @@ sql(`UPDATE dishes SET sold_out_date = NULL WHERE id = ${out.id}; SELECT 1`);
 
 r = await ask('x'.repeat(2000));
 ok('câu quá dài vẫn trả lời (cắt còn 300 ký tự)', r.status === 200, r.status);
+
+await mg('PUT', '/api/chatbot/ai', { enabled: aiBefore.enabled, apiKeyRef: aiBefore.apiKeyRef });
 
 console.log(`\n${pass} PASS, ${fail} FAIL`);

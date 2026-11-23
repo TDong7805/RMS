@@ -168,7 +168,10 @@ export function QrAssistant({
                     </div>
                   ) : (
                     <div key={i} className="space-y-2">
-                      <div className="max-w-[88%] rounded-[18px] rounded-bl-md bg-[var(--qr-surface)] px-3.5 py-2.5 text-[14.5px] leading-relaxed shadow-[var(--qr-shadow)]">{rich(m.text)}</div>
+                      <div className="max-w-[88%] rounded-[18px] rounded-bl-md bg-[var(--qr-surface)] px-3.5 py-2.5 text-[14.5px] leading-relaxed shadow-[var(--qr-shadow)]">
+                        {rich(m.text)}
+                        {m.source === 'ai' ? <span className="mt-1 block text-[11px] text-[var(--qr-muted)]">✨ Gemini AI · có thể chưa chính xác, hỏi nhân viên khi cần</span> : null}
+                      </div>
                       {m.items.length ? (
                         <div className="space-y-2">
                           {m.items.map((it) => {
