@@ -255,3 +255,42 @@ export type AssistantIntro = { active: boolean; botName: string; avatar: string;
 export function getAssistantIntro(token: string): Promise<AssistantIntro> {
   return api.get<AssistantIntro>(`${qr(token)}/assistant`);
 }
+
+/* ---------------------------------------------------------------- Thu ngân: đặt bàn (B6 — thu ngân nhận đặt bàn tại quầy) */
+
+export type CashierReservationStatus = 'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show';
+
+/** Một lịch đặt trong ngày trên màn POS. */
+export interface CashierReservation {
+  id: string;
+  code: string;
+  customerName: string;
+  phone: string;
+  guests: number;
+  dateTime: string;
+  areaId: string;
+  areaName: string;
+  tableId: string | null;
+  tableCode: string | null;
+  note: string;
+  status: CashierReservationStatus;
+  source: 'website' | 'phone' | 'walk_in';
+}
+
+export interface CashierReservationInput {
+  customerName: string;
+  phone: string;
+  guests: number | null;
+  date: string;
+  time: string;
+  areaId: string;
+  tableId: string;
+  note: string;
+}
+
+export const CASHIER_RES_KEY = (date: string) => ['thu-ngan', 'reservations', date] as const;
+export const getCashierReservations = (date: string) => api.get<CashierReservation[]>(tn('reservations'), { date });
+export const createCashierReservation = (input: CashierReservationInput & { source: 'phone' | 'walk_in' }) => api.post<{ id: string; code: string }>(tn('reservations'), input);
+export const updateCashierReservation = (id: string, input: CashierReservationInput) => api.put<{ id: string; code: string }>(tn(`reservations/${enc(id)}`), input);
+export const setCashierReservationStatus = (id: string, status: 'confirmed' | 'cancelled' | 'no_show') =>
+  api.patch<{ id: string }>(tn(`reservations/${enc(id)}/status`), { status });

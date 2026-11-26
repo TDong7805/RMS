@@ -7,9 +7,20 @@ export interface BreadcrumbProps {
   current: string;
   /** Nhãn mục cha nếu trang nằm trong một nhóm chức năng. */
   parent?: string;
+  /** Bấm mục cha thì về trang này (vd. Thực đơn → /quan-ly/mon-an). */
+  parentTo?: string;
+  /** Các cấp giữa mục cha và trang hiện tại (vd. Thực đơn › **Món ăn** › Sửa). */
+  trail?: { label: string; to: string }[];
 }
 
-export function Breadcrumb({ current, parent }: BreadcrumbProps) {
+const LINK = 'block truncate rounded-[6px] px-1 py-0.5 text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]';
+const SEP = (
+  <li aria-hidden className="flex shrink-0 items-center text-[var(--text-muted)]">
+    <ChevronRight size={13} strokeWidth={2} />
+  </li>
+);
+
+export function Breadcrumb({ current, parent, parentTo, trail = [] }: BreadcrumbProps) {
   /** "Trang chủ" là Dashboard của khu đang xem (Quản lý: /quan-ly, Kho: /kho). */
   const home = AREA_HOME[areaFromPath(useLocation().pathname)];
 
@@ -31,10 +42,18 @@ export function Breadcrumb({ current, parent }: BreadcrumbProps) {
               <ChevronRight size={13} strokeWidth={2} />
             </li>
             <li className="min-w-0 shrink-0">
-              <span className="block truncate px-1 text-[var(--text-muted)]">{parent}</span>
+              {parentTo ? <Link to={parentTo} className={LINK}>{parent}</Link> : <span className="block truncate px-1 text-[var(--text-muted)]">{parent}</span>}
             </li>
           </>
         ) : null}
+        {trail.map((t) => (
+          <span key={t.to} className="contents">
+            {SEP}
+            <li className="min-w-0 shrink-0">
+              <Link to={t.to} className={LINK}>{t.label}</Link>
+            </li>
+          </span>
+        ))}
         <li aria-hidden className="flex shrink-0 items-center text-[var(--text-muted)]">
           <ChevronRight size={13} strokeWidth={2} />
         </li>

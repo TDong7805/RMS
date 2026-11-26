@@ -1,115 +1,100 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { LayoutGrid, Move, Pencil, Plus, QrCode, Trash2, Users } from 'lucide-react';
-import { TableQrDialog } from '@/features/ordering/TableQrDialog';
-import { toast } from 'sonner';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { LayoutGrid, Minus, Pencil, Plus, QrCode, Trash2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
-import { Card } from '@/components/common/Card';
+import { Card, CardHeader } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { BlockError, EmptyState } from '@/components/common/EmptyState';
-import { Field, SelectInput, TextArea, TextInput, ToggleRow } from '@/components/common/Form';
-import { ConfirmDialog, Modal } from '@/components/common/Modal';
-import { DataTable, PageHeader, TableSkeleton, Td, Th } from '@/components/common/PageParts';
-import { Segmented } from '@/components/common/Segmented';
-import {
-  FLOOR_COLS,
-  FLOOR_ROWS,
-  createArea,
-  createTable,
-  deleteArea,
-  deleteTable,
-  moveTable,
-  updateArea,
-  updateTable,
-} from '@/api/tables';
-import { qk, useAreas, useTables } from '@/features/management/queries';
+import { ConfirmDialog } from '@/components/common/Modal';
+import { DataTable, PageHeader, PageTabs, TableSkeleton, Td, Th } from '@/components/common/PageParts';
+import { RowActions } from '@/components/common/RowActions';
+import { Skeleton } from '@/components/common/Skeleton';
+import { deleteArea, deleteFloor, deleteTable } from '@/api/tables';
+import { FloorEditor } from '@/features/floorplan/FloorEditor';
+import { AreaModal, FloorModal, TableModal } from '@/features/floorplan/FloorModals';
+import { TableQrDialog } from '@/features/ordering/TableQrDialog';
+import { CELL, elapsed, FloorCanvas, floorWindow, guestsOf, hhmm, LEGEND, STATE, stateOf, type TableState } from '@/features/ordering/floorParts';
+import { qk, useAreas, useFloors, useLiveFloor, useTables } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
+import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { TABLE_SHAPE, TABLE_STATUS } from '@/lib/labels';
-import { errorMessage } from '@/lib/mock';
-import type { Area, AreaInput, DiningTable, TableInput, TableShape, TableStatus } from '@/types';
+import type { Area, DiningTable, Floor } from '@/types';
 
-type View = 'plan' | 'list';
+/*
+ * Sơ đồ bàn (docs/thiet-ke/QUY_TAC_GIAO_DIEN.md, mục B7 — chốt 26/11/2026).
+ * Chọn tầng ở đầu trang; ba kiểu xem:
+ *  - Xem trực tiếp: cùng cách vẽ với thu ngân / phục vụ (màu theo trạng thái đang diễn ra, đã ngồi bao lâu, giờ đặt), chỉ xem.
+ *  - Sửa sơ đồ: trình sửa (bàn, tường, vùng khu), lưu một lần ở thanh dưới đáy.
+ *  - Danh sách: khu vực của tầng + bảng bàn.
+ */
 
-const STATUS_COLORS: Record<TableStatus, string> = {
-  available: 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]',
-  reserved: 'border-[var(--info)] bg-[var(--info-soft)] text-[var(--info)]',
-  occupied: 'border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]',
-  inactive: 'border-dashed border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--text-muted)]',
-};
+type Mode = 'xem' | 'sua' | 'danh-sach';
+const MODES: { value: Mode; label: string }[] = [
+  { value: 'xem', label: 'Xem trực tiếp' },
+  { value: 'sua', label: 'Sửa sơ đồ' },
+  { value: 'danh-sach', label: 'Danh sách bàn' },
+];
+
+type Removal = { kind: 'area' | 'table' | 'floor'; id: string; name: string };
 
 export function TablesPage() {
-  const qc = useQueryClient();
-  const areasQuery = useAreas();
-  const tablesQuery = useTables();
-  const areas = useMemo(() => areasQuery.data ?? [], [areasQuery.data]);
-  const tables = useMemo(() => tablesQuery.data ?? [], [tablesQuery.data]);
+  const [params, setParams] = useSearchParams();
+  const floorsQ = useFloors();
+  const areasQ = useAreas();
+  const tablesQ = useTables();
+  const floors = useMemo(() => floorsQ.data ?? [], [floorsQ.data]);
+  const areas = useMemo(() => areasQ.data ?? [], [areasQ.data]);
+  const tables = useMemo(() => tablesQ.data ?? [], [tablesQ.data]);
 
-  const [areaId, setAreaId] = useState<string>('');
-  const [view, setView] = useState<View>('plan');
-  const [editMode, setEditMode] = useState(false);
-  const [dragId, setDragId] = useState<string | null>(null);
+  const floorId = floors.some((f) => f.id === params.get('tang')) ? params.get('tang')! : floors[0]?.id ?? '';
+  const mode = (MODES.some((m) => m.value === params.get('che-do')) ? params.get('che-do') : 'xem') as Mode;
+  const go = (next: { tang?: string; mode?: Mode }) => {
+    const p = new URLSearchParams(params);
+    if (next.tang) p.set('tang', next.tang);
+    if (next.mode) {
+      if (next.mode === 'xem') p.delete('che-do');
+      else p.set('che-do', next.mode);
+    }
+    setParams(p);
+  };
 
+  const floor = floors.find((f) => f.id === floorId) ?? null;
+  const floorAreas = useMemo(() => areas.filter((a) => a.floorId === floorId), [areas, floorId]);
+  const floorTables = useMemo(() => tables.filter((t) => floorAreas.some((a) => a.id === t.areaId)), [tables, floorAreas]);
+
+  const [floorModal, setFloorModal] = useState<{ open: boolean; floor: Floor | null }>({ open: false, floor: null });
   const [areaModal, setAreaModal] = useState<{ open: boolean; area: Area | null }>({ open: false, area: null });
-  const [tableModal, setTableModal] = useState<{ open: boolean; table: DiningTable | null }>({ open: false, table: null });
+  const [tableModal, setTableModal] = useState<{ open: boolean; table: DiningTable | null; areaId?: string }>({ open: false, table: null });
   const [qrTable, setQrTable] = useState<DiningTable | null>(null);
-  const [confirm, setConfirm] = useState<{ kind: 'area' | 'table'; id: string; name: string } | null>(null);
-
-  useEffect(() => {
-    if (!areaId && areas.length) setAreaId(areas[0].id);
-    if (areaId && areas.length && !areas.some((a) => a.id === areaId)) setAreaId(areas[0].id);
-  }, [areas, areaId]);
-
-  const area = areas.find((a) => a.id === areaId) ?? null;
-  const areaTables = tables.filter((t) => t.areaId === areaId);
-  const seats = areaTables.reduce((s, t) => s + (t.status === 'inactive' ? 0 : t.seats), 0);
+  const [removal, setRemoval] = useState<Removal | null>(null);
 
   const removeMutation = useApiMutation(
-    (c: { kind: 'area' | 'table'; id: string; name: string }) => (c.kind === 'area' ? deleteArea(c.id) : deleteTable(c.id)),
+    (r: Removal) => (r.kind === 'area' ? deleteArea(r.id) : r.kind === 'floor' ? deleteFloor(r.id) : deleteTable(r.id)),
     {
-      invalidate: [qk.areas, qk.tables],
-      success: (_r, c) => `Đã xóa ${c.kind === 'area' ? 'khu vực' : 'bàn'} ${c.name}`,
-      onSuccess: () => setConfirm(null),
+      invalidate: [qk.floors, qk.areas, qk.tables, qk.liveFloor],
+      success: (_res, r) => `Đã xóa ${r.kind === 'area' ? 'khu vực' : r.kind === 'floor' ? '' : 'bàn'} ${r.name}`.replace('  ', ' '),
+      onSuccess: () => setRemoval(null),
     },
   );
 
-  const handleDrop = async (x: number, y: number) => {
-    const id = dragId;
-    setDragId(null);
-    if (!id) return;
-    const table = tables.find((t) => t.id === id);
-    if (!table || (table.x === x && table.y === y)) return;
-    if (areaTables.some((t) => t.id !== id && t.x === x && t.y === y)) {
-      toast.error('Ô này đã có bàn khác');
-      return;
-    }
-    // Cập nhật lạc quan để sơ đồ phản hồi ngay, hoàn tác nếu lưu thất bại.
-    qc.setQueryData<DiningTable[]>(qk.tables, (prev) => prev?.map((t) => (t.id === id ? { ...t, x, y } : t)));
-    try {
-      await moveTable(id, x, y);
-    } catch (error) {
-      toast.error(errorMessage(error));
-    } finally {
-      void qc.invalidateQueries({ queryKey: qk.tables });
-    }
-  };
-
-  const loading = areasQuery.isLoading || tablesQuery.isLoading;
-  const failed = areasQuery.isError || tablesQuery.isError;
+  const loading = floorsQ.isLoading || areasQ.isLoading || tablesQ.isLoading;
+  const failed = floorsQ.isError || areasQ.isError || tablesQ.isError;
+  const tableCount = (fid: string) => tables.filter((t) => areas.some((a) => a.id === t.areaId && a.floorId === fid)).length;
 
   return (
-    <AppShell meta={{ label: 'Danh sách bàn', parent: 'Quản lý khu vực bàn' }}>
+    <AppShell meta={{ label: 'Sơ đồ bàn' }}>
       <div className="min-w-0 space-y-4">
         <PageHeader
-          title="Sơ đồ & danh sách bàn"
-          description="Chỉnh sửa sơ đồ bàn theo từng khu vực phục vụ và cập nhật thông tin bàn."
+          title="Sơ đồ bàn"
+          description="Tầng, khu vực và vị trí bàn — dùng chung cho thu ngân, phục vụ và trang đặt bàn của khách."
           actions={
             <>
-              <Button variant="outline" size="sm" leadingIcon={<Plus size={15} />} onClick={() => setAreaModal({ open: true, area: null })}>
+              <Button variant="outline" leadingIcon={<Plus size={15} />} disabled={!floor} onClick={() => setAreaModal({ open: true, area: null })}>
                 Thêm khu vực
               </Button>
-              <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => setTableModal({ open: true, table: null })} disabled={!areas.length}>
+              <Button leadingIcon={<Plus size={15} />} disabled={floorAreas.length === 0} onClick={() => setTableModal({ open: true, table: null, areaId: floorAreas[0]?.id })}>
                 Thêm bàn
               </Button>
             </>
@@ -117,373 +102,282 @@ export function TablesPage() {
         />
 
         {failed ? (
-          <BlockError onRetry={() => { void areasQuery.refetch(); void tablesQuery.refetch(); }} />
+          <BlockError onRetry={() => { void floorsQ.refetch(); void areasQ.refetch(); void tablesQ.refetch(); }} />
         ) : loading ? (
           <Card><TableSkeleton rows={5} /></Card>
-        ) : areas.length === 0 ? (
-          <EmptyState icon={LayoutGrid} title="Chưa có khu vực nào" description="Tạo khu vực phục vụ đầu tiên để bắt đầu sắp xếp bàn." />
         ) : (
-          <Card className="overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3 sm:px-5">
-              <div className="overflow-x-auto">
-                <Segmented<string>
-                  ariaLabel="Chọn khu vực"
-                  value={areaId}
-                  onChange={(v) => { setAreaId(v); setEditMode(false); }}
-                  options={areas.map((a) => ({ value: a.id, label: a.name, count: tables.filter((t) => t.areaId === a.id).length }))}
-                />
+          <>
+            {/* Chọn tầng */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div role="tablist" aria-label="Chọn tầng" className="flex flex-wrap gap-1 rounded-[12px] bg-[var(--bg-subtle)] p-1">
+                {floors.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={f.id === floorId}
+                    onClick={() => go({ tang: f.id })}
+                    className={cn(
+                      'inline-flex h-9 items-center gap-2 rounded-[9px] px-3.5 text-[13.5px] font-semibold transition-colors',
+                      f.id === floorId ? 'bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+                    )}
+                  >
+                    {f.name}
+                    <span className="rounded-full bg-[var(--bg-subtle)] px-1.5 font-mono text-[11.5px] text-[var(--text-muted)]">{tableCount(f.id)}</span>
+                  </button>
+                ))}
               </div>
-              <Segmented<View>
-                ariaLabel="Chế độ hiển thị"
-                value={view}
-                onChange={(v) => { setView(v); setEditMode(false); }}
-                options={[{ value: 'plan', label: 'Sơ đồ' }, { value: 'list', label: 'Danh sách' }]}
-              />
+              <Button size="sm" variant="ghost" leadingIcon={<Plus size={14} />} onClick={() => setFloorModal({ open: true, floor: null })}>Thêm tầng</Button>
+              {floor ? (
+                <RowActions
+                  name={floor.name}
+                  items={[
+                    { label: 'Đổi tên, kích thước tầng', icon: <Pencil size={15} />, onSelect: () => setFloorModal({ open: true, floor }) },
+                    { label: 'Xóa tầng', icon: <Trash2 size={15} />, danger: true, onSelect: () => setRemoval({ kind: 'floor', id: floor.id, name: floor.name }) },
+                  ]}
+                />
+              ) : null}
             </div>
 
-            {area ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
-                <div className="min-w-0">
-                  <p className="flex items-center gap-2 text-[15px] font-semibold">
-                    {area.name}
-                    {!area.active ? <Badge variant="neutral">Tạm ngưng</Badge> : null}
-                  </p>
-                  <p className="text-[12.5px] text-[var(--text-muted)]">
-                    {area.description || 'Không có mô tả'} · {areaTables.length} bàn · {seats} ghế đang sử dụng
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {view === 'plan' ? (
-                    <Button
-                      size="sm"
-                      variant={editMode ? 'primary' : 'outline'}
-                      leadingIcon={<Move size={14} />}
-                      onClick={() => setEditMode((v) => !v)}
-                    >
-                      {editMode ? 'Xong chỉnh sửa' : 'Chỉnh sửa sơ đồ'}
-                    </Button>
-                  ) : null}
-                  <Button size="sm" variant="ghost" leadingIcon={<Pencil size={14} />} onClick={() => setAreaModal({ open: true, area })}>
-                    Sửa khu vực
-                  </Button>
-                  <Button size="sm" variant="ghost" leadingIcon={<Trash2 size={14} />} onClick={() => setConfirm({ kind: 'area', id: area.id, name: area.name })}>
-                    Xóa
-                  </Button>
-                </div>
-              </div>
-            ) : null}
+            <PageTabs<Mode> ariaLabel="Kiểu xem sơ đồ" value={mode} onChange={(m) => go({ mode: m })} items={MODES} />
 
-            {view === 'plan' ? (
-              <div className="px-4 pb-5 sm:px-5">
-                {editMode ? (
-                  <p className="mb-2 rounded-[10px] bg-[var(--info-soft)] px-3 py-2 text-[12.5px] text-[var(--info)]">
-                    Kéo bàn sang ô trống để đổi vị trí. Bấm vào bàn để sửa thông tin. Vị trí được lưu ngay sau khi thả.
-                  </p>
-                ) : null}
-                <div className="overflow-x-auto">
-                  <div
-                    className="grid min-w-[640px] gap-2 rounded-item border border-[var(--border)] bg-[var(--bg-subtle)] p-3"
-                    style={{ gridTemplateColumns: `repeat(${FLOOR_COLS}, minmax(0, 1fr))` }}
-                  >
-                    {Array.from({ length: FLOOR_ROWS * FLOOR_COLS }).map((_, i) => {
-                      const x = i % FLOOR_COLS;
-                      const y = Math.floor(i / FLOOR_COLS);
-                      const table = areaTables.find((t) => t.x === x && t.y === y);
-                      return (
-                        <div
-                          key={i}
-                          onDragOver={(e) => editMode && !table && e.preventDefault()}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            void handleDrop(x, y);
-                          }}
-                          className={cn(
-                            'grid h-[96px] place-items-center rounded-[12px]',
-                            editMode && !table && 'border border-dashed border-[var(--border-strong)]',
-                            editMode && dragId && !table && 'bg-[var(--accent-soft)]/60',
-                          )}
-                        >
-                          {table ? (
-                            <button
-                              type="button"
-                              draggable={editMode}
-                              onDragStart={() => setDragId(table.id)}
-                              onDragEnd={() => setDragId(null)}
-                              onClick={() => setTableModal({ open: true, table })}
-                              title={`${table.code} · ${table.seats} ghế · ${TABLE_STATUS[table.status].label}`}
-                              className={cn(
-                                'flex flex-col items-center justify-center border-2 font-semibold transition-transform',
-                                STATUS_COLORS[table.status],
-                                table.shape === 'round' && 'h-[78px] w-[78px] rounded-full',
-                                table.shape === 'square' && 'h-[74px] w-[74px] rounded-[12px]',
-                                table.shape === 'rect' && 'h-[60px] w-[96%] max-w-[130px] rounded-[12px]',
-                                editMode ? 'cursor-grab hover:scale-105 active:cursor-grabbing' : 'hover:scale-[1.03]',
-                                dragId === table.id && 'opacity-40',
-                              )}
-                            >
-                              <span className="font-mono text-[12.5px] leading-4">{table.code}</span>
-                              <span className="flex items-center gap-0.5 text-[10.5px] font-medium opacity-80">
-                                <Users size={10} />
-                                {table.seats}
-                              </span>
-                            </button>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-3">
-                  {(Object.keys(TABLE_STATUS) as TableStatus[]).map((s) => (
-                    <span key={s} className="inline-flex items-center gap-1.5 text-[12px] text-[var(--text-secondary)]">
-                      <span className={cn('h-3 w-3 rounded-[4px] border-2', STATUS_COLORS[s])} />
-                      {TABLE_STATUS[s].label}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : areaTables.length === 0 ? (
-              <div className="px-5 pb-5">
-                <EmptyState title="Khu vực chưa có bàn" description="Bấm “Thêm bàn” để tạo bàn cho khu vực này." />
-              </div>
+            {!floor ? (
+              <EmptyState icon={LayoutGrid} title="Chưa có tầng nào" description="Bấm “Thêm tầng” để tạo sơ đồ đầu tiên." />
+            ) : mode === 'sua' ? (
+              <FloorEditor
+                key={floor.id}
+                floor={floor}
+                areas={floorAreas}
+                tables={floorTables}
+                onAddTable={(areaId) => setTableModal({ open: true, table: null, areaId })}
+                onEditTable={(t) => setTableModal({ open: true, table: t })}
+                onDeleteTable={(t) => setRemoval({ kind: 'table', id: t.id, name: t.code })}
+                onShowQr={setQrTable}
+              />
+            ) : mode === 'danh-sach' ? (
+              <ListView
+                areas={floorAreas}
+                tables={floorTables}
+                onEditArea={(a) => setAreaModal({ open: true, area: a })}
+                onDeleteArea={(a) => setRemoval({ kind: 'area', id: a.id, name: a.name })}
+                onEditTable={(t) => setTableModal({ open: true, table: t })}
+                onDeleteTable={(t) => setRemoval({ kind: 'table', id: t.id, name: t.code })}
+                onShowQr={setQrTable}
+              />
             ) : (
-              <DataTable minWidth={640}>
-                <thead>
-                  <tr>
-                    <Th>Mã bàn</Th>
-                    <Th className="text-right">Số ghế</Th>
-                    <Th>Hình dạng</Th>
-                    <Th>Vị trí</Th>
-                    <Th>Trạng thái</Th>
-                    <Th className="text-right">Thao tác</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...areaTables].sort((a, b) => a.code.localeCompare(b.code)).map((t) => (
-                    <tr key={t.id} className="hover:bg-[var(--bg-subtle)]">
-                      <Td className="font-mono font-semibold">{t.code}</Td>
-                      <Td className="text-right font-mono">{t.seats}</Td>
-                      <Td>{TABLE_SHAPE[t.shape]}</Td>
-                      <Td className="font-mono text-[12.5px] text-[var(--text-muted)]">Cột {t.x + 1}, hàng {t.y + 1}</Td>
-                      <Td><Badge variant={TABLE_STATUS[t.status].variant}>{TABLE_STATUS[t.status].label}</Badge></Td>
-                      <Td className="text-right">
-                        <div className="inline-flex gap-1">
-                          <Button size="sm" variant="ghost" aria-label={`Mã QR bàn ${t.code}`} title="Mã QR gọi món" onClick={() => setQrTable(t)}>
-                            <QrCode size={14} />
-                          </Button>
-                          <Button size="sm" variant="ghost" aria-label={`Sửa bàn ${t.code}`} onClick={() => setTableModal({ open: true, table: t })}>
-                            <Pencil size={14} />
-                          </Button>
-                          <Button size="sm" variant="ghost" aria-label={`Xóa bàn ${t.code}`} onClick={() => setConfirm({ kind: 'table', id: t.id, name: t.code })}>
-                            <Trash2 size={14} />
-                          </Button>
-                        </div>
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
+              <LiveView floor={floor} tables={tables} onEditTable={(t) => setTableModal({ open: true, table: t })} onShowQr={setQrTable} />
             )}
-          </Card>
+          </>
         )}
       </div>
 
-      <AreaModal state={areaModal} onClose={() => setAreaModal({ open: false, area: null })} onCreated={(a) => setAreaId(a.id)} />
+      <FloorModal state={floorModal} onClose={() => setFloorModal({ open: false, floor: null })} onSaved={(f) => go({ tang: f.id })} />
+      <AreaModal state={areaModal} floors={floors} defaultFloorId={floorId} onClose={() => setAreaModal({ open: false, area: null })} />
       <TableModal
         state={tableModal}
         areas={areas}
-        defaultAreaId={areaId}
+        defaultAreaId={tableModal.areaId ?? floorAreas[0]?.id ?? ''}
         onClose={() => setTableModal({ open: false, table: null })}
-        onDelete={(t) => {
-          setTableModal({ open: false, table: null });
-          setConfirm({ kind: 'table', id: t.id, name: t.code });
-        }}
-        onShowQr={(t) => {
-          setTableModal({ open: false, table: null });
-          setQrTable(t);
-        }}
       />
       <ConfirmDialog
-        open={Boolean(confirm)}
-        onOpenChange={(o) => !o && setConfirm(null)}
-        title={confirm?.kind === 'area' ? 'Xóa khu vực?' : 'Xóa bàn?'}
+        open={Boolean(removal)}
+        onOpenChange={(o) => !o && setRemoval(null)}
+        title={removal ? `Xóa ${removal.kind === 'area' ? 'khu vực' : removal.kind === 'floor' ? '' : 'bàn'} “${removal.name}”?`.replace('  ', ' ') : ''}
         description={
-          confirm?.kind === 'area'
-            ? `Khu vực "${confirm?.name}" sẽ bị xóa. Chỉ xóa được khi khu vực không còn bàn.`
-            : `Bàn ${confirm?.name} sẽ bị xóa khỏi sơ đồ. Bàn có lịch đặt sắp tới sẽ không xóa được.`
+          removal?.kind === 'area'
+            ? 'Chỉ xóa được khi khu vực không còn bàn và chưa có lịch sử đặt bàn. Muốn tạm ngưng thì tắt "Đang phục vụ".'
+            : removal?.kind === 'floor'
+              ? 'Chỉ xóa được khi tầng không còn khu vực nào. Tường và sơ đồ của tầng sẽ mất.'
+              : 'Bàn bị xóa khỏi sơ đồ. Bàn có lịch đặt sắp tới hoặc đã có đơn hàng thì không xóa được — hãy chuyển sang "Ngưng sử dụng".'
         }
         confirmLabel="Xóa"
         loading={removeMutation.isPending}
-        onConfirm={() => confirm && removeMutation.mutate(confirm)}
+        onConfirm={() => removal && removeMutation.mutate(removal)}
       />
       <TableQrDialog table={qrTable} onClose={() => setQrTable(null)} />
     </AppShell>
   );
 }
 
-/* =========================================================== Modal khu vực */
+/* =========================================================== Xem trực tiếp */
 
-function AreaModal({
-  state,
-  onClose,
-  onCreated,
-}: {
-  state: { open: boolean; area: Area | null };
-  onClose: () => void;
-  onCreated: (area: Area) => void;
+function LiveView({ floor, tables, onEditTable, onShowQr }: {
+  floor: Floor;
+  tables: DiningTable[];
+  onEditTable: (t: DiningTable) => void;
+  onShowQr: (t: DiningTable) => void;
 }) {
-  const [form, setForm] = useState<AreaInput>({ name: '', description: '', active: true });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
+  const q = useLiveFloor();
+  const f = q.data;
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [boxW, setBoxW] = useState(900);
   useEffect(() => {
-    if (state.open) {
-      setForm(state.area ? { name: state.area.name, description: state.area.description, active: state.area.active } : { name: '', description: '', active: true });
-      setErrors({});
-    }
-  }, [state]);
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setBoxW(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [f]);
+  const [zoomAdj, setZoomAdj] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
+  const fit = Math.max(0.35, Math.min(1, (boxW - 24) / (floor.cols * CELL)));
+  const zoom = Math.max(0.3, Math.min(1.4, +(fit + zoomAdj).toFixed(2)));
 
-  const mutation = useApiMutation(
-    (input: AreaInput) => (state.area ? updateArea(state.area.id, input) : createArea(input)),
-    {
-      invalidate: [qk.areas],
-      success: (a) => (state.area ? `Đã cập nhật khu vực ${a.name}` : `Đã thêm khu vực ${a.name}`),
-      onFieldErrors: setErrors,
-      onSuccess: (a) => {
-        if (!state.area) onCreated(a);
-        onClose();
-      },
-    },
-  );
+  const live = useMemo(() => (f ? f.tables.filter((t) => f.areas.some((a) => a.id === t.areaId && a.floorId === floor.id)) : []), [f, floor.id]);
+  const counts = useMemo(() => {
+    const c = Object.fromEntries(LEGEND.map((k) => [k, 0])) as Record<TableState, number>;
+    live.forEach((t) => c[stateOf(t)]++);
+    return c;
+  }, [live]);
+  const sel = live.find((t) => t.id === selected) ?? null;
+  const selFull = tables.find((t) => t.id === selected) ?? null;
+
+  if (q.isError) return <BlockError onRetry={() => void q.refetch()} retrying={q.isFetching} />;
+  if (!f) return <Skeleton className="h-[480px]" />;
 
   return (
-    <Modal
-      open={state.open}
-      onOpenChange={(o) => !o && onClose()}
-      size="sm"
-      title={state.area ? 'Sửa khu vực' : 'Thêm khu vực'}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>Hủy</Button>
-          <Button type="submit" form="area-form" loading={mutation.isPending}>Lưu</Button>
-        </>
-      }
-    >
-      <form
-        id="area-form"
-        noValidate
-        className="space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!form.name.trim()) return setErrors({ name: 'Vui lòng nhập tên khu vực' });
-          mutation.mutate(form);
-        }}
-      >
-        <Field label="Tên khu vực" htmlFor="a-name" required error={errors.name}>
-          <TextInput id="a-name" value={form.name} invalid={Boolean(errors.name)} maxLength={50} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="VD: Tầng 3" />
-        </Field>
-        <Field label="Mô tả" htmlFor="a-desc" error={errors.description}>
-          <TextArea id="a-desc" rows={2} maxLength={200} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-        </Field>
-        <ToggleRow title="Đang phục vụ" description="Tắt để tạm ngưng nhận đặt bàn ở khu vực này" checked={form.active} onChange={(v) => setForm({ ...form, active: v })} />
-      </form>
-    </Modal>
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <section className="min-w-0 rounded-item border border-[var(--border)] bg-[var(--bg-surface)]">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-3 py-2">
+          <p className="text-[12.5px] text-[var(--text-muted)]">Tự cập nhật 20 giây một lần · bấm bàn để xem chi tiết</p>
+          <div className="flex items-center gap-1 rounded-[10px] bg-[var(--bg-subtle)] p-1">
+            <button type="button" aria-label="Thu nhỏ" onClick={() => setZoomAdj((z) => +(z - 0.1).toFixed(2))} className="grid h-7 w-7 place-items-center rounded-lg hover:bg-[var(--bg-surface)]"><Minus size={14} /></button>
+            <button type="button" onClick={() => setZoomAdj(0)} className="w-12 text-center font-mono text-[12px] font-semibold" title="Vừa khung">{Math.round(zoom * 100)}%</button>
+            <button type="button" aria-label="Phóng to" onClick={() => setZoomAdj((z) => +(z + 0.1).toFixed(2))} className="grid h-7 w-7 place-items-center rounded-lg hover:bg-[var(--bg-surface)]"><Plus size={14} /></button>
+          </div>
+        </div>
+        <div ref={boxRef} className="overflow-auto p-3" onClick={() => setSelected(null)}>
+          <FloorCanvas floor={f} floorId={floor.id} win={floorWindow(floor)} tables={live} zoom={zoom} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-[var(--border)] px-4 py-2.5">
+          {LEGEND.map((k) => (
+            <span key={k} className="inline-flex items-center gap-1.5 text-[12px] text-[var(--text-secondary)]">
+              <span className="h-3 w-3 rounded-[4px]" style={{ background: STATE[k].bg }} />
+              {STATE[k].label}
+              <b className="font-mono text-[var(--text-primary)]">{counts[k]}</b>
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <Card padded className="self-start">
+        {sel ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <CardHeader title={`Bàn ${sel.code}`} />
+              <span className="rounded-full px-2 py-0.5 text-[12px] font-semibold" style={{ background: STATE[stateOf(sel)].bg, color: STATE[stateOf(sel)].fg }}>{STATE[stateOf(sel)].label}</span>
+            </div>
+            <dl className="space-y-1.5 text-[13px]">
+              <Row label="Khu vực">{f.areas.find((a) => a.id === sel.areaId)?.name ?? '—'}</Row>
+              <Row label="Số ghế">{guestsOf(sel) ? `${guestsOf(sel)} khách / ${sel.seats} ghế` : `${sel.seats} ghế`}</Row>
+              {sel.order ? (
+                <>
+                  <Row label="Đơn">{sel.order.code} · đã ngồi {elapsed(sel.order.openedAt)}</Row>
+                  <Row label="Tạm tính">{formatCurrency(sel.order.subtotal)}</Row>
+                  {sel.order.pendingCount ? <Row label="Đang làm">{sel.order.pendingCount} món</Row> : null}
+                  {sel.order.readyCount ? <Row label="Chờ mang ra">{sel.order.readyCount} món</Row> : null}
+                </>
+              ) : null}
+              {sel.reservation ? <Row label="Đặt trước">{sel.reservation.customerName} · {hhmm(sel.reservation.time)} · {sel.reservation.guests} khách</Row> : null}
+            </dl>
+            {selFull ? (
+              <div className="flex flex-wrap gap-1.5 border-t border-[var(--border)] pt-3">
+                <Button size="sm" variant="outline" leadingIcon={<Pencil size={13} />} onClick={() => onEditTable(selFull)}>Sửa thông tin</Button>
+                <Button size="sm" variant="ghost" leadingIcon={<QrCode size={13} />} onClick={() => onShowQr(selFull)}>Mã QR</Button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <CardHeader title={floor.name} />
+            <p className="text-[13px] text-[var(--text-secondary)]">{live.length} bàn · {live.filter((t) => t.order).length} bàn có khách · {live.reduce((s, t) => s + (t.status === 'inactive' ? 0 : t.seats), 0)} ghế</p>
+            <p className="text-[12.5px] text-[var(--text-muted)]">Quản lý chỉ xem; mở bàn, gọi món, thanh toán do thu ngân và phục vụ làm. Muốn đổi vị trí bàn, tường, vùng khu thì vào “Sửa sơ đồ”.</p>
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
 
-/* =========================================================== Modal bàn */
-
-function TableModal({
-  state,
-  areas,
-  defaultAreaId,
-  onClose,
-  onDelete,
-  onShowQr,
-}: {
-  state: { open: boolean; table: DiningTable | null };
-  areas: Area[];
-  defaultAreaId: string;
-  onClose: () => void;
-  onDelete: (table: DiningTable) => void;
-  onShowQr: (table: DiningTable) => void;
-}) {
-  const [form, setForm] = useState<TableInput>({ code: '', areaId: '', seats: 4, shape: 'square', status: 'available' });
-  const [seatsText, setSeatsText] = useState('4');
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (!state.open) return;
-    const t = state.table;
-    const next: TableInput = t
-      ? { code: t.code, areaId: t.areaId, seats: t.seats, shape: t.shape, status: t.status }
-      : { code: '', areaId: defaultAreaId, seats: 4, shape: 'square', status: 'available' };
-    setForm(next);
-    setSeatsText(String(next.seats));
-    setErrors({});
-  }, [state, defaultAreaId]);
-
-  const mutation = useApiMutation(
-    (input: TableInput) => (state.table ? updateTable(state.table.id, input) : createTable(input)),
-    {
-      invalidate: [qk.tables],
-      success: (t) => (state.table ? `Đã cập nhật bàn ${t.code}` : `Đã thêm bàn ${t.code} vào sơ đồ`),
-      onFieldErrors: setErrors,
-      onSuccess: onClose,
-    },
-  );
-
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Modal
-      open={state.open}
-      onOpenChange={(o) => !o && onClose()}
-      size="sm"
-      title={state.table ? `Sửa bàn ${state.table.code}` : 'Thêm bàn'}
-      description={state.table ? undefined : 'Bàn mới được đặt vào ô trống đầu tiên của sơ đồ khu vực.'}
-      footer={
-        <>
-          {state.table ? (
-            <Button variant="ghost" className="mr-auto text-[var(--danger)]" leadingIcon={<Trash2 size={14} />} onClick={() => onDelete(state.table!)}>
-              Xóa bàn
-            </Button>
-          ) : null}
-          {state.table ? (
-            <Button variant="outline" leadingIcon={<QrCode size={14} />} onClick={() => onShowQr(state.table!)}>
-              Mã QR
-            </Button>
-          ) : null}
-          <Button variant="ghost" onClick={onClose}>Hủy</Button>
-          <Button type="submit" form="table-form" loading={mutation.isPending}>Lưu</Button>
-        </>
-      }
-    >
-      <form
-        id="table-form"
-        noValidate
-        className="grid grid-cols-2 gap-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const seats = Number(seatsText);
-          if (!Number.isInteger(seats)) return setErrors({ seats: 'Số ghế là số nguyên từ 1 đến 20' });
-          mutation.mutate({ ...form, seats });
-        }}
-      >
-        <Field label="Mã bàn" htmlFor="t-code" required error={errors.code}>
-          <TextInput id="t-code" value={form.code} invalid={Boolean(errors.code)} maxLength={10} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="T10" />
-        </Field>
-        <Field label="Số ghế" htmlFor="t-seats" required error={errors.seats}>
-          <TextInput id="t-seats" type="number" min={1} max={20} value={seatsText} invalid={Boolean(errors.seats)} onChange={(e) => setSeatsText(e.target.value)} />
-        </Field>
-        <Field label="Khu vực" htmlFor="t-area" required error={errors.areaId} className="col-span-2">
-          <SelectInput id="t-area" value={form.areaId} invalid={Boolean(errors.areaId)} onChange={(e) => setForm({ ...form, areaId: e.target.value })} options={areas.map((a) => ({ value: a.id, label: a.name }))} placeholder="— Chọn khu vực —" />
-        </Field>
-        <Field label="Hình dạng" htmlFor="t-shape">
-          <SelectInput id="t-shape" value={form.shape} onChange={(e) => setForm({ ...form, shape: e.target.value as TableShape })} options={(Object.keys(TABLE_SHAPE) as TableShape[]).map((s) => ({ value: s, label: TABLE_SHAPE[s] }))} />
-        </Field>
-        <Field label="Trạng thái" htmlFor="t-status">
-          <SelectInput id="t-status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TableStatus })} options={(Object.keys(TABLE_STATUS) as TableStatus[]).map((s) => ({ value: s, label: TABLE_STATUS[s].label }))} />
-        </Field>
-      </form>
-    </Modal>
+    <div className="flex justify-between gap-3">
+      <dt className="text-[var(--text-muted)]">{label}</dt>
+      <dd className="text-right font-medium">{children}</dd>
+    </div>
+  );
+}
+
+/* =========================================================== Danh sách */
+
+function ListView({ areas, tables, onEditArea, onDeleteArea, onEditTable, onDeleteTable, onShowQr }: {
+  areas: Area[];
+  tables: DiningTable[];
+  onEditArea: (a: Area) => void;
+  onDeleteArea: (a: Area) => void;
+  onEditTable: (t: DiningTable) => void;
+  onDeleteTable: (t: DiningTable) => void;
+  onShowQr: (t: DiningTable) => void;
+}) {
+  const areaName = (id: string) => areas.find((a) => a.id === id)?.name ?? '—';
+  return (
+    <div className="space-y-4">
+      <Card className="overflow-hidden">
+        <div className="p-5 pb-3"><CardHeader title="Khu vực trên tầng" /></div>
+        {areas.length === 0 ? (
+          <p className="px-5 pb-5 text-[13px] text-[var(--text-muted)]">Tầng này chưa có khu vực. Bấm “Thêm khu vực”.</p>
+        ) : (
+          <DataTable minWidth={640}>
+            <thead><tr><Th>Khu vực</Th><Th className="text-right">Số bàn</Th><Th>Vùng trên sơ đồ</Th><Th>Trạng thái</Th><Th className="text-right"><span className="sr-only">Thao tác</span></Th></tr></thead>
+            <tbody>
+              {areas.map((a) => (
+                <tr key={a.id} className="hover:bg-[var(--bg-subtle)]">
+                  <Td><p className="font-semibold">{a.name}</p><p className="text-[12px] text-[var(--text-muted)]">{a.description || 'Không có mô tả'}</p></Td>
+                  <Td className="text-right font-mono">{tables.filter((t) => t.areaId === a.id).length}</Td>
+                  <Td className="text-[13px]">{a.zone ? `${a.zone.w} × ${a.zone.h} ô` : <span className="text-[var(--warning)]">Chưa vẽ</span>}</Td>
+                  <Td>{a.active ? <Badge variant="accent">Đang phục vụ</Badge> : <Badge variant="neutral">Tạm ngưng</Badge>}</Td>
+                  <Td className="text-right">
+                    <RowActions name={a.name} onPrimary={() => onEditArea(a)} items={[{ label: 'Xóa khu vực', icon: <Trash2 size={15} />, danger: true, onSelect: () => onDeleteArea(a) }]} />
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        )}
+      </Card>
+      <Card className="overflow-hidden">
+        <div className="p-5 pb-3"><CardHeader title="Bàn" /></div>
+        {tables.length === 0 ? (
+          <div className="px-5 pb-5"><EmptyState title="Tầng này chưa có bàn" description="Bấm “Thêm bàn” để tạo bàn." /></div>
+        ) : (
+          <DataTable minWidth={720}>
+            <thead><tr><Th>Mã bàn</Th><Th>Khu vực</Th><Th className="text-right">Số ghế</Th><Th>Hình dạng</Th><Th>Vị trí</Th><Th>Trạng thái</Th><Th className="text-right"><span className="sr-only">Thao tác</span></Th></tr></thead>
+            <tbody>
+              {[...tables].sort((a, b) => a.code.localeCompare(b.code, 'vi', { numeric: true })).map((t) => (
+                <tr key={t.id} className="hover:bg-[var(--bg-subtle)]">
+                  <Td className="font-mono font-semibold">{t.code}</Td>
+                  <Td>{areaName(t.areaId)}</Td>
+                  <Td className="text-right font-mono">{t.seats}</Td>
+                  <Td>{TABLE_SHAPE[t.shape]}</Td>
+                  <Td className="whitespace-nowrap font-mono text-[12.5px] text-[var(--text-muted)]">Cột {t.x + 1}, hàng {t.y + 1}</Td>
+                  <Td><Badge variant={TABLE_STATUS[t.status].variant}>{TABLE_STATUS[t.status].label}</Badge></Td>
+                  <Td className="text-right">
+                    <RowActions
+                      name={t.code}
+                      onPrimary={() => onEditTable(t)}
+                      items={[
+                        { label: 'Mã QR gọi món', icon: <QrCode size={15} />, onSelect: () => onShowQr(t) },
+                        { label: 'Xóa bàn', icon: <Trash2 size={15} />, danger: true, onSelect: () => onDeleteTable(t) },
+                      ]}
+                    />
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        )}
+      </Card>
+    </div>
   );
 }
 

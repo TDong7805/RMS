@@ -32,18 +32,29 @@ public class WebsiteContentService {
     static final int MAX_PHOTOS = 60;
     static final int MAX_ABOUT = 5000;
     static final int MAX_HIGHLIGHTS = 6;
+    static final int MAX_LETTER = 2000;
+    static final int MAX_FEATURES = 8;
+    private static final String FEATURE_NOT_FOUND = "Mục này không còn trên website";
     private static final Pattern URL = Pattern.compile("^https?://\\S+\\.\\S+$");
     private static final String PHOTO_NOT_FOUND = "Ảnh không còn trong album";
 
     /** aboutHighlights: mỗi dòng một điểm nhấn. Ảnh trả về địa chỉ /uploads/... (null = chưa có). */
     public record Content(String slogan, String award, String heroImage, String aboutTitle, String aboutContent,
                           String aboutHighlights, String aboutImage, String facebookUrl, String instagramUrl,
-                          String tiktokUrl, String youtubeUrl, String zaloPhone, String mapUrl, String updatedAt) {}
+                          String tiktokUrl, String youtubeUrl, String zaloPhone, String mapUrl, String chefName,
+                          String chefTitle, String chefLetter, String chefImage, String reserveImage, String updatedAt) {}
 
     /** Ảnh: data URL khi chọn ảnh mới, địa chỉ ảnh hiện tại để giữ nguyên, rỗng / null để bỏ ảnh. */
     public record ContentInput(String slogan, String award, String heroImage, String aboutTitle, String aboutContent,
                                String aboutHighlights, String aboutImage, String facebookUrl, String instagramUrl,
-                               String tiktokUrl, String youtubeUrl, String zaloPhone, String mapUrl) {}
+                               String tiktokUrl, String youtubeUrl, String zaloPhone, String mapUrl, String chefName,
+                               String chefTitle, String chefLetter, String chefImage, String reserveImage) {}
+
+    /** Món đặc trưng (signature) / trải nghiệm (experience) trên trang chủ. */
+    public record Feature(String id, String kind, String title, String subtitle, String description, String image,
+                          boolean visible, int sortOrder) {}
+
+    public record FeatureInput(String kind, String title, String subtitle, String description, String image, Boolean visible) {}
 
     public record Photo(String id, String image, String caption, boolean visible, int sortOrder, String createdAt) {}
 
@@ -76,7 +87,8 @@ public class WebsiteContentService {
     /** Dòng website_content (ảnh là khóa lưu trữ) — PublicSiteService dùng chung. */
     record Row(String slogan, String award, String heroKey, String aboutTitle, String aboutContent,
                        String highlights, String aboutKey, String facebook, String instagram, String tiktok,
-                       String youtube, String zalo, String map, java.time.LocalDateTime updatedAt) {}
+                       String youtube, String zalo, String map, String chefName, String chefTitle, String chefLetter,
+                       String chefKey, String reserveKey, java.time.LocalDateTime updatedAt) {}
 
     Row row() {
         return jdbc.sql("SELECT * FROM website_content WHERE id = 1")
@@ -84,7 +96,9 @@ public class WebsiteContentService {
                 rs.getString("hero_image_url"), Vi.trim(rs.getString("about_title")), Vi.trim(rs.getString("about_content")),
                 Vi.trim(rs.getString("about_highlights")), rs.getString("about_image_url"), Vi.trim(rs.getString("facebook_url")),
                 Vi.trim(rs.getString("instagram_url")), Vi.trim(rs.getString("tiktok_url")), Vi.trim(rs.getString("youtube_url")),
-                Vi.trim(rs.getString("zalo_phone")), Vi.trim(rs.getString("map_url")), Db.dateTime(rs, "updated_at")))
+                Vi.trim(rs.getString("zalo_phone")), Vi.trim(rs.getString("map_url")), Vi.trim(rs.getString("chef_name")),
+                Vi.trim(rs.getString("chef_title")), Vi.trim(rs.getString("chef_letter")), rs.getString("chef_image_url"),
+                rs.getString("reserve_image_url"), Db.dateTime(rs, "updated_at")))
             .optional()
             .orElseThrow(() -> BusinessException.notFound("Chưa có cấu hình website (thiếu dữ liệu V24)"));
     }
@@ -92,8 +106,8 @@ public class WebsiteContentService {
     public Content content() {
         Row r = row();
         return new Content(r.slogan(), r.award(), images.url(r.heroKey()), r.aboutTitle(), r.aboutContent(), r.highlights(),
-            images.url(r.aboutKey()), r.facebook(), r.instagram(), r.tiktok(), r.youtube(), r.zalo(), r.map(),
-            Times.iso(r.updatedAt()));
+            images.url(r.aboutKey()), r.facebook(), r.instagram(), r.tiktok(), r.youtube(), r.zalo(), r.map(), r.chefName(),
+            r.chefTitle(), r.chefLetter(), images.url(r.chefKey()), images.url(r.reserveKey()), Times.iso(r.updatedAt()));
     }
 
     @Transactional
@@ -123,26 +137,37 @@ public class WebsiteContentService {
         String map = Vi.trim(in.mapUrl());
         if (!map.isEmpty() && !URL.matcher(map).matches()) e.add("mapUrl", "Đường dẫn bản đồ phải bắt đầu bằng http:// hoặc https://");
         else if (map.length() > 500) e.add("mapUrl", "Đường dẫn bản đồ tối đa 500 ký tự");
+        String chefName = Vi.collapse(in.chefName());
+        String chefTitle = Vi.collapse(in.chefTitle());
+        String chefLetter = normalizeParagraphs(in.chefLetter());
+        if (chefName.length() > 80) e.add("chefName", "Tên tối đa 80 ký tự");
+        if (chefTitle.length() > 80) e.add("chefTitle", "Chức danh tối đa 80 ký tự");
+        if (chefLetter.length() > MAX_LETTER) e.add("chefLetter", "Lá thư tối đa " + MAX_LETTER + " ký tự");
+        if (!chefLetter.isEmpty() && chefName.isEmpty()) e.add("chefName", "Vui lòng nhập tên người viết thư");
         String zalo = Vi.trim(in.zaloPhone()).replaceAll("[\\s.]", "");
         if (!zalo.isEmpty() && !Rules.PHONE.matcher(zalo).matches()) e.add("zaloPhone", "Số Zalo không đúng định dạng (VD: 0912345678)");
         e.throwIfAny();
 
         Row current = row();
-        String hero = images.apply("website", in.heroImage(), current.heroKey(), "heroImage");
+        String hero = images.applyWide("website", in.heroImage(), current.heroKey(), "heroImage");
         String aboutImage = images.apply("website", in.aboutImage(), current.aboutKey(), "aboutImage");
+        String chefImage = images.apply("website", in.chefImage(), current.chefKey(), "chefImage");
+        String reserveImage = images.apply("website", in.reserveImage(), current.reserveKey(), "reserveImage");
         jdbc.sql("""
                 UPDATE website_content
                 SET slogan = ?, award = ?, hero_image_url = ?, about_title = ?, about_content = ?, about_highlights = ?,
                     about_image_url = ?, facebook_url = ?, instagram_url = ?, tiktok_url = ?, youtube_url = ?, zalo_phone = ?,
-                    map_url = ?, updated_by = ?
+                    map_url = ?, chef_name = ?, chef_title = ?, chef_letter = ?, chef_image_url = ?, reserve_image_url = ?,
+                    updated_by = ?
                 WHERE id = 1
                 """)
             .params(nullIfEmpty(slogan), nullIfEmpty(award), hero, nullIfEmpty(aboutTitle), nullIfEmpty(aboutContent),
                 highlights.isEmpty() ? null : String.join("\n", highlights), aboutImage, nullIfEmpty(links.get("facebookUrl")),
                 nullIfEmpty(links.get("instagramUrl")), nullIfEmpty(links.get("tiktokUrl")), nullIfEmpty(links.get("youtubeUrl")),
-                nullIfEmpty(zalo), nullIfEmpty(map), currentUser.get().id())
+                nullIfEmpty(zalo), nullIfEmpty(map), nullIfEmpty(chefName), nullIfEmpty(chefTitle), nullIfEmpty(chefLetter),
+                chefImage, reserveImage, currentUser.get().id())
             .update();
-        audit.log("settings", "Cập nhật website khách hàng", "Cập nhật nội dung website: banner, giới thiệu, mạng xã hội");
+        audit.log("settings", "Cập nhật website khách hàng", "Cập nhật nội dung website: banner, giới thiệu, bếp trưởng, mạng xã hội");
         return content();
     }
 
@@ -232,6 +257,123 @@ public class WebsiteContentService {
         images.deleteAfterCommit(key);
         audit.log("settings", "Xóa ảnh album", p.caption().isEmpty() ? "Xóa một ảnh khỏi album website" : "Xóa ảnh \"" + p.caption() + "\"",
             "gallery_photos", id);
+    }
+
+    /* ------------------------------------------------------------ Món đặc trưng / trải nghiệm */
+
+    private static String kindOf(String kind) {
+        String k = Vi.trim(kind);
+        if (!"signature".equals(k) && !"experience".equals(k)) throw new ValidationException("kind", "Loại mục không hợp lệ");
+        return k;
+    }
+
+    private static String kindLabel(String kind) {
+        return "signature".equals(kind) ? "món đặc trưng" : "trải nghiệm";
+    }
+
+    /** Mọi mục (kể cả đang ẩn) theo loại; kind rỗng = cả hai loại. */
+    public List<Feature> features(String kind) {
+        String k = Vi.trim(kind);
+        return jdbc.sql("SELECT * FROM website_features WHERE (? = '' OR kind = ?) ORDER BY kind, sort_order, id")
+            .params(k, k)
+            .query((rs, n) -> new Feature(Ids.str(rs.getLong("id")), rs.getString("kind"), rs.getString("title"),
+                Vi.trim(rs.getString("subtitle")), Vi.trim(rs.getString("description")), images.url(rs.getString("image_url")),
+                rs.getBoolean("is_visible"), rs.getInt("sort_order")))
+            .list();
+    }
+
+    private Feature feature(long id) {
+        return features("").stream().filter(f -> f.id().equals(Ids.str(id))).findFirst()
+            .orElseThrow(() -> BusinessException.notFound(FEATURE_NOT_FOUND));
+    }
+
+    private record FeatureRow(String kind, String imageKey) {}
+
+    private FeatureRow featureRow(long id) {
+        return jdbc.sql("SELECT kind, image_url FROM website_features WHERE id = ? FOR UPDATE").param(id)
+            .query((rs, n) -> new FeatureRow(rs.getString("kind"), rs.getString("image_url"))).optional()
+            .orElseThrow(() -> BusinessException.notFound(FEATURE_NOT_FOUND));
+    }
+
+    private record FeatureText(String title, String subtitle, String description) {}
+
+    private static FeatureText featureText(FeatureInput in) {
+        var e = new ValidationException.Collector();
+        String title = Vi.collapse(in.title());
+        String subtitle = Vi.collapse(in.subtitle());
+        String description = Vi.collapse(in.description());
+        if (title.isEmpty()) e.add("title", "Vui lòng nhập tên");
+        else if (title.length() > 80) e.add("title", "Tên tối đa 80 ký tự");
+        if (subtitle.length() > 120) e.add("subtitle", "Dòng phụ tối đa 120 ký tự");
+        if (description.length() > 500) e.add("description", "Mô tả tối đa 500 ký tự");
+        e.throwIfAny();
+        return new FeatureText(title, subtitle, description);
+    }
+
+    @Transactional
+    public Feature addFeature(FeatureInput in) {
+        String kind = kindOf(in.kind());
+        FeatureText t = featureText(in);
+        int count = jdbc.sql("SELECT COUNT(*) FROM website_features WHERE kind = ?").param(kind).query(Integer.class).single();
+        if (count >= MAX_FEATURES) {
+            throw new BusinessException("Tối đa " + MAX_FEATURES + " mục " + kindLabel(kind) + ". Hãy xóa bớt mục cũ trước khi thêm.");
+        }
+        String key = images.applyWide("website", in.image(), null, "image");
+        int next = jdbc.sql("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM website_features WHERE kind = ?").param(kind)
+            .query(Integer.class).single();
+        jdbc.sql("INSERT INTO website_features (kind, title, subtitle, description, image_url, sort_order, is_visible, created_by) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+            .params(kind, t.title(), nullIfEmpty(t.subtitle()), nullIfEmpty(t.description()), key, next,
+                in.visible() == null || in.visible(), currentUser.get().id())
+            .update();
+        long id = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
+        audit.log("settings", "Website: thêm " + kindLabel(kind), "Thêm \"" + t.title() + "\"", "website_features", id);
+        return feature(id);
+    }
+
+    @Transactional
+    public Feature updateFeature(String idText, FeatureInput in) {
+        long id = Ids.parse(idText, FEATURE_NOT_FOUND);
+        FeatureRow current = featureRow(id);
+        FeatureText t = featureText(in);
+        String key = images.applyWide("website", in.image(), current.imageKey(), "image");
+        boolean visible = in.visible() == null || in.visible();
+        jdbc.sql("UPDATE website_features SET title = ?, subtitle = ?, description = ?, image_url = ?, is_visible = ? WHERE id = ?")
+            .params(t.title(), nullIfEmpty(t.subtitle()), nullIfEmpty(t.description()), key, visible, id).update();
+        audit.log("settings", "Website: sửa " + kindLabel(current.kind()), (visible ? "Sửa" : "Ẩn") + " \"" + t.title() + "\"",
+            "website_features", id);
+        return feature(id);
+    }
+
+    /** Đổi chỗ với mục liền trước / sau cùng loại → trả cả danh sách loại đó theo thứ tự mới. */
+    @Transactional
+    public List<Feature> moveFeature(String idText, MoveInput in) {
+        long id = Ids.parse(idText, FEATURE_NOT_FOUND);
+        String kind = featureRow(id).kind();
+        String direction = Vi.trim(in.direction());
+        if (!"up".equals(direction) && !"down".equals(direction)) throw new ValidationException("direction", "Hướng di chuyển không hợp lệ");
+        List<Long> ids = new ArrayList<>(jdbc.sql("SELECT id FROM website_features WHERE kind = ? ORDER BY sort_order, id FOR UPDATE")
+            .param(kind).query(Long.class).list());
+        int i = ids.indexOf(id);
+        int j = "up".equals(direction) ? i - 1 : i + 1;
+        if (j >= 0 && j < ids.size()) {
+            ids.set(i, ids.get(j));
+            ids.set(j, id);
+        }
+        for (int k = 0; k < ids.size(); k++) {
+            jdbc.sql("UPDATE website_features SET sort_order = ? WHERE id = ?").params(k + 1, ids.get(k)).update();
+        }
+        return features(kind);
+    }
+
+    @Transactional
+    public void deleteFeature(String idText) {
+        long id = Ids.parse(idText, FEATURE_NOT_FOUND);
+        FeatureRow row = featureRow(id);
+        Feature f = feature(id);
+        jdbc.sql("DELETE FROM website_features WHERE id = ?").param(id).update();
+        images.deleteAfterCommit(row.imageKey());
+        audit.log("settings", "Website: xóa " + kindLabel(row.kind()), "Xóa \"" + f.title() + "\"", "website_features", id);
     }
 
     /* ------------------------------------------------------------ Thực đơn trên website */

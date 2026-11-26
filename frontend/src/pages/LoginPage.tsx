@@ -59,12 +59,12 @@ export default function LoginPage() {
     if (!username.trim()) errors.username = 'Vui lòng nhập tên đăng nhập';
     if (!password) errors.password = 'Vui lòng nhập mật khẩu';
     setFieldErrors(errors);
-    setFormError('');
-    if (Object.keys(errors).length > 0) return;
+    // Không xóa thông báo lỗi cũ ngay lúc gửi lại (tránh khung nhảy lên rồi xuống); kết quả mới sẽ thay nó.
+    if (Object.keys(errors).length > 0) { setFormError(''); return; }
     mutation.mutate({ username: username.trim(), password, remember });
   };
 
-  const sessionExpired = Boolean(next) && !formError && !mutation.isPending;
+  const sessionExpired = Boolean(next) && !formError;
 
   return (
     <AuthLayout>

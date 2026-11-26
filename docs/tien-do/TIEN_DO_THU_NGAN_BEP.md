@@ -286,6 +286,161 @@ Khi sửa chức năng: cập nhật file này **và** đặc tả.
 - **Ảnh bìa mới**: biển hiệu treo cao trên cửa kính (thanh tìm kiếm không che chữ), prompt cập nhật trong `PROMPT_ANH_AI.md`.
 - Chỉ sửa frontend (`QrMenuExtras.tsx`, `QrParts.tsx`, `QrOrderPage.tsx`) + ảnh bìa; không đổi CSDL. Chụp màn hình sáng / tối: tự chuyển, vuốt, bảng chọn (nháp → thêm → cập nhật), chi tiết Sprite, tìm kiếm — không lỗi trang. Đặc tả KH-02 (thẻ Set menu, thẻ nhóm, luồng 4d) và kịch bản B26–B26c, B29–B29b, B37 cập nhật.
 
+## Sửa giao diện theo quy tắc – nhóm 1: nền chung (26/11/2026)
+
+Theo `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md` (đợt A + "Thiết kế theo từng trang"). Chỉ sửa frontend, không đổi nghiệp vụ / dữ liệu.
+- **Màu:** trang nhân viên giữ xanh dịu mát; nền ánh xanh nhạt hơn, viền dịu, thẻ (`Card`) có bóng nhẹ `--shadow-card`; thêm `--brand` (đỏ rượu) chỉ cho logo "RB" (khung Quản lý / Kho, trang đăng nhập); vàng cảnh báo đậm hơn.
+- **Menu trái kiểu Linear** (`AppShell`): ghim (mặc định) hoặc thu gọn = ẩn hẳn; rê chuột vào nút mở menu / mép trái → menu trượt ra nổi, rời chuột tự ẩn, bấm để ghim; máy tính bảng chạm để mở; phím `[`; nhớ trạng thái (`localStorage rms-sidebar-collapsed`); chấm đỏ số thông báo trên nút mở menu (sửa góp ý 3.1). Bỏ kiểu cột biểu tượng cũ.
+- **Bảng lệnh Ctrl+K** (`CommandPalette`, thay `SearchBox`): nhóm Gần đây / Đi tới · Tạo mới (theo khu Quản lý / Kho) · Hệ thống (sáng / tối, thu gọn menu, đổi mật khẩu, đăng xuất); phím tắt bên phải; ↑ ↓ Enter Esc (góp ý 3.2).
+- **Thông báo nổi kiểu Atlassian Flag** (trang nhân viên): thẻ nền trang, biểu tượng màu theo loại, tiêu đề + mô tả, nút hành động (Hoàn tác) chữ màu chính; màu theo sáng / tối của hệ thống.
+- **Màn hình chờ** chỉ hiện khi tải quá 0,6 giây (trước 0,3 giây) → hết chớp khi tải lại (lỗi L7, dòng 1.3).
+- **Đăng nhập:** gửi lại không xóa thông báo lỗi cũ, không ẩn hộp "phiên hết hạn" lúc đang gửi → khung không nhảy (dòng 2.3).
+- **Nút:** thêm viền tập trung khi dùng bàn phím, ghi chú cấp nút.
+- **Thành phần làm sẵn, chưa gắn trang:** `Banner` (dải cảnh báo), `FilterChips` (chip lọc + menu tìm loại lọc), `FilteredEmpty` (trang trống "n mục đang bị ẩn bởi bộ lọc · Xóa lọc"), `StickySaveBar` (thanh lưu dính đáy). Gắn dần khi sửa từng trang.
+- Đăng xuất bấm Back ra website (2.10): giữ nguyên — đăng xuất đã thay trang hiện tại bằng trang đăng nhập; Back về trang trước khi vào hệ thống, không lộ dữ liệu.
+- Kiểm tra: chụp sáng / tối, máy tính + máy tính bảng (Quản lý, Kho), Ctrl+K, phím `[`, thông báo, hộp xác nhận, đăng nhập sai — không lỗi trang. Typecheck sạch.
+- **Chữ dễ hiểu (không dùng từ kỹ thuật):** hộp xóa món — món đã có trong hóa đơn cũ thì tiêu đề "Không xóa được …", giải thích hậu quả và nút **Ngừng bán** ngay trong hộp (món đã ngừng bán thì chỉ có Đóng); món chưa có trong hóa đơn nào: "Xóa rồi sẽ mất hẳn, không lấy lại được". Trang Chatbot: "Đồng bộ" → "Cập nhật", thẻ Gemini bỏ chữ "biến môi trường / backend".
+- **Dòng phiếu test cần test lại:** 1.1–1.3, 2.3, 3.1, 3.2, 3.5, 3.6, 4.1, 9.3 (thông báo), 15.5 (đăng xuất ở cửa sổ khác vẫn đúng), 9.3 hộp xóa món (cả món đã bán và món chưa bán), 16.2.
+
+## Sửa giao diện theo quy tắc – nhóm 2: Dashboard Quản lý (26/11/2026)
+
+Theo mục B5 của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md`. Đọc từ trên xuống: hôm nay thế nào → vì sao → làm gì tiếp.
+- **Backend:** thêm `GET /api/dashboard/overview?period=` (`SalesDashboardService.overview`) trả mọi số liệu trong một lần gọi: 4 chỉ số kèm kỳ trước và % (doanh thu, số đơn, trung bình mỗi đơn, **số khách** = tổng `orders.guests` của đơn đã thanh toán), biểu đồ doanh thu, cơ cấu doanh thu theo danh mục (tiền món quy về đúng tổng hóa đơn) và theo cách trả tiền (`payments.method`), giờ đông khách (theo giờ tạo đơn), số phần / doanh thu từng món kỳ này + kỳ trước, loại món (món ăn / đồ uống / gọi thêm — cùng cách nhận biết với băng chuyền bán chạy ở trang QR). Giữ nguyên `/revenue`, `/top-dishes` (kiểm thử còn dùng).
+- **Frontend:** dựng lại `DashboardPage` + `features/dashboard/OverviewBlocks.tsx`:
+  - **Một bộ chọn thời gian chung cho cả trang** ở góc trên phải (trước đây mỗi khối chọn riêng) + nút So sánh kỳ trước (thêm đường nét đứt trên biểu đồ).
+  - Hàng 1: 4 thẻ số có nhãn % xanh / đỏ "so với hôm qua / 7 ngày trước đó…"; điện thoại xếp 2 × 2.
+  - Hàng 2: Doanh thu theo thời gian (biểu đồ cũ) + **Cơ cấu doanh thu** (vành khuyên, tối đa 5 phần + "Khác", tổng ở giữa; đổi Theo danh mục / Theo cách trả tiền).
+  - Hàng 3: **Giờ đông khách** (cột theo giờ, giờ đông nhất tô đậm, đổi Số đơn / Số khách) + **Món bán chạy / bán chậm** dạng danh sách gọn có ảnh nhỏ, lọc Món ăn (mặc định) / Đồ uống / Tất cả.
+  - Hàng 4: **Món đang lên / đang xuống** (3 + 3 món, chỉ xét món có từ 3 phần ở một trong hai kỳ) + **Kho cần chú ý** gọn.
+  - Đổi kỳ: giữ số cũ mờ nhẹ, số chạy sang số mới, biểu đồ trượt (tắt khi máy bật giảm chuyển động). Thành phần mới `CountUp`; màu biểu đồ vành khuyên `--chart-1…5`.
+  - Bỏ `RevenueCard`, `TopDishesCard`, `InventoryCard` cũ. Ảnh món lỗi thì `DishThumb` hiện biểu tượng đĩa.
+- **Kiểm thử API:** bộ 03 thêm 11 bước cho `/overview` (khớp số với `/revenue`, `/top-dishes`; cơ cấu cộng lại = doanh thu; giờ đông khách đủ số đơn; thu ngân bị chặn 403). Chạy cả bộ trên CSDL tạm: 03 đạt 82/82; các bộ khác không đổi.
+- **Lưu ý dữ liệu mẫu:** đơn cũ trong dữ liệu mẫu phần lớn chưa ghi số khách nên thẻ Số khách nhỏ, có dòng "Chỉ đếm bàn có ghi số khách lúc mở bàn".
+- **Dòng phiếu test cần test lại:** cả trang 5 (5.1–5.11, đã viết lại trong `KICH_BAN_TEST.md` và `phieu-test.html`).
+- **Kết quả test trang 5 (26/11/2026):** 11/11 đạt — ghi vào `docs/kiem-thu/ket-qua/ket-qua-test-rms-20261126-trang5.json` (gộp kết quả đợt 1, thay phần trang 5).
+- **Chỉnh sau test:** biểu đồ Doanh thu và Giờ đông khách giãn vừa chiều cao khung bên cạnh (hết khoảng trắng, cả khi menu ghim / thu gọn); danh sách Đang lên / đang xuống giãn đều theo khung Kho; ghi chú "Chỉ đếm bàn có ghi số khách" chuyển thành biểu tượng ⓘ để 4 thẻ số cao bằng nhau; ô chọn thời gian tự đóng sau khi chọn. Thêm vào quy tắc 2 của `QUY_TAC_GIAO_DIEN.md`.
+- **Chưa xong:** dữ liệu mẫu (cả `rms_db`: 694 đơn) chưa đơn nào ghi số khách → thẻ Số khách và chế độ "Số khách" ở Giờ đông khách gần như toàn 0. **Đã chốt 26/11/2026:** tạm để nguyên; sau này làm bộ dữ liệu kinh doanh 2 năm (phục vụ dự báo) thì ghi số khách cho đơn luôn một lượt.
+
+## Sửa giao diện theo quy tắc – nhóm 3: Thực đơn (26/11/2026)
+
+Theo mục B8 của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md`. Người dùng chốt: **không** làm Nhân bản món; form set **chuyển thành trang con**; menu trái **gộp một mục "Thực đơn"**. Chỉ sửa frontend + đặc tả, không đổi máy chủ / dữ liệu.
+- **Trang "Thực đơn" 4 tab** (`features/dishes/MenuLayout.tsx`): Món ăn `/quan-ly/mon-an` · Set menu `/set-menu` · Danh mục `/danh-muc` (mới) · Nhóm món `/nhom-mon` (mới). Mọi tab cùng bố cục, nút chính "Thêm …" luôn ở góc phải. Bỏ hàng 4 nút cũ (2 nút mở hộp, 2 nút nhảy trang).
+- **Menu trái:** "Quản lý món ăn" (2 mục con) → một mục **Thực đơn**. Ctrl+K: thêm Set menu / Danh mục món / Nhóm món; "Thêm set menu" mở thẳng trang thêm set.
+- **Đường dẫn trên cùng** bấm được và có nhiều cấp: Trang chủ › Thực đơn › Món ăn › Sửa (`Breadcrumb` thêm `parentTo`, `trail`).
+- **Tab Món ăn:** lọc bằng chip (`FilterChips`: Danh mục, Trạng thái) + trang trống khi lọc (`FilteredEmpty`); mỗi dòng **Sửa** + **⋯** (Xem chi tiết · Ngừng bán / Mở bán lại · Xóa món) — thành phần mới `RowActions` dùng lại cho các trang sau; bấm tên / ảnh món mở chi tiết.
+- **Tab Danh mục / Nhóm món:** danh sách nằm ngay trên trang (trước là hộp chứa cả danh sách); thêm / sửa mở hộp nhỏ, câu hướng dẫn ảnh thành chữ nhỏ dưới ô ảnh. Bỏ `CategoryModal`, `GroupModal`.
+- **Tab Set menu:** lưới thẻ to → danh sách như tab Món ăn: ảnh nhỏ · tên · "n món" (bấm mở xem món, món ngừng bán tô đỏ) · giá set / giá gốc / -x% · giờ bán · trạng thái · Sửa / ⋯ (Tắt set / Bật lại set · Xóa set).
+- **Thêm / sửa món và set dùng chung một kiểu trang** (`MenuFormHeader`): tiêu đề, **Quay lại** + **Lưu** ở góc phải; thanh lưu dính đáy (`StickySaveBar`) khi có thay đổi — Hủy thay đổi / Lưu / "Còn n chỗ chưa đúng"; Quay lại khi chưa lưu thì hỏi "Bỏ các thay đổi chưa lưu?". Trang set mới `SetFormPage` (`/set-menu/them`, `/set-menu/:id/sua`): thanh dưới đáy luôn ghi số món, giá gốc, khách tiết kiệm; món đang có trong set nằm đầu danh sách chọn.
+- Chữ: "Chatbot AI" → "trợ lý AI" ở các hộp xác nhận; trang Chatbot ghi "Thực đơn → Set menu".
+- **Đặc tả** `CodeUC_QLNH.docx` (UC Quản lý món ăn + UC Chatbot): menu "Thực đơn" 4 tab, lọc chip, menu "⋯", tab Danh mục, form set ở trang riêng.
+- Kiểm tra: typecheck sạch; tự chạy thử 4 tab, menu ⋯, lọc chip, hộp danh mục, sửa món có thay đổi → hỏi khi Quay lại → Lưu ở thanh dưới đáy, tắt / bật set — không lỗi trang.
+- **Chỉnh sau test (26/11/2026):** (1) bỏ nút Lưu trên đầu trang thêm / sửa món và set — **chỉ còn một nút Lưu ở thanh dính đáy**, thanh **luôn hiện** ở cả hai trang ("Chưa có thay đổi", nút mờ tới khi sửa; trang set kèm số món / giá gốc / tiết kiệm), nền đặc; nút **Quay lại** có viền cho dễ thấy. (2) **Rời trang khi chưa lưu bằng bất kỳ cách nào** (menu trái, Ctrl+K, đường dẫn, Back, Quay lại) đều hỏi; tải lại / đóng tab trình duyệt tự hỏi — hook mới `useUnsavedGuard`; để làm được, `App.tsx` đổi `BrowserRouter` → `createBrowserRouter` + `RouterProvider` (danh sách trang trong `routes.tsx` giữ nguyên). Đã chạy thử: đăng nhập, chuyển hướng khi chưa đăng nhập, các khu khác mở bình thường.
+- **Dòng phiếu test cần test lại:** trang 9 (9.1–9.7), 10 (10.1–10.9), 11 (11.1–11.8) — đã viết lại trong `KICH_BAN_TEST.md` và `phieu-test.html`; thêm 16.x (nút "Quản lý set" ở trang Chatbot vẫn mở tab Set menu).
+
+## Sửa giao diện theo quy tắc – nhóm 4: Lịch phân công ca (26/11/2026)
+
+Theo mục B9 của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md`. Người dùng chốt: **"thiếu người" = bộ phận chính (Phục vụ, Bếp, Thu ngân) không có ai** trong ca — chưa thêm "số người cần" cho ca. Chỉ sửa frontend (`ShiftsPage.tsx`) + đặc tả.
+- **Theo ca:** đường kẻ dọc giữa các ngày; cột hôm nay ghi "Hôm nay", tô nền nhạt; dòng ngày và cột tên ca **dính khi cuộn** (khung cuộn có chiều cao vừa màn hình). Đầu mỗi ô có **chip tóm tắt** "PV 3 · Bếp 2 · TN 1" (+ Kho / QL nếu có), bộ phận chính 0 người thì **đỏ** (chỉ hôm nay / sau này). Người chia theo bộ phận trong **khung nhỏ có vạch màu**. Ô hơn 4 người: hiện 3 + "+n người", bấm mở bảng đủ (đổi khu / hủy phân công được).
+- **Theo nhân viên:** chú thích ca chuyển lên thanh công cụ dạng chip màu (tên + giờ); trong ô ghi tên ca + giờ ngắn ("Ca sáng 6–14"); dòng ngày / cột tên dính khi cuộn; kẻ dọc, tô cột hôm nay.
+- **Đặc tả** `CodeUC_QLNH.docx` bước 5.2 (phân công ca): xem theo ca / theo nhân viên, chip số người, tô đỏ bộ phận chính chưa có người.
+- Kiểm tra: typecheck sạch; chạy thử sáng / tối, cuộn, "+n người" — không lỗi trang.
+- **Dòng phiếu test cần test lại:** 12.3, 12.6–12.9.
+
+## Sửa giao diện theo quy tắc – nhóm 5: Cấu hình hệ thống (26/11/2026)
+
+Theo mục B10 của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md` (kiểu trang cài đặt Linear). Chỉ sửa frontend + đặc tả, không đổi máy chủ.
+- **Bố cục mới** (`SettingsPage.tsx`): cột trái "Cấu hình" chia nhóm có **ô tìm cài đặt** (tìm cả tên cài đặt bên trong) — Nhà hàng (Thông tin, Giờ hoạt động, Thanh toán) · Vận hành (Gọi món tại bàn, Chấm công) · Khách hàng (Website) · Hệ thống (Sao lưu & phục hồi, Nhật ký hoạt động ↗). Bỏ hàng tab cũ; Giờ hoạt động và Gọi món tại bàn tách khỏi tab Thông tin thành mục riêng. Đường dẫn `?tab=` cũ vẫn mở được.
+- **Mỗi cài đặt một dòng** (thành phần mới `SettingsSection`, `SettingRow`, `UnitInput`): tên + một dòng mô tả bên trái, ô nhập / công tắc bên phải; ô số có đơn vị ("phút", "ngày"). Chữ mô tả viết lại cho dễ hiểu ("Mạng của quán", "Độ chặt khi so khuôn mặt"…).
+- **Một thanh lưu dưới đáy cho mỗi mục** (`SettingsSaveBar`), luôn hiện như trang Thêm / sửa món; đổi mục ở cột trái / rời trang khi chưa lưu thì hỏi (`useUnsavedGuard` thêm tùy chọn theo dõi `?tab=`). Hook mới `useDraft` giữ bản gốc / bản nháp để biết có thay đổi và Hủy thay đổi.
+- **Thanh toán:** khung "Đang dùng trên hóa đơn" thay khung Xem trước; "Bỏ tài khoản" có hộp hỏi lại.
+- **Sao lưu:** lịch tự động thành các dòng (tắt thì mờ); danh sách bản sao lưu: thời điểm in đậm, tên file nhỏ, nút **Tải xuống** + ⋯ (Phục hồi từ bản này · Xóa bản sao lưu).
+- **Website:** chưa đổi bố cục (vẫn kiểu thẻ, nhiều ô dài + album); chỉ sửa chữ trỏ sang mục mới. Đổi sang kiểu dòng khi làm nhóm E (website).
+- **Đặc tả** `CodeUC_QLNH.docx` UC Cấu hình hệ thống: bước 2 (các nhóm, mỗi cài đặt một dòng), bước 5 (thanh lưu dưới đáy, hỏi khi rời mục).
+- Kiểm tra: typecheck sạch; chạy thử mọi mục, tìm "wifi", sửa → hỏi khi đổi mục → Lưu → giá trị đã lưu — không lỗi trang.
+- **Chỉnh sau góp ý (26/11/2026):** menu thu gọn thì trang dồn sang trái, bên phải trống → cả cụm (cột trái + nội dung) **căn giữa**, bề ngang tối đa 1064px (mục Website 1320px).
+- **Dòng phiếu test cần test lại:** cả trang 18 (18.1–18.11, viết lại; phiếu HTML trang 18 trước bị lệch cột, đã sửa); 18.1 thử cả menu ghim và thu gọn.
+
+## Sửa giao diện theo quy tắc – nhóm 6: Kho (26/11/2026)
+
+Theo mục C của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md`: đồng bộ 14 trang Kho với các mẫu đã làm bên Quản lý. Chỉ sửa frontend + đặc tả, không đổi máy chủ. Nhóm chốt 4 điểm: gộp menu, thanh đáy phiếu mua có Lưu nháp + Đặt hàng, Dashboard tick chọn + một nút Tạo phiếu mua, nút Nhập kho về góc phải.
+- **Menu trái Kho gọn:** Nguyên liệu · Nhà cung cấp · Phiếu mua (bỏ menu con Danh sách / Thêm; nút Thêm nằm trên trang danh sách, vẫn có trong Ctrl+K). Đường dẫn trên cùng: Trang chủ › Nguyên liệu › Thêm nguyên liệu (bấm được).
+- **Danh sách** (Nguyên liệu, Nhà cung cấp, Phiếu mua, Nhập kho, Xuất kho, Kiểm kê, Công nợ): ô chọn lọc / nút gạt → **chip lọc** (+ Lọc); lọc không ra → "Không có … phù hợp · Xóa lọc"; hàng biểu tượng mỗi dòng → **nút chữ + menu ⋯** (việc nguy hiểm chữ đỏ, nằm cuối). Phiếu mua: nút chính đổi theo trạng thái (Sửa / Nhận hàng / Xem); cột Phiếu mua gộp mã + tên để bảng vừa màn 1440 khi ghim menu.
+- **Form** (Nguyên liệu, Nhà cung cấp, Phiếu mua, Nhập không phiếu, Nhận hàng theo phiếu mua, Xuất kho): đầu trang nút **Quay lại** có viền; **một thanh dính đáy luôn hiện** (Chưa nhập gì / Có thay đổi chưa lưu / Còn n chỗ chưa đúng + tổng tiền, Hủy thay đổi, nút chính). Phiếu mua: **Lưu nháp** (nút phụ) + **Đặt hàng**; Xóa phiếu nháp lên đầu trang. Rời form khi chưa lưu bằng bất cứ cách nào (menu trái, Ctrl+K, Back) đều hỏi — thay `useLeaveGuard` cũ của Kho (chỉ hỏi khi bấm nút "Về…") bằng `useUnsavedGuard` chung.
+- **Chi tiết** (Nguyên liệu, Nhà cung cấp, Phiếu mua, Phiếu nhập, Phiếu xuất, Kiểm kê, Công nợ): thành phần mới `SubPageHeader` — nhãn trạng thái cạnh tiêu đề, bên phải Quay lại · nút việc chính · ⋯ (`RowActions` thêm kiểu `inHeader`); bỏ ô "Trạng thái" trùng. Phiếu kiểm kê: nút Gửi duyệt / Duyệt / Từ chối / Hủy phiếu xuống **thanh dính đáy** (`StickyActionBar`, kèm "Đã đếm x/y"). Chi tiết phiếu mua: hai bảng lịch sử xếp dọc (cạnh nhau bị cắt cột).
+- **Dashboard kho:** bảng Nguyên liệu cần nhập có **ô tick** + một nút **Tạo phiếu mua (n)**; form phiếu mua nhận `?nl=1,2,3`, gợi ý NCC bán được nhiều nguyên liệu nhất ("bán x/y nguyên liệu đã chọn"), tự chọn khi chỉ có một, thêm sẵn các dòng; nguyên liệu NCC không bán ghi dưới ô NCC. Bên phải Phiếu mua chờ nhận + Phiếu kiểm kê xếp chồng, cao bằng cột trái; Hao hụt nhiều nhất cả hàng.
+- **Sửa chung (ảnh hưởng mọi trang):** nhãn trạng thái không xuống dòng; đầu trang không đẩy nút xuống dưới khi mô tả dài; bảng có chữ ẩn ở cột cuối không còn làm cả trang tràn ngang (khung bảng thêm `relative`); `StickySaveBar` thêm `canSave`, `saveIcon`, `extraActions`.
+- **Đặc tả** `DacTa_UC_QuanLyKho.docx`: bảng menu, các bước "chọn menu …", quy ước "Rời form thêm / sửa" (thay "Hủy form"), UC-KHO-01 (tick chọn), UC-KHO-13 1a (nhiều nguyên liệu), menu ⋯.
+- Kiểm tra: typecheck sạch; chụp 14 trang + 7 trang chi tiết ở 1440 menu ghim / thu gọn; đo mọi bảng không tràn (trừ bảng đếm của phiếu kiểm kê đang sửa — nhiều ô nhập, cuộn ngang như cũ); tick 3 nguyên liệu → form có NCC gợi ý; rời form → hỏi; không lỗi trang.
+- **Dòng phiếu test cần test lại:** cả trang 20–27 (viết lại, 38 dòng). Trang 19 (Quản lý duyệt kiểm kê) chỉ đổi đầu trang chi tiết.
+
+## Sửa giao diện theo quy tắc – nhóm 11: D16 Thu ngân POS + B6 đặt bàn ở thu ngân (26/11/2026)
+
+Theo mục D16, B6 của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md` + nhóm chốt: gỡ **chấm công cá nhân** (khóa "chưa vào ca", nút Chấm công, trang Tôi); **giữ** Chấm công văn phòng (Excel / thêm tay) + Bảng lương trong ☰; trang phụ mở riêng có nút "Về quầy"; màn POS dùng được trên máy tính; sơ đồ **to rõ, vẽ như trang Sơ đồ bàn của Quản lý, hiện được cả 2 tầng**.
+- **Máy chủ:** bỏ hẳn `OnDutyInterceptor` (không vai trò nào còn bị khóa vì chưa chấm công). **Đặt bàn cho thu ngân:** `GET /api/thu-ngan/reservations?date=` (lịch trong ngày kèm khu, mã bàn), `POST` (thêm lịch, `source` phone / walk_in, xác nhận luôn, ghi người tạo), `PUT /{id}` (sửa), `PATCH /{id}/status` (confirmed / cancelled / no_show; "Đã đến" chỉ qua Mở bàn). `ReservationService.create`, `day`, `nextCode` (mã DB-… dùng chung với website). Lịch khách đặt qua website **báo cả thu ngân**.
+- **Khung** (`CashierShell`): thanh trên ☰ (số đỏ = yêu cầu thanh toán + hóa đơn chưa thu) · THU NGÂN + thứ / ngày · kết nối · giờ lớn · chuông; bỏ dải tab, nút Chấm công / Văn phòng, dải "chưa vào ca", menu tài khoản. **Menu ☰:** Quầy thu ngân · Yêu cầu thanh toán · Hóa đơn · Đơn hàng · *Văn phòng*: Chấm công · Bảng lương · Thông báo · Đổi mật khẩu · Đăng xuất (hỏi lại). Trang phụ (Đơn hàng, Hóa đơn, Yêu cầu, Chi tiết đơn, **Chấm công, Bảng lương** — trước dùng khung quản lý) dùng chung khung này với nút lớn **Về quầy thu ngân**.
+- **Màn POS** (`pages/thu-ngan/FloorPage.tsx`): trái 3 mục gập mở được (nhớ trạng thái) — **Yêu cầu thanh toán**, **Đặt bàn hôm nay** (nút Thêm; ≤ 2 giờ tô tím, quá giờ "Trễ x giờ y phút", lịch đã xử lý gập riêng), **Bàn đang có khách** (đã ngồi bao lâu, tạm tính); giữa: **sơ đồ cả tầng** (tường, vùng khu, bàn có ghế), tab **Tất cả tầng · Tầng 1 · Tầng 2** kèm "n/m có khách" + số chờ thanh toán / khách gọi; **Vừa khung** tự co (− / + chỉnh tay); **Tự chọn**: màn đủ rộng (bàn ≥ 50%) hiện mọi tầng, màn 1440 hiện một tầng có việc cần xử lý; bàn trên POS vẽ to hơn 10%, chữ có cỡ tối thiểu; phải: khung chi tiết chỉ hiện khi chạm bàn (giữ nguyên các việc: số khách, món, In tạm tính, Chuyển bàn, Lập hóa đơn, Thu tiền…). Bỏ khung "Chờ mang ra" (bếp bấm Đã mang đi).
+- **Hộp đặt bàn** (`CashierReservationDialog`): thêm (Khách gọi điện / Khách đến quầy) / sửa — tên, SĐT, ngày, giờ, số khách, khu, bàn (không bắt buộc, ghi "ít ghế"), ghi chú; lỗi tại ô theo quy tắc chung; Xác nhận lịch · **Khách đã đến – Mở bàn** · Khách không đến · Hủy lịch (hỏi lại).
+- Gỡ `/thu-ngan/toi`; xóa `SelfPages.tsx`, `SelfShell.tsx`, `DutyBanner.tsx` (giữ `MyInfo` để dựng Cổng nhân viên).
+- **Kiểm thử:** bộ mới **`tests/api/17-dat-ban-thu-ngan.mjs`** (18 bước); bộ 13: "thu ngân chưa vào ca mở bàn được". Chạy 17 bộ trên CSDL mới: **734 / 735** (bước không đạt: bộ 05 cần lịch đặt trong 2 giờ tới — dữ liệu mẫu chỉ tới 20:00, chạy lúc 23h). Giao diện: **17 / 17** bước ở 1440 và 1920 (☰, cột trái, một tầng / cả 2 tầng, khung chi tiết, thêm lịch có lỗi tại ô, trang Chấm công có Về quầy, đăng xuất hỏi lại), không lỗi trang.
+- **Đặc tả** `DacTa_UC_DatMon_Bep_ThuNgan.docx`: mô tả tác nhân Thu ngân, **Nhân viên phục vụ** (nay có tài khoản, khu theo lịch ca); UC-TN-01 (bố cục POS, tab tầng / Tự chọn, cột trái, khung chi tiết, ☰, 4d–4e nhận / sửa đặt bàn, không cần vào ca, lịch website báo thu ngân). **Chưa làm:** dòng "ca hiện tại" trên thanh trên (cần nguồn ca của quầy — chờ Cổng nhân viên); trang Đặt bàn của Quản lý chưa có nút Thêm (thu ngân nhận đặt bàn).
+- **Dòng phiếu test cần test lại:** trang 36 (36.1–36.15, viết lại), 41, 42 (mở qua ☰, có Về quầy), 43 (tạm gỡ); mục "Không cần cho nhân viên vào ca" ở đầu phiếu.
+
+## Sửa giao diện theo quy tắc – nhóm 10: D15 Phục vụ trên điện thoại (26/11/2026)
+
+Theo mục D15 của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md` + nhóm chốt: **gỡ chấm công** khỏi khu phục vụ; **chia khu theo lịch ca** (không theo chấm công); tab Mang món → **Món xong chỉ xem**; bỏ tab **Tôi** — phần cá nhân (chấm công, lịch sử, phiếu lương, hồ sơ, ca của tôi) sau gom về **Cổng nhân viên `/nhan-vien`** cho mọi vai trò (làm cuối cùng, nhóm tìm hiểu rồi thống nhất; nhân viên được xem ca của chính mình).
+- **Máy chủ:** `DutyService.waitersOnDuty` = phục vụ có ca theo **lịch phân công** đang diễn ra (không còn dựa vào chấm công); `waitersFor` giờ không ai có ca → **mọi phục vụ** nhận thông báo (thêm `allWaiters`); nhắc đơn quá giờ cũng vậy. Bỏ `WaiterGuard` (khóa "chưa vào ca") và API `POST /api/phuc-vu/serve` (bếp bấm Đã mang đi). Sơ đồ phục vụ trả `onShift` + `nextLabel` (ca kế tiếp) thay `clockedIn` / `scheduledLabel`. Thông báo khuôn mặt cho nhân viên không còn trỏ về `/…/toi`.
+- **Khung** (`WaiterShell`): 4 tab Sơ đồ · Yêu cầu · **Món xong** (số đỏ = món xong của khu mình) · Thực đơn; dòng ca "Ca … · khu" hoặc "Ngoài ca · ca tới …"; âm báo + rung cả khi bếp vừa xong món của khu mình; bỏ dải "chưa vào ca".
+- **Sơ đồ:** nút gạt khu bo tròn (chấm đỏ khu cần xử lý), thẻ bàn bo tròn; bảng dưới: Mở bàn / Gọi món cho khách (nút lớn) / Chuyển / Ghép; món xong chỉ ghi "Xong – lấy ở bếp", bỏ nút Mang ra / Đã mang hết; bỏ khóa thao tác.
+- **Gọi món** (`WaiterMenuPage`): lưới món ảnh tròn + nút **+** (đã chọn thì bộ đếm − n + xuống dòng dưới giá), chip danh mục + tìm; **Set menu mở màn chi tiết của trang QR** (`SetDetailScreen`: độ chín / sốt, chia loại nước — gửi kèm món con); thanh lớn **Xem giỏ · n món · tổng**; giỏ: ảnh tròn, giá, ô Thêm ghi chú, − / +, nút lớn **Gửi bếp · tổng tiền**. Thực đơn tra cứu cùng lưới, bấm món mở bảng thông tin.
+- **Món xong** (`/phuc-vu/mon-xong`, đường cũ `/phuc-vu/mang-mon` chuyển về): chỉ xem theo bàn, bàn chờ lâu nhất trên, phút chờ đỏ khi ≥ 5, nút gạt Khu của tôi / Tất cả khu.
+- **Yêu cầu:** bỏ khóa; nút xác nhận đơn lớn bo tròn. Gỡ `/phuc-vu/toi`, `/phuc-vu/ca-lam`.
+- **Kiểm thử:** bộ 13 viết lại phần đầu — ngoài ca không bị khóa, không ai có ca → báo mọi phục vụ, API bưng món đã bỏ, xếp ca (chưa chấm công) → khu của ca; bưng món → bếp bấm Đã mang đi, món rời "Món xong". Chạy 16 bộ trên CSDL mới: **716 / 717** (bước không đạt: bộ 05 cần lịch đặt trong 2 giờ tới — dữ liệu mẫu chỉ tới 20:00, chạy lúc 22h). Giao diện điện thoại (iPhone 13): **16 / 16** bước, không lỗi trang (sửa: giá bị bẻ dòng khi có bộ đếm).
+- **Đặc tả Word:** `DacTa_UC_DatMon_Bep_ThuNgan.docx` chưa có phần Nhân viên phục vụ (vẫn ghi "phục vụ không có tài khoản, thu ngân báo bộ đàm") — cần viết bổ sung (đã báo nhóm).
+- **Dòng phiếu test cần test lại:** trang 31 (31.1–31.12), 32 (32.1–32.6), 33 (33.1–33.7), 34 Món xong (34.1–34.4), 43.1; mục "Cho nhân viên vào ca" ở đầu phiếu.
+
+## Sửa giao diện theo quy tắc – nhóm 9: D14 Công thức + trang phụ của bếp (26/11/2026)
+
+Theo mục D14 của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md`; làm luôn cho xong khu bếp trước khi nhóm test một lượt.
+- **Khung trang phụ** (`KitchenShell`): ☰ (menu dùng chung với màn chính: Màn hình bếp · Kiểm tra nguyên liệu · Công thức · Đăng xuất có hỏi lại; màn chính thêm Món tạm hết, Cài đặt màn hình) · BẾP · **tiêu đề trang** · nút việc của trang · **Về màn bếp**. Bỏ dải tab cũ. Menu ☰ và hộp hỏi đăng xuất chuyển vào `KitchenShell` (`KitchenMenu`, `KitchenLogoutDialog`) để hai nơi dùng chung.
+- **Công thức** (`pages/bep/RecipesPage.tsx`): trái lọc **Tất cả / Chưa có / Đã có** kèm số, nhãn **% giá vốn / giá bán** tô màu (≤ 35% xanh, ≤ 45% vàng, cao hơn đỏ); phải bảng định lượng — **ô chọn nguyên liệu gõ tìm** theo tên / mã (hiện tồn, ↑ ↓ Enter, nguyên liệu đã có ở dòng khác bị mờ, thiếu chỗ thì mở lên trên), **đơn vị nằm trong ô định lượng**; **thanh dính đáy** giá vốn / phần · % giá bán · Chưa có thay đổi / Có thay đổi chưa lưu / Còn n chỗ chưa đúng · Hủy thay đổi · Lưu công thức; Lưu có lỗi thì **tô đỏ dòng, cuộn tới dòng lỗi đầu và đặt con trỏ vào ô**; rời trang / đổi món / Back khi chưa lưu thì hỏi (đóng tab trình duyệt tự hỏi).
+- **Kiểm tra nguyên liệu**: tiêu đề lên thanh trên; lọc tình trạng bằng **chip có số** (Tất cả · Hết hàng · Sắp hết · Đủ hàng).
+- Sửa: tiêu đề trang phụ bị mất ở nền tối (thẻ h1 ăn màu chung) → dùng màu chữ của bộ màu bếp.
+- **Kiểm thử:** không đổi máy chủ. Giao diện 15 / 15 bước (trang phụ + ☰, chip lọc, lọc Chưa có / Đã có, nhãn %, thanh dính đáy, đơn vị cạnh ô, ô chọn có tìm, lỗi cuộn tới dòng + con trỏ, hỏi khi đổi món / Về màn bếp, Hủy thay đổi, lưu, nền tối); chạy lại màn bếp D13 15 / 15; bộ API 02 đạt.
+- **Đặc tả** `DacTa_UC_DatMon_Bep_ThuNgan.docx`: đường vào UC-BEP-05/06/07 qua ☰; UC-BEP-06 chip lọc; UC-BEP-07 danh sách (nhãn %, lọc Chưa có / Đã có), ô chọn có tìm, thanh dính đáy, hỏi khi rời, cuộn tới dòng lỗi.
+- **Dòng phiếu test cần test lại:** trang 29 (29.1–29.4) và 30 (30.1–30.9), viết lại.
+
+## Sửa giao diện theo quy tắc – nhóm 8: D13 Màn bếp (26/11/2026)
+
+Theo mục D13 của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md` + nhóm chốt thêm: bếp là người bấm **Đã mang đi** (không còn chờ phục vụ); **Chờ lấy đưa ra ngoài** thành cột cố định bên phải; **gỡ chấm công khỏi bếp** (chấm công sẽ là trang riêng quét QR — nhóm mô tả sau; thu ngân / phục vụ gỡ khi tới lượt).
+- **Thanh trên cùng:** ☰ · BẾP · giữa là ô đếm **Tất cả · Mới · Đang làm · Chờ lấy** (bấm để lọc) · phải: kết nối (biểu tượng), TB hôm nay, đồng hồ lớn. Dải thứ hai: trạm, viên danh mục, Theo bàn / Theo món, **Tổng hợp món**.
+- **Menu ☰** (trái): Kiểm tra nguyên liệu, Công thức, Món tạm hết (số đỏ), Cài đặt màn hình; cuối menu người đăng nhập + **Đăng xuất có hỏi lại**. Không còn nút phụ / đăng xuất nằm ngoài.
+- **Cột Chờ lấy** (cố định bên phải, từ 1024 px): mỗi bàn một khối (gộp đợt, bàn chờ lâu nhất trên, phút chờ đỏ khi ≥ 5), nút lớn **Đã mang đi (n)**, ✓ từng món, ↺ Trả lại (30 phút). Màn hẹp: bấm ô Chờ lấy mở khung. Lọc theo trạm như thẻ bàn.
+- **Tổng hợp món:** bảng Món · Mới · Đang làm · Chờ lấy (cộng số phần) theo trạm / danh mục, thay chỗ cột Chờ lấy; Về Chờ lấy để trở lại.
+- **Gỡ chấm công khỏi bếp:** bỏ tab Chấm công (trang phụ), dải "chưa vào ca", trang `/bep/toi` (gõ thẳng thì về `/bep`). Máy chủ `OnDutyInterceptor` **không còn chặn bếp** (thu ngân vẫn phải vào ca). Màn mở đầu đổi "Bắt đầu ca" → "Bắt đầu".
+- Trang phụ của bếp (`KitchenShell`): Đăng xuất cũng hỏi lại.
+- **Kiểm thử:** bộ 13 đổi bước "bếp chưa vào ca bị chặn" → "không bị chặn". Chạy 16 bộ trên CSDL mới: 609 / 610 khi chạy chung lúc 21h — bước không đạt là bộ 05 cần lịch đặt trong 2 giờ tới (dữ liệu mẫu chỉ có tới 20:00, không liên quan); bộ 13 bị dữ liệu bộ trước làm lệch khi chạy chung, chạy riêng **110 / 110**. Giao diện: 15 / 15 bước chụp màn (không dải vào ca, cột Chờ lấy, Đã mang đi, Tổng hợp món, menu ☰, đăng xuất hỏi lại, trang phụ không tab Chấm công, `/bep/toi` về `/bep`, màn hẹp) — không lỗi trang.
+- **Đặc tả** `DacTa_UC_DatMon_Bep_ThuNgan.docx`: UC-BEP-01 (đầu trang, ô đếm, cột Chờ lấy, menu ☰, Tổng hợp món, không chấm công), UC-BEP-03 (Đã mang đi), các chỗ "bếp bấm Đã lấy" ở thu ngân.
+- **Chưa làm (để tới lượt):** nút "Mang ra / Đã mang hết" và trang Mang món bên **phục vụ** (D15 — hỏi lại nhóm); chấm công thu ngân / phục vụ; trang chấm công QR riêng.
+- **Dòng phiếu test cần test lại:** cả trang 28 (28.1–28.22, viết lại); 43.1.
+
+## Sửa giao diện theo quy tắc – nhóm 7: B7 Sơ đồ bàn theo tầng (26/11/2026)
+
+Theo mục B7 của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md` (bị sót khi làm nhóm B, làm bù sau nhóm C). Nhóm chốt: **thêm Tầng**; trình sửa **bàn + vùng khu + tường**; Quản lý xem **trạng thái trực tiếp như thu ngân**; khối "Không gian" của website để nhóm E (dữ liệu đã sẵn).
+- **Máy chủ — migration `V26__so_do_tang.sql`:** bảng `floors` (tên, cols × rows ô) và `floor_walls` (tường thẳng: outer / inner / fence); `areas` thêm `floor_id` + vùng khu `zone_x/y/w/h`; `dining_tables.pos_x/pos_y` từ nay là tọa độ trên **tầng** (một ô một bàn theo tầng, kiểm ở TableService; bỏ ràng buộc cũ theo khu). Dữ liệu cũ: tạo "Tầng 1", xếp mỗi khu thành khối 8 × 5, cộng vị trí bàn, vẽ tường ngoài.
+- **Dữ liệu mẫu `V26_1` (dev):** đổi tên khu "Tầng 1" → **Sảnh chính**, "Tầng 2" → **Khu gia đình**; 2 tầng gọn (12 × 7, 10 × 6) có vùng khu, tường, hàng rào sân vườn, vách phòng VIP. Đã ghi `DU_LIEU_GIA.md`.
+- **API mới:** `GET/POST /api/floors`, `PUT/DELETE /api/floors/{id}`, `PUT /api/floors/{id}/layout` (lưu cả tường, vùng, vị trí + khu của bàn một lần; kiểm hết rồi mới ghi), `GET /api/floors/live` (sơ đồ trực tiếp cho Quản lý, cùng dữ liệu thu ngân). Khu vực có `floorId`, `zone`; thêm bàn vào ô trống trong vùng khu; đổi khu thì tìm ô trong vùng mới; khu còn bàn không chuyển tầng; thu nhỏ tầng không được cắt mất bàn / vùng / tường. Sơ đồ thu ngân / phục vụ trả `floors` + vùng khu thay `cols/rows`.
+- **Trang Quản lý `Sơ đồ bàn`** (menu trái một mục): chọn tầng ở đầu trang (+ Thêm tầng, ⋯ Đổi tên / kích thước, Xóa tầng); 3 kiểu xem `?che-do=`:
+  - **Xem trực tiếp** — vẽ cả tầng bằng đúng cách vẽ của thu ngân (tường, vùng khu tô gạch chéo có nhãn tên, bàn có ghế, màu trạng thái, đã ngồi bao lâu, giờ đặt), chú thích màu có số đếm, bấm bàn → khung chi tiết (Sửa thông tin, Mã QR), tự làm mới 20 giây.
+  - **Sửa sơ đồ** (`features/floorplan/FloorEditor.tsx`) — khung trái Công cụ (Chọn & kéo · Vẽ tường: ngoài / trong / hàng rào · Vẽ vùng khu theo khu) · Bàn (Thêm bàn) · Đang chọn (sửa / Mã QR / xóa bàn; đổi loại / xóa tường; vẽ lại / xóa vùng); kéo bàn có ô đích xanh / đỏ, kéo vào vùng khu khác thì đổi khu; Hoàn tác / Làm lại (Ctrl+Z / Ctrl+Y), phím Delete; thanh dưới đáy Hủy thay đổi · Lưu; rời tầng / kiểu xem / trang khi chưa lưu thì hỏi.
+  - **Danh sách bàn** — bảng khu vực của tầng (số bàn, vùng trên sơ đồ, Sửa · ⋯) và bảng bàn (Sửa · ⋯ Mã QR, Xóa).
+- **Phần vẽ dùng chung** (`floorParts.tsx`): `PlanBackdrop` (lưới, vùng khu, tường), `FloorCanvas` nhận khung xem; `areaWindow` cắt khung quanh vùng khu. **Thu ngân, phục vụ** vẫn xem theo khu như cũ nhưng giờ thấy vùng khu + tường quanh khu.
+- **Kiểm thử:** bộ mới `tests/api/16-so-do-tang.mjs` (27 bước); bộ 13 sửa theo tên khu mới và cách tìm ô trống theo tầng. Chạy đủ 16 bộ trên CSDL mới: **719 / 719 đạt**. Giao diện: chụp 3 kiểu xem, kéo bàn, kéo trùng ô, vẽ tường, hoàn tác, hỏi khi rời, lưu; thu ngân + phục vụ (điện thoại) vẽ đúng — không lỗi trang.
+- **Đặc tả** `CodeUC_QLNH.docx` mục 6.4 (sơ đồ theo tầng). **Chưa làm:** sofa, trang trí, sàn (để sau như đã ghi ở B7); khối "Không gian" trên website (nhóm E).
+- **Dòng phiếu test cần test lại:** cả trang 8 (8.1–8.12, viết lại); trang 31 và 36 xem lại phần sơ đồ (có vùng khu, tường).
+
+## Kịch bản test bằng mắt (22/11/2026)
+- Viết lại `docs/kiem-thu/KICH_BAN_TEST.md` cho toàn hệ thống sau đợt phục vụ / chấm công / trợ lý / website: chỉ kiểm giao diện, thao tác và nghiệp vụ giữa các vai trò (phần API đã có trong `tests/`). Sắp theo **từng trang** (52 trang, 10 phần: chung, Quản lý, Kho, Bếp, Phục vụ, Thu ngân, Thông tin của tôi, trang QR + trợ lý, website, kiểm tra xuyên suốt) để test xong một trang rồi mới sang trang khác; mỗi trang có dòng "Liên quan" chỉ các trang dùng chung dữ liệu. Thêm bước chuẩn bị "cho nhân viên vào ca" bằng chấm công tay. Cột "Kịch bản" trong `tests/README.md` đổi theo mã mới.
+
 ## Việc để sau / ghi chú quyết định (18/11/2026)
 
 - **Phục vụ xác nhận món trước khi xuống bếp (X1):** tạm giữ như hiện tại — khách gửi là xuống bếp thẳng. Nhóm chạy thử và thống nhất ở buổi họp thứ 6 (21/11/2026); nếu cần sẽ làm chế độ phục vụ nhập mã PIN trên điện thoại khách để xác nhận, Quản lý bật / tắt trong Cấu hình.

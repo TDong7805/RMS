@@ -33,8 +33,8 @@ export function CategoryTabs({ items, active, onPick }: { items: TabItem[]; acti
     const sc = scroller.current;
     const el = sc?.querySelector<HTMLElement>(`[data-tab="${CSS.escape(active)}"]`);
     if (!sc || !el) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    sc.scrollTo({ left: el.offsetLeft + el.offsetWidth / 2 - sc.clientWidth / 2, behavior: reduce ? 'auto' : 'smooth' });
+    // Website luôn bật hiệu ứng (QUY_TAC_GIAO_DIEN K3).
+    sc.scrollTo({ left: el.offsetLeft + el.offsetWidth / 2 - sc.clientWidth / 2, behavior: 'smooth' });
   }, [active, items.length, measure]);
 
   useEffect(() => {

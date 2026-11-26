@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import * as Popover from '@radix-ui/react-popover';
 import { CalendarRange, ChevronLeft, ChevronRight, Clock, Pencil, Plus, Trash2, UserPlus, X } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/common/Card';
@@ -18,6 +19,15 @@ import type { Employee, RoleKey, Shift, ShiftAssignment, ShiftInput } from '@/ty
 
 type Tab = 'shifts' | 'schedule';
 const COLORS = ['#0f7b5a', '#2563eb', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#64748b'];
+
+/** "06:00"–"14:30" → "6–14:30" (ghi trong ô lịch theo nhân viên). */
+function shortHours(s: Shift): string {
+  const t = (v: string) => {
+    const [h, m] = v.slice(0, 5).split(':');
+    return m === '00' ? String(Number(h)) : `${Number(h)}:${m}`;
+  };
+  return `${t(s.startTime)}–${t(s.endTime)}`;
+}
 
 function mondayOf(date: Date): Date {
   const d = new Date(date);
@@ -262,6 +272,17 @@ function ScheduleBoard() {
             Phân công
           </Button>
         </div>
+        {view === 'staff' && shifts.length ? (
+          <div className="flex w-full flex-wrap items-center gap-1.5 pt-1" aria-label="Chú thích ca">
+            {[...shifts].sort((a, b) => a.startTime.localeCompare(b.startTime)).map((s) => (
+              <span key={s.id} className="inline-flex items-center gap-1.5 rounded-pill border border-[var(--border)] px-2.5 py-0.5 text-[12px] text-[var(--text-secondary)]">
+                <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: s.color }} />
+                <span className="font-semibold text-[var(--text-primary)]">{s.name}</span>
+                <span className="font-mono">{s.startTime}–{s.endTime}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {employeesQuery.isError || assignmentsQuery.isError ? (
@@ -284,20 +305,12 @@ function ScheduleBoard() {
           />
         </div>
       ) : (
-        <div className={cn('overflow-x-auto', assignmentsQuery.isFetching && 'opacity-60')}>
-          <table className="w-full min-w-[980px] border-collapse text-[13px]">
+        <div className={cn(SCROLL_BOX, assignmentsQuery.isFetching && 'opacity-60')}>
+          <table className="w-full min-w-[1040px] border-separate border-spacing-0 text-[13px]">
             <thead>
               <tr>
-                <th className="sticky left-0 z-10 w-[200px] border-b border-r border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-2.5 text-left text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">Nhân viên</th>
-                {days.map((d) => {
-                  const key = toDateKey(d);
-                  return (
-                    <th key={key} className={cn('border-b border-[var(--border)] px-2 py-2 text-center', key === todayKey ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]')}>
-                      <span className="block text-[11.5px] font-semibold uppercase">{WEEKDAYS_SHORT[d.getDay()]}</span>
-                      <span className="block font-mono text-[12px]">{formatDayMonth(d)}</span>
-                    </th>
-                  );
-                })}
+                <th className="sticky left-0 top-0 z-30 w-[200px] border-b border-r border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-2.5 text-left text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">Nhân viên</th>
+                {days.map((d) => <DayHead key={toDateKey(d)} d={d} todayKey={todayKey} />)}
               </tr>
             </thead>
             <tbody>
@@ -319,7 +332,7 @@ function ScheduleBoard() {
                     const past = key < todayKey;
                     const items = (assignmentsQuery.data ?? []).filter((a) => a.employeeId === emp.id && a.date === key);
                     return (
-                      <td key={key} className={cn('group border-b border-[var(--border)] px-1.5 py-1.5 align-top', past && 'bg-[var(--bg-subtle)]/60')}>
+                      <td key={key} className={cn('group border-b border-l border-[var(--border)] px-1.5 py-1.5 align-top', past && 'bg-[var(--bg-subtle)]/50', key === todayKey && 'bg-[var(--accent-soft)]/40')}>
                         <div className="flex min-h-[44px] flex-col gap-1">
                           {items.map((a) => {
                             const s = shifts.find((x) => x.id === a.shiftId);
@@ -330,10 +343,10 @@ function ScheduleBoard() {
                               <span key={a.id} className="group/chip flex items-center justify-between gap-1 rounded-[8px] px-2 py-1 text-[11.5px] font-semibold text-white" style={{ background: s.color, opacity: past ? 0.6 : 1 }} title={`${s.name} ${s.startTime}–${s.endTime}${area ? ' · ' + area : ''}`}>
                                 {waiter && !past ? (
                                   <button type="button" className="min-w-0 truncate text-left hover:underline" title="Đổi khu vực phụ trách" onClick={() => setAreaEdit({ id: a.id, label: `${emp.fullName} – ${s.name} ${formatDayMonth(d)}`, areaId: a.areaId })}>
-                                    {s.name}{area ? <span className="block truncate text-[10.5px] font-medium opacity-90">{area}</span> : <span className="block text-[10.5px] font-medium opacity-75">+ gán khu</span>}
+                                    {s.name} <span className="font-medium opacity-90">{shortHours(s)}</span>{area ? <span className="block truncate text-[10.5px] font-medium opacity-90">{area}</span> : <span className="block text-[10.5px] font-medium opacity-75">+ gán khu</span>}
                                   </button>
                                 ) : (
-                                  <span className="truncate">{s.name}{area ? <span className="block truncate text-[10.5px] font-medium opacity-90">{area}</span> : null}</span>
+                                  <span className="truncate">{s.name} <span className="font-medium opacity-90">{shortHours(s)}</span>{area ? <span className="block truncate text-[10.5px] font-medium opacity-90">{area}</span> : null}</span>
                                 )}
                                 {!past ? (
                                   <button type="button" aria-label={`Hủy ${s.name} của ${emp.fullName}`} onClick={() => unassignMutation.mutate(a.id)} className="hidden rounded-full hover:bg-white/25 group-hover/chip:block">
@@ -361,14 +374,6 @@ function ScheduleBoard() {
               ))}
             </tbody>
           </table>
-          <div className="flex flex-wrap gap-3 px-4 py-3 sm:px-5">
-            {shifts.map((s) => (
-              <span key={s.id} className="inline-flex items-center gap-1.5 text-[12px] text-[var(--text-secondary)]">
-                <span className="h-3 w-3 rounded-[4px]" style={{ background: s.color }} />
-                {s.name} ({s.startTime}–{s.endTime})
-              </span>
-            ))}
-          </div>
         </div>
       )}
 
@@ -521,11 +526,109 @@ function AreaModal({ state, areas, onClose }: { state: { id: string; label: stri
 
 const ROLE_ORDER: RoleKey[] = ['waiter', 'kitchen', 'cashier', 'warehouse', 'manager'];
 const ROLE_SHORT: Record<RoleKey, string> = { waiter: 'Phục vụ', kitchen: 'Bếp', cashier: 'Thu ngân', warehouse: 'Kho', manager: 'Quản lý' };
+/** Chữ viết tắt trên chip tóm tắt đầu ô. */
+const ROLE_ABBR: Record<RoleKey, string> = { waiter: 'PV', kitchen: 'Bếp', cashier: 'TN', warehouse: 'Kho', manager: 'QL' };
 const ROLE_DOT: Record<RoleKey, string> = { waiter: '#0f7b5a', kitchen: '#dc2626', cashier: '#2563eb', warehouse: '#a16207', manager: '#7c3aed' };
+/** Bộ phận ca nào cũng phải có người; 0 người thì chip tóm tắt tô đỏ (chốt 26/11/2026). */
+const MAIN_ROLES: RoleKey[] = ['waiter', 'kitchen', 'cashier'];
+/** Ô có quá số người này thì hiện "+n", bấm mở danh sách đủ. */
+const CELL_LIMIT = 4;
+
+/** Vị trí dính khi cuộn: dòng tiêu đề ngày dính trên, cột đầu dính trái. Khung cuộn có chiều cao giới hạn để dính được. */
+const SCROLL_BOX = 'max-h-[calc(100vh-340px)] min-h-[360px] overflow-auto';
+
+type Person = { a: ShiftAssignment; e: Employee };
+
+function DayHead({ d, todayKey, corner }: { d: Date; todayKey: string; corner?: boolean }) {
+  const key = toDateKey(d);
+  const today = key === todayKey;
+  return (
+    <th
+      className={cn(
+        'sticky top-0 z-10 border-b border-l border-[var(--border)] px-2 py-2 text-center',
+        today ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]',
+        corner && 'z-20',
+      )}
+    >
+      <span className="block text-[11.5px] font-semibold uppercase">{today ? 'Hôm nay' : WEEKDAYS_SHORT[d.getDay()]}</span>
+      <span className="block font-mono text-[12px]">{formatDayMonth(d)}</span>
+    </th>
+  );
+}
+
+/** Chip tóm tắt đầu ô: "PV 3 · Bếp 2 · TN 1"; bộ phận chính 0 người thì đỏ (chỉ với hôm nay / sau này). */
+function SummaryChips({ people, past }: { people: Person[]; past: boolean }) {
+  const count = (r: RoleKey) => people.filter((p) => p.e.role === r).length;
+  const roles = ROLE_ORDER.filter((r) => MAIN_ROLES.includes(r) || count(r) > 0);
+  return (
+    <div className="flex flex-wrap gap-1">
+      {roles.map((r) => {
+        const n = count(r);
+        const missing = n === 0 && !past;
+        return (
+          <span
+            key={r}
+            title={missing ? `Chưa có ai ở bộ phận ${ROLE_SHORT[r]}` : `${ROLE_SHORT[r]}: ${n} người`}
+            className={cn(
+              'inline-flex items-center rounded-[6px] px-1.5 py-px text-[10.5px] font-semibold tabular-nums',
+              missing ? 'bg-[var(--danger-soft)] text-[var(--danger)]' : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]',
+            )}
+          >
+            {ROLE_ABBR[r]} {n}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Người trong ô, chia theo bộ phận; mỗi bộ phận là một khung nhỏ có vạch màu bên trái. */
+function PeopleGroups({ people, shift, d, past, areaName, onUnassign, onArea }: {
+  people: Person[];
+  shift: Shift;
+  d: Date;
+  past: boolean;
+  areaName: (id: string | null) => string | null;
+  onUnassign: (id: string) => void;
+  onArea: (a: ShiftAssignment, label: string) => void;
+}) {
+  const groups = ROLE_ORDER.map((r) => ({ r, list: people.filter((x) => x.e.role === r) })).filter((g) => g.list.length);
+  return (
+    <div className="space-y-1">
+      {groups.map(({ r, list }) => (
+        <div key={r} className="rounded-[7px] border-l-[3px] bg-[var(--bg-subtle)] px-1.5 py-1" style={{ borderLeftColor: ROLE_DOT[r] }}>
+          <ul className="space-y-0.5">
+            {list.map(({ a, e }) => {
+              const area = areaName(a.areaId);
+              const short = e.fullName.split(' ').slice(-2).join(' ');
+              return (
+                <li key={a.id} className="group/name flex items-center gap-1 leading-tight">
+                  {e.role === 'waiter' && !past ? (
+                    <button type="button" title="Đổi khu vực phụ trách" onClick={() => onArea(a, `${e.fullName} – ${shift.name} ${formatDayMonth(d)}`)} className="min-w-0 truncate text-left hover:text-[var(--accent)] hover:underline">
+                      {short}{area ? <span className="text-[11px] text-[var(--accent)]"> · {area}</span> : <span className="text-[11px] text-[var(--text-muted)]"> · chưa gán khu</span>}
+                    </button>
+                  ) : (
+                    <span className="min-w-0 truncate" title={e.fullName}>{short}{area ? <span className="text-[11px] text-[var(--accent)]"> · {area}</span> : null}</span>
+                  )}
+                  {!past ? (
+                    <button type="button" aria-label={`Hủy ${shift.name} của ${e.fullName}`} onClick={() => onUnassign(a.id)} className="ml-auto hidden shrink-0 rounded text-[var(--text-muted)] hover:text-[var(--danger)] group-hover/name:block">
+                      <X size={12} />
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
- * Hàng = ca, cột = ngày; trong ô là người làm ca đó chia theo bộ phận (phục vụ kèm khu). Nhìn một lần biết mỗi ca có ai,
- * ca nào thiếu người. Bấm tên phục vụ (hôm nay / sau này) để đổi khu; dấu × để hủy phân công; "+" để phân công thêm.
+ * Hàng = ca, cột = ngày (docs/thiet-ke/QUY_TAC_GIAO_DIEN.md, mục B9). Đường kẻ dọc giữa các ngày, cột hôm nay tô nền nhạt,
+ * dòng ngày và cột tên ca dính khi cuộn. Mỗi ô: chip tóm tắt "PV 3 · Bếp 2 · TN 1" (thiếu bộ phận chính tô đỏ), người chia
+ * theo bộ phận trong khung có vạch màu; quá 4 người thì "+n", bấm mở danh sách đủ.
  */
 function ShiftGrid({
   days,
@@ -554,20 +657,12 @@ function ShiftGrid({
   const ordered = [...shifts].sort((a, b) => a.startTime.localeCompare(b.startTime));
   if (!ordered.length) return <p className="p-6 text-center text-[13.5px] text-[var(--text-muted)]">Chưa có ca làm việc nào — thêm ở tab Danh sách ca.</p>;
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[980px] table-fixed border-collapse text-[13px]">
+    <div className={SCROLL_BOX}>
+      <table className="w-full min-w-[1040px] table-fixed border-separate border-spacing-0 text-[13px]">
         <thead>
           <tr>
-            <th className="sticky left-0 z-10 w-[150px] border-b border-r border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2.5 text-left text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">Ca</th>
-            {days.map((d) => {
-              const key = toDateKey(d);
-              return (
-                <th key={key} className={cn('border-b border-[var(--border)] px-2 py-2 text-center', key === todayKey ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]')}>
-                  <span className="block text-[11.5px] font-semibold uppercase">{WEEKDAYS_SHORT[d.getDay()]}</span>
-                  <span className="block font-mono text-[12px]">{formatDayMonth(d)}</span>
-                </th>
-              );
-            })}
+            <th className="sticky left-0 top-0 z-30 w-[140px] border-b border-r border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2.5 text-left text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">Ca</th>
+            {days.map((d) => <DayHead key={toDateKey(d)} d={d} todayKey={todayKey} />)}
           </tr>
         </thead>
         <tbody>
@@ -580,44 +675,43 @@ function ShiftGrid({
               {days.map((d) => {
                 const key = toDateKey(d);
                 const past = key < todayKey;
-                const items = assignments
+                const all = assignments
                   .filter((a) => a.shiftId === s.id && a.date === key)
                   .map((a) => ({ a, e: empById.get(a.employeeId) }))
-                  .filter((x): x is { a: ShiftAssignment; e: Employee } => Boolean(x.e) && (!roleFilter || x.e!.role === roleFilter));
-                const groups = ROLE_ORDER.map((r) => ({ r, list: items.filter((x) => x.e.role === r) })).filter((g) => g.list.length);
+                  .filter((x): x is Person => Boolean(x.e));
+                const people = all.filter((x) => !roleFilter || x.e.role === roleFilter);
+                // Giữ thứ tự bộ phận khi cắt bớt để "+n" luôn là những người cuối danh sách.
+                const sorted = ROLE_ORDER.flatMap((r) => people.filter((x) => x.e.role === r));
+                const shown = sorted.length > CELL_LIMIT ? sorted.slice(0, CELL_LIMIT - 1) : sorted;
+                const hidden = sorted.length - shown.length;
+                const groupProps = { shift: s, d, past, areaName, onUnassign, onArea };
                 return (
-                  <td key={key} className={cn('group border-b border-[var(--border)] px-2 py-1.5 align-top', past && 'bg-[var(--bg-subtle)]/60', key === todayKey && 'bg-[var(--accent-soft)]/30')}>
-                    <div className={cn('min-h-[52px] space-y-1.5', past && 'opacity-60')}>
-                      {groups.map(({ r, list }) => (
-                        <div key={r}>
-                          <p className="flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
-                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: ROLE_DOT[r] }} />{ROLE_SHORT[r]} · {list.length}
-                          </p>
-                          <ul className="space-y-0.5">
-                            {list.map(({ a, e }) => {
-                              const area = areaName(a.areaId);
-                              const short = e.fullName.split(' ').slice(-2).join(' ');
-                              return (
-                                <li key={a.id} className="group/name flex items-center gap-1 leading-tight">
-                                  {e.role === 'waiter' && !past ? (
-                                    <button type="button" title="Đổi khu vực phụ trách" onClick={() => onArea(a, `${e.fullName} – ${s.name} ${formatDayMonth(d)}`)} className="min-w-0 truncate text-left hover:text-[var(--accent)] hover:underline">
-                                      {short}{area ? <span className="text-[11.5px] text-[var(--accent)]"> · {area}</span> : <span className="text-[11.5px] text-[var(--text-muted)]"> · chưa gán khu</span>}
-                                    </button>
-                                  ) : (
-                                    <span className="min-w-0 truncate" title={e.fullName}>{short}{area ? <span className="text-[11.5px] text-[var(--accent)]"> · {area}</span> : null}</span>
-                                  )}
-                                  {!past ? (
-                                    <button type="button" aria-label={`Hủy ${s.name} của ${e.fullName}`} onClick={() => onUnassign(a.id)} className="ml-auto hidden shrink-0 rounded text-[var(--text-muted)] hover:text-[var(--danger)] group-hover/name:block">
-                                      <X size={12} />
-                                    </button>
-                                  ) : null}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      ))}
-                      {!groups.length ? <p className="text-[11.5px] text-[var(--text-muted)]">—</p> : null}
+                  <td
+                    key={key}
+                    className={cn(
+                      'group border-b border-l border-[var(--border)] px-1.5 py-1.5 align-top',
+                      past && 'bg-[var(--bg-subtle)]/50',
+                      key === todayKey && 'bg-[var(--accent-soft)]/40',
+                    )}
+                  >
+                    <div className={cn('min-h-[64px] space-y-1.5', past && 'opacity-60')}>
+                      <SummaryChips people={all} past={past} />
+                      <PeopleGroups people={shown} {...groupProps} />
+                      {hidden > 0 ? (
+                        <Popover.Root>
+                          <Popover.Trigger asChild>
+                            <button type="button" className="w-full rounded-[7px] py-0.5 text-left text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--bg-subtle)]">
+                              +{hidden} người
+                            </button>
+                          </Popover.Trigger>
+                          <Popover.Portal>
+                            <Popover.Content side="right" align="start" sideOffset={6} collisionPadding={12} className="z-[60] w-[240px] rounded-[12px] border border-[var(--border)] bg-[var(--bg-surface)] p-2.5 text-[13px] shadow-overlay">
+                              <p className="mb-1.5 text-[12px] font-semibold text-[var(--text-secondary)]">{s.name} · {WEEKDAYS_SHORT[d.getDay()]} {formatDayMonth(d)} · {sorted.length} người</p>
+                              <PeopleGroups people={sorted} {...groupProps} />
+                            </Popover.Content>
+                          </Popover.Portal>
+                        </Popover.Root>
+                      ) : null}
                       {!past ? (
                         <button
                           type="button"

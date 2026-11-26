@@ -7,7 +7,7 @@ import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { BlockError, EmptyState } from '@/components/common/EmptyState';
 import { Skeleton } from '@/components/common/Skeleton';
-import { acceptRequest, confirmOrder, dropRequest, finishRequest, getConfirmations, getWaiterFloor, getWaiterRequests, WAITER_KEYS, type PendingConfirm } from '@/api/waiter';
+import { acceptRequest, confirmOrder, dropRequest, finishRequest, getConfirmations, getWaiterRequests, WAITER_KEYS, type PendingConfirm } from '@/api/waiter';
 import { useAuth } from '@/lib/auth';
 import { WaiterShell } from '@/features/waiter/WaiterShell';
 import { REQUEST_TYPE_LABEL } from '@/features/ordering/requestLabels';
@@ -20,9 +20,9 @@ type Tab = 'waiting' | 'done' | 'cancelled';
 /**
  * Việc của khách trong khu vực của mình:
  *  - Đơn chờ xác nhận (V22): món khách gửi qua QR — kiểm tra với khách rồi xác nhận (chuyển bếp, ghi tên mình) hoặc bỏ từng món
- *    kèm lý do. Chờ quá N phút: tô đỏ, mọi phục vụ đã vào ca đều thấy.
+ *    kèm lý do. Chờ quá N phút: tô đỏ, mọi phục vụ đều thấy.
  *  - Yêu cầu hỗ trợ (Gọi nhân viên): "Tôi đến" → khách thấy tên mình đang đến. Chờ quá 3 phút tô đỏ.
- * Âm báo + rung do WaiterShell phát. Chưa vào ca: chỉ xem.
+ * Âm báo + rung do WaiterShell phát. Khu của mình lấy theo lịch ca (D15).
  */
 export default function WaiterRequestsPage() {
   const qc = useQueryClient();
@@ -48,12 +48,11 @@ export default function WaiterRequestsPage() {
   const finish = useMutation({ mutationFn: finishRequest, onSuccess: after('Đã hoàn thành yêu cầu'), onError });
   const drop = useMutation({ mutationFn: dropRequest, onSuccess: after('Đã hủy yêu cầu'), onError });
   const confirms = useQuery({ queryKey: WAITER_KEYS.confirmations, queryFn: getConfirmations, refetchInterval: 15_000 });
-  const onDuty = useQuery({ queryKey: WAITER_KEYS.floor, queryFn: getWaiterFloor }).data?.clockedIn ?? false;
   const focusOrder = params.get('order');
 
   return (
     <WaiterShell title="ĐƠN & YÊU CẦU">
-      <fieldset disabled={!onDuty} className="mx-auto m-0 min-w-0 max-w-2xl space-y-3 border-0 p-0">
+      <div className="mx-auto min-w-0 max-w-2xl space-y-3">
         {/* Luôn hiện mục này (kể cả khi trống) để nhân viên biết đơn khách gửi phải được xác nhận ở đây. */}
         <section className="space-y-2">
           <h2 className="flex items-center gap-1.5 text-[14px] font-bold text-[#9d174d]"><ClipboardCheck size={16} /> Đơn chờ xác nhận ({confirms.data?.items.length ?? 0})</h2>
@@ -61,7 +60,7 @@ export default function WaiterRequestsPage() {
             confirms.data.items.map((c) => <ConfirmCard key={c.orderId} c={c} focus={focusOrder === c.orderId} remindMinutes={confirms.data!.remindMinutes} />)
           ) : (
             <p className="rounded-[14px] border border-dashed border-[#f9a8d4] bg-[var(--bg-surface)] p-4 text-center text-[13px] text-[var(--text-muted)]">
-              Chưa có đơn nào chờ xác nhận. Khi khách ở khu của bạn gửi món qua mã QR, đơn sẽ hiện ở đây (kèm âm báo khi bạn đã vào ca) — bạn xác nhận thì món mới chuyển xuống bếp.
+              Chưa có đơn nào chờ xác nhận. Khi khách ở khu của bạn gửi món qua mã QR, đơn sẽ hiện ở đây kèm âm báo — bạn xác nhận thì món mới chuyển xuống bếp.
             </p>
           )}
         </section>
@@ -113,7 +112,7 @@ export default function WaiterRequestsPage() {
             })}
           </ul>
         )}
-      </fieldset>
+      </div>
     </WaiterShell>
   );
 }
@@ -191,7 +190,7 @@ function ConfirmCard({ c, focus, remindMinutes }: { c: PendingConfirm; focus: bo
           );
         })}
       </ul>
-      <Button className="mt-2 w-full" leadingIcon={<Check size={16} />} loading={m.isPending} onClick={submit}>
+      <Button className="mt-2 h-12 w-full rounded-full text-[15px]" leadingIcon={<Check size={17} />} loading={m.isPending} onClick={submit}>
         {kept ? `Xác nhận ${kept} món, chuyển bếp` : 'Bỏ tất cả món'}
       </Button>
     </div>

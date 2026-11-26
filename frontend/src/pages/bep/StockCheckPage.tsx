@@ -56,8 +56,15 @@ export default function StockCheckPage() {
     [q.data, keyword, level],
   );
 
+  // Số đếm theo tình trạng (theo cách xem, từ khóa, danh mục đang chọn).
+  const levelCount = (lv: Level) =>
+    view === 'dish'
+      ? (q.data?.dishes ?? []).filter((d) => (!keyword.trim() || matchesKeyword(d.name, keyword)) && (!category || d.categoryId === category) && (!lv || dishLevel(d) === lv)).length
+      : (q.data?.ingredients ?? []).filter((i) => (!keyword.trim() || matchesKeyword(i.name, keyword)) && (!lv || i.level === lv)).length;
+
   return (
     <KitchenShell
+      title="Kiểm tra nguyên liệu"
       actions={
         <button type="button" className={kBtnGhost} onClick={() => void q.refetch()} disabled={q.isFetching}>
           <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />Làm mới
@@ -66,7 +73,6 @@ export default function StockCheckPage() {
     >
       <div className="mx-auto max-w-[1200px] space-y-4">
         <div>
-          <h1 className="text-[22px] font-extrabold text-[var(--k-text)]">Kiểm tra nguyên liệu</h1>
           <p className="text-[13.5px] text-[var(--k-muted)]">Tồn kho lấy từ phân hệ Kho. Số phần ước tính = tồn ÷ định lượng một phần (theo nguyên liệu thiếu nhất). Bán món không tự trừ kho.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -84,12 +90,21 @@ export default function StockCheckPage() {
               {(q.data?.categories ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           ) : null}
-          <select aria-label="Lọc tình trạng" value={level} onChange={(e) => setLevel(e.target.value as Level)} className={kInput}>
-            <option value="">Mọi tình trạng</option>
-            <option value="ok">Đủ hàng</option>
-            <option value="low">Sắp hết</option>
-            <option value="out">Hết hàng</option>
-          </select>
+          <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Lọc tình trạng">
+            {(['', 'out', 'low', 'ok'] as Level[]).map((lv) => (
+              <button
+                key={lv || 'all'}
+                type="button"
+                role="tab"
+                aria-selected={level === lv}
+                onClick={() => setLevel(lv)}
+                className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13.5px] font-semibold', level === lv ? 'border-transparent bg-[var(--k-invert-bg)] text-[var(--k-invert-text)]' : 'border-[var(--k-line)] bg-[var(--k-surface)]')}
+              >
+                {lv ? LEVEL[lv].label : 'Tất cả'}
+                <span className={cn('rounded-full px-1.5 font-mono text-[12px]', level === lv ? 'bg-[var(--k-surface)] text-[var(--k-text)]' : 'bg-[var(--k-fill-2)]')}>{levelCount(lv)}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {q.isError ? (

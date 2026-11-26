@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ClipboardList, History, Pencil, Power, PowerOff, Trash2 } from 'lucide-react';
+import { ClipboardList, History, Pencil, Power, PowerOff, Trash2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { BlockError, EmptyState } from '@/components/common/EmptyState';
 import { Field, TextInput } from '@/components/common/Form';
-import { DataTable, PageHeader, Pagination, StatTile, TableSkeleton, Td, Th } from '@/components/common/PageParts';
+import { DataTable, Pagination, StatTile, TableSkeleton, Td, Th } from '@/components/common/PageParts';
+import { RowActions } from '@/components/common/RowActions';
+import { SubPageHeader } from '@/components/common/SubPageHeader';
 import { Segmented } from '@/components/common/Segmented';
 import { Skeleton } from '@/components/common/Skeleton';
 import { WAREHOUSE_PAGE_SIZE } from '@/api/warehouse-ingredients';
@@ -50,29 +52,32 @@ export function IngredientDetailPage() {
   const card = useStockCard(id, { from: applied.from, to: applied.to, type, page });
 
   return (
-    <AppShell meta={{ label: it ? it.name : 'Chi tiết nguyên liệu', parent: 'Quản lý nguyên liệu' }}>
+    <AppShell meta={{ label: it ? it.name : 'Chi tiết nguyên liệu', parent: 'Nguyên liệu', parentTo: '/kho/nguyen-lieu' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader
+        <SubPageHeader
           title={it ? it.name : 'Chi tiết nguyên liệu'}
+          badge={it ? <ActiveBadge active={it.status === 'active'} activeLabel="Đang sử dụng" inactiveLabel="Ngừng sử dụng" /> : null}
           description={it ? `${it.code} · ${INGREDIENT_GROUPS[it.group]} · Đơn vị kho: ${it.unit}` : undefined}
+          backTo="/kho/nguyen-lieu"
           actions={
-            <>
-              <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/kho/nguyen-lieu')}>Về danh sách</Button>
-              {it ? (
-                <>
-                  {it.status === 'active' ? (
-                    <Button variant="outline" size="sm" leadingIcon={<ClipboardList size={15} />} onClick={() => navigate(`/kho/phieu-mua/them?nl=${it.id}`)}>Tạo phiếu mua</Button>
-                  ) : null}
-                  <Button variant="outline" size="sm" leadingIcon={<Pencil size={15} />} onClick={() => navigate(`/kho/nguyen-lieu/${it.id}/sua`)}>Sửa</Button>
-                  <Button variant="outline" size="sm" leadingIcon={it.status === 'active' ? <PowerOff size={15} /> : <Power size={15} />} onClick={() => setStatusTarget(it)}>
-                    {it.status === 'active' ? 'Ngừng sử dụng' : 'Sử dụng lại'}
-                  </Button>
-                  {it.deletable ? (
-                    <Button variant="outline" size="sm" leadingIcon={<Trash2 size={15} />} onClick={() => setDeleteTarget(it)}>Xóa</Button>
-                  ) : null}
-                </>
-              ) : null}
-            </>
+            it ? (
+              <>
+                <Button variant="outline" leadingIcon={<Pencil size={15} />} onClick={() => navigate(`/kho/nguyen-lieu/${it.id}/sua`)}>Sửa</Button>
+                {it.status === 'active' ? (
+                  <Button leadingIcon={<ClipboardList size={15} />} onClick={() => navigate(`/kho/phieu-mua/them?nl=${it.id}`)}>Tạo phiếu mua</Button>
+                ) : null}
+                <RowActions
+                  inHeader
+                  name={it.name}
+                  items={[
+                    it.status === 'active'
+                      ? { label: 'Ngừng sử dụng', icon: <PowerOff size={15} />, onSelect: () => setStatusTarget(it) }
+                      : { label: 'Sử dụng lại', icon: <Power size={15} />, onSelect: () => setStatusTarget(it) },
+                    ...(it.deletable ? [{ label: 'Xóa nguyên liệu', icon: <Trash2 size={15} />, danger: true, onSelect: () => setDeleteTarget(it) }] : []),
+                  ]}
+                />
+              </>
+            ) : null
           }
         />
 

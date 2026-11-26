@@ -1,45 +1,90 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowRightLeft, ExternalLink, Minus, Plus, Printer, Receipt, Wallet, X } from 'lucide-react';
+import { ArrowRightLeft, CalendarPlus, ChevronDown, ExternalLink, Minus, Plus, Printer, Receipt, Wallet, X } from 'lucide-react';
 import { Button } from '@/components/common/Button';
 import { BlockError } from '@/components/common/EmptyState';
 import { Skeleton } from '@/components/common/Skeleton';
-import { closeTable, getCashierFloor, getCashierOrder, getInvoice, openTable, setOrderGuests } from '@/api/ordering';
+import { CASHIER_RES_KEY, closeTable, getCashierFloor, getCashierOrder, getCashierReservations, getInvoice, openTable, setOrderGuests, type CashierReservation } from '@/api/ordering';
 import { CashierShell, CASHIER_FLOOR_KEY } from '@/features/ordering/CashierShell';
 import { CreateInvoiceDialog, MoveTableDialog, PaymentDialog, printInvoice, printProvisional } from '@/features/ordering/CashierDialogs';
+import { CashierReservationDialog, RES_STATUS, todayStr } from '@/features/ordering/CashierReservationDialog';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/cn';
-import { elapsed, FloorCanvas, guestsOf, hhmm, LEGEND, minutesSince, soonReservation, STATE, stateOf, SOON_MS, type TableState } from '@/features/ordering/floorParts';
+import { CELL, elapsed, FloorCanvas, floorWindow, guestsOf, hhmm, LEGEND, soonReservation, STATE, stateOf, SOON_MS, type TableState } from '@/features/ordering/floorParts';
 import type { CashierFloor, CashierOrderDetail, FloorTable, Invoice, OrderItemStatus } from '@/types';
 
 export const CASHIER_KEYS = { floor: CASHIER_FLOOR_KEY, order: (id: string) => ['thu-ngan', 'order', id] as const };
 
 /* ---------------------------------------------------------------- Trang */
 
-const ZOOM_KEY = 'rms-pos-zoom';
+const VIEW_KEY = 'rms-pos-floor-view';
+const LEFT_KEY = 'rms-pos-left';
+type Floors = CashierFloor['floors'];
 
 /**
- * UC-TN-01: Sơ đồ bàn kiểu POS — tab khu vực, bàn vẽ đúng hình và vị trí Quản lý đã xếp (lưới), ghế quanh bàn,
- * màu theo trạng thái, đồng hồ trên bàn; bấm bàn mở bảng bên phải; dải chú thích có số lượng ở đáy.
+ * UC-TN-01 (D16): màn POS một màn hình — trái: Yêu cầu thanh toán · Đặt bàn hôm nay (thêm lịch) · Bàn đang có khách;
+ * giữa: sơ đồ cả tầng vẽ như trang Sơ đồ bàn của Quản lý (tường, vùng khu, bàn có ghế), tự vừa khung, xem từng tầng
+ * hoặc cả các tầng cùng lúc, tab tầng kèm số đếm; phải: chạm bàn → khung chi tiết (món, tạm tính, lập hóa đơn, thu tiền…).
  */
 export default function FloorPage() {
   const floor = useQuery({ queryKey: CASHIER_KEYS.floor, queryFn: getCashierFloor, refetchInterval: 10_000 });
-  const [area, setArea] = useState<string | null>(null);
+  const today = todayStr();
+  const reservations = useQuery({ queryKey: CASHIER_RES_KEY(today), queryFn: () => getCashierReservations(today), refetchInterval: 30_000 });
+  const [view, setView] = useState<string>(() => localStorage.getItem(VIEW_KEY) ?? 'auto');
   const [selected, setSelected] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(() => Number(localStorage.getItem(ZOOM_KEY)) || 1);
+  const [zoomAdj, setZoomAdj] = useState(0);
+  const [resDialog, setResDialog] = useState<{ r: CashierReservation | null } | null>(null);
   const [, tick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => tick((n) => n + 1), 30_000);
     return () => clearInterval(id);
   }, []);
-  useEffect(() => localStorage.setItem(ZOOM_KEY, String(zoom)), [zoom]);
+  useEffect(() => localStorage.setItem(VIEW_KEY, view), [view]);
+
+  // Khung sơ đồ tự đo kích thước để tính mức thu phóng vừa khít.
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ w: 900, h: 600 });
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setBox({ w: e.contentRect.width, h: e.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [floor.data, selected]);
 
   const f = floor.data;
-  const areaId = area ?? f?.areas[0]?.id ?? null;
-  const areaTables = useMemo(() => (f?.tables ?? []).filter((t) => t.areaId === areaId), [f, areaId]);
+  const floors: Floors = f?.floors ?? [];
+  const floorOf = (t: FloorTable) => f?.areas.find((a) => a.id === t.areaId)?.floorId ?? '';
+  const tablesOf = (floorId: string) => (f?.tables ?? []).filter((t) => floorOf(t) === floorId);
   const sel = f?.tables.find((t) => t.id === selected) ?? null;
+  // Thu phóng vừa khung: một tầng; hoặc nhiều tầng xếp ngang / dọc — chọn cách cho bàn to nhất.
+  const PAD = 24;
+  const fitFor = (list: Floors): { fit: number; layout: 'row' | 'col' } => {
+    if (list.length === 0) return { fit: 1, layout: 'row' };
+    if (list.length === 1) return { fit: Math.min((box.w - PAD) / (list[0].cols * CELL), (box.h - PAD) / (list[0].rows * CELL)), layout: 'row' };
+    const gap = 20, label = 34;
+    const zRow = Math.min((box.w - PAD - gap * (list.length - 1)) / (list.reduce((s, x) => s + x.cols, 0) * CELL), (box.h - PAD - label) / (Math.max(...list.map((x) => x.rows)) * CELL));
+    const zCol = Math.min((box.w - PAD) / (Math.max(...list.map((x) => x.cols)) * CELL), (box.h - PAD - (label + gap) * list.length) / (list.reduce((s, x) => s + x.rows, 0) * CELL));
+    return zRow >= zCol ? { fit: zRow, layout: 'row' } : { fit: zCol, layout: 'col' };
+  };
+  // "Tự chọn": màn đủ rộng để bàn vẫn đọc rõ (≥ 50%) thì hiện mọi tầng; không thì một tầng — tầng đang có việc cần xử lý trước.
+  const busiest = [...floors].sort((a, b) => {
+    const s = (id: string) => { const x = floorStats(tablesOf(id)); return x.payment * 3 + x.calling * 3 + x.busy; };
+    return s(b.id) - s(a.id);
+  })[0];
+  const autoAll = floors.length > 1 && fitFor(floors).fit >= 0.5;
+  const shown: Floors = view === 'all' ? floors
+    : floors.some((x) => x.id === view) ? floors.filter((x) => x.id === view)
+    : autoAll ? floors : busiest ? [busiest] : [];
+  const { fit, layout } = fitFor(shown);
+  const pick = (t: FloorTable) => {
+    setSelected(t.id);
+    if (shown.length === 1 && floorOf(t) !== shown[0].id) setView(floorOf(t));
+  };
+  const zoom = Math.max(0.3, Math.min(1.4, +(fit + zoomAdj).toFixed(2)));
+
   const counts = useMemo(() => {
     const c = Object.fromEntries(LEGEND.map((k) => [k, 0])) as Record<TableState, number>;
     (f?.tables ?? []).forEach((t) => c[stateOf(t)]++);
@@ -56,72 +101,227 @@ export default function FloorPage() {
       ) : (
         <>
           <div className="flex min-h-0 flex-1">
+            <LeftColumn floor={f} reservations={reservations.data} onPick={pick} onReservation={(r) => setResDialog({ r })} onAddReservation={() => setResDialog({ r: null })} />
+
             {/* Sơ đồ */}
             <section className="flex min-w-0 flex-1 flex-col">
-              <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2">
-                <div className="no-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto" role="tablist" aria-label="Khu vực">
-                  {f.areas.map((a) => {
-                    const list = f.tables.filter((t) => t.areaId === a.id);
-                    const busy = list.filter((t) => t.order).length;
-                    const alert = list.some((t) => ['calling', 'late', 'payment'].includes(stateOf(t)));
-                    const on = a.id === areaId;
-                    return (
-                      <button
-                        key={a.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={on}
-                        onClick={() => setArea(a.id)}
-                        className={cn('relative inline-flex h-10 shrink-0 items-center gap-2 rounded-[10px] px-4 text-[14px] font-semibold', on ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]')}
-                      >
-                        {a.name}
-                        <span className={cn('rounded-full px-1.5 font-mono text-[11.5px]', on ? 'bg-white/25' : 'bg-[var(--bg-surface)]')}>{busy}/{list.length}</span>
-                        {alert ? <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#f97316] ring-2 ring-[var(--bg-surface)]" aria-label="Có bàn cần xử lý" /> : null}
-                      </button>
-                    );
-                  })}
+              <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--bg-surface)] px-3 py-2">
+                <div className="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto" role="tablist" aria-label="Tầng">
+                  {floors.length > 1 ? (
+                    <FloorTab active={shown.length > 1} onClick={() => setView('all')} title="Tất cả tầng" stats={floorStats(f.tables)} />
+                  ) : null}
+                  {floors.map((x) => (
+                    <FloorTab key={x.id} active={shown.length === 1 && shown[0].id === x.id} onClick={() => setView(x.id)} title={x.name} stats={floorStats(tablesOf(x.id))} />
+                  ))}
                 </div>
                 <div className="flex items-center gap-1 rounded-[10px] bg-[var(--bg-subtle)] p-1">
-                  <button type="button" aria-label="Thu nhỏ" onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.1).toFixed(1)))} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-[var(--bg-surface)]"><Minus size={15} /></button>
-                  <button type="button" onClick={() => setZoom(1)} className="w-12 text-center font-mono text-[12.5px] font-semibold" title="Về 100%">{Math.round(zoom * 100)}%</button>
-                  <button type="button" aria-label="Phóng to" onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(1)))} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-[var(--bg-surface)]"><Plus size={15} /></button>
+                  <button type="button" aria-label="Thu nhỏ" onClick={() => setZoomAdj((z) => +(z - 0.1).toFixed(2))} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-[var(--bg-surface)]"><Minus size={15} /></button>
+                  <button type="button" onClick={() => setZoomAdj(0)} className="min-w-14 px-1 text-center font-mono text-[12.5px] font-semibold" title="Vừa khung">{zoomAdj ? `${Math.round(zoom * 100)}%` : 'Vừa khung'}</button>
+                  <button type="button" aria-label="Phóng to" onClick={() => setZoomAdj((z) => +(z + 0.1).toFixed(2))} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-[var(--bg-surface)]"><Plus size={15} /></button>
                 </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-auto bg-[var(--bg-page)] p-5" onClick={() => setSelected(null)}>
-                <FloorCanvas floor={f} tables={areaTables} zoom={zoom} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
+              <div ref={boxRef} className="min-h-0 flex-1 overflow-auto bg-[var(--bg-page)] p-3" onClick={() => setSelected(null)}>
+                <div className={cn('flex w-max min-w-full gap-5', layout === 'col' ? 'flex-col items-center' : 'items-start justify-center')}>
+                  {shown.map((x) => (
+                    <div key={x.id} className="shrink-0" data-floor={x.name}>
+                      {shown.length > 1 ? (
+                        <p className="mb-1.5 flex items-center gap-2 text-[14px] font-bold">
+                          {x.name}<span className="text-[12.5px] font-medium text-[var(--text-muted)]">{statsText(floorStats(tablesOf(x.id)))}</span>
+                        </p>
+                      ) : null}
+                      <div className="rounded-[14px] bg-[var(--bg-surface)] shadow-sm">
+                        <FloorCanvas floor={f} floorId={x.id} win={floorWindow(x)} tables={tablesOf(x.id)} zoom={zoom} tableScale={1.1} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </section>
 
-            {/* Bảng bên phải */}
-            <aside className={cn('w-[380px] max-w-full shrink-0 flex-col border-l border-[var(--border)] bg-[var(--bg-surface)] lg:static lg:flex lg:shadow-none', sel ? 'fixed bottom-[52px] right-0 top-[60px] z-30 flex shadow-2xl' : 'hidden')}>
-              {sel ? <TablePanel key={sel.id} table={sel} floor={f} onClose={() => setSelected(null)} /> : <IdlePanel floor={f} onPickTable={(code) => {
-                const t = f.tables.find((x) => x.code === code);
-                if (t) { setArea(t.areaId); setSelected(t.id); }
-              }} />}
-            </aside>
+            {/* Khung chi tiết bàn — trượt ra khi chạm bàn */}
+            {sel ? (
+              <aside className="flex w-[400px] max-w-full shrink-0 flex-col border-l border-[var(--border)] bg-[var(--bg-surface)] shadow-[-8px_0_24px_-16px_rgba(0,0,0,0.25)]">
+                <TablePanel key={sel.id} table={sel} floor={f} onClose={() => setSelected(null)} />
+              </aside>
+            ) : null}
           </div>
 
           {/* Dải chú thích + số lượng */}
-          <footer className="no-scrollbar flex shrink-0 items-center gap-2 overflow-x-auto border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2">
-            {LEGEND.map((k) => (
+          <footer className="no-scrollbar flex shrink-0 items-center gap-2 overflow-x-auto border-t border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1.5">
+            {LEGEND.filter((k) => counts[k] || ['available', 'occupied', 'reserved'].includes(k)).map((k) => (
               <span key={k} className="inline-flex shrink-0 items-center gap-2 rounded-[10px] bg-[var(--bg-subtle)] py-1 pl-1 pr-3 text-[12.5px] font-medium">
-                <span className="grid h-7 min-w-7 place-items-center rounded-lg px-1.5 font-mono text-[13px] font-bold" style={{ background: STATE[k].bg, color: STATE[k].fg }}>{counts[k]}</span>
+                <span className="grid h-6 min-w-6 place-items-center rounded-md px-1.5 font-mono text-[12.5px] font-bold" style={{ background: STATE[k].bg, color: STATE[k].fg }}>{counts[k]}</span>
                 {STATE[k].label}
               </span>
             ))}
             <span className="ml-auto inline-flex shrink-0 items-center gap-2 rounded-[10px] bg-[var(--bg-subtle)] py-1 pl-1 pr-3 text-[12.5px] font-medium" title="Tổng số khách đang ngồi (theo số khách đã nhập / phiếu đặt bàn)">
-              <span className="grid h-7 min-w-7 place-items-center rounded-lg bg-[var(--text-primary)] px-1.5 font-mono text-[13px] font-bold text-white">{seated}</span>
+              <span className="grid h-6 min-w-6 place-items-center rounded-md bg-[var(--text-primary)] px-1.5 font-mono text-[12.5px] font-bold text-white">{seated}</span>
               Khách đang ngồi
             </span>
-            <span className="inline-flex shrink-0 items-center gap-2 rounded-[10px] bg-[var(--accent-soft)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--accent)]">
+            <span className="inline-flex shrink-0 items-center gap-2 rounded-[10px] bg-[var(--accent-soft)] px-3 py-1 text-[12.5px] font-semibold text-[var(--accent)]">
               Đã thu hôm nay <b className="font-mono">{formatCurrency(f.revenueToday)}</b>
             </span>
           </footer>
+
+          {resDialog ? <CashierReservationDialog key={resDialog.r?.id ?? 'new'} floor={f} reservation={resDialog.r} open onClose={() => setResDialog(null)} /> : null}
         </>
       )}
     </CashierShell>
   );
 }
+
+type Stats = { busy: number; total: number; payment: number; calling: number };
+const floorStats = (tables: FloorTable[]): Stats => ({
+  busy: tables.filter((t) => t.order).length,
+  total: tables.length,
+  payment: tables.filter((t) => stateOf(t) === 'payment').length,
+  calling: tables.filter((t) => stateOf(t) === 'calling').length,
+});
+const statsText = (s: Stats) => `${s.busy} có khách${s.payment ? ` · ${s.payment} chờ thanh toán` : ''}${s.calling ? ` · ${s.calling} khách gọi` : ''}`;
+
+function FloorTab({ active, onClick, title, stats }: { active: boolean; onClick: () => void; title: string; stats: Stats }) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn('relative inline-flex h-11 shrink-0 items-center gap-2 rounded-[12px] px-4 text-left', active ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]')}
+    >
+      <span className="leading-tight">
+        <span className="block text-[14px] font-bold">{title}</span>
+        <span className={cn('block text-[11.5px]', active ? 'text-white/85' : 'text-[var(--text-muted)]')}>{stats.busy}/{stats.total} có khách</span>
+      </span>
+      {stats.payment ? <span className="grid h-6 min-w-6 place-items-center rounded-full bg-[#eab308] px-1.5 font-mono text-[12px] font-bold text-[#422006]" title="Chờ thanh toán">{stats.payment}</span> : null}
+      {stats.calling ? <span className="grid h-6 min-w-6 place-items-center rounded-full bg-[#f97316] px-1.5 font-mono text-[12px] font-bold text-white" title="Khách gọi">{stats.calling}</span> : null}
+    </button>
+  );
+}
+
+/* ---------------------------------------------------------------- Cột trái: các danh sách gập mở được */
+
+function LeftColumn({ floor, reservations, onPick, onReservation, onAddReservation }: {
+  floor: CashierFloor;
+  reservations: CashierReservation[] | undefined;
+  onPick: (t: FloorTable) => void;
+  onReservation: (r: CashierReservation) => void;
+  onAddReservation: () => void;
+}) {
+  const [open, setOpen] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem(LEFT_KEY) ?? '{}'); } catch { return {}; }
+  });
+  const toggle = (k: string) => setOpen((o) => { const n = { ...o, [k]: !(o[k] ?? true) }; localStorage.setItem(LEFT_KEY, JSON.stringify(n)); return n; });
+  const isOpen = (k: string) => open[k] ?? true;
+  const [showDone, setShowDone] = useState(false);
+
+  const payment = floor.tables.filter((t) => stateOf(t) === 'payment');
+  const busy = floor.tables.filter((t) => t.order).sort((a, b) => a.order!.openedAt.localeCompare(b.order!.openedAt));
+  const areaName = (id: string) => floor.areas.find((a) => a.id === id)?.name ?? '';
+  const activeRes = (reservations ?? []).filter((r) => ['pending', 'confirmed'].includes(r.status));
+  const doneRes = (reservations ?? []).filter((r) => !['pending', 'confirmed'].includes(r.status));
+  const byCode = (code: string | null) => floor.tables.find((t) => t.code === code);
+
+  return (
+    <aside className="flex w-[300px] shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--bg-surface)] 2xl:w-[330px]" aria-label="Việc ở quầy">
+      <Section k="pay" title="Yêu cầu thanh toán" count={payment.length} tone={payment.length ? 'warn' : undefined} open={isOpen('pay')} onToggle={() => toggle('pay')}>
+        {payment.length === 0 ? <Empty>Chưa bàn nào yêu cầu thanh toán.</Empty> : payment.map((t) => (
+          <Row key={t.id} onClick={() => onPick(t)} accent="#eab308">
+            <span className="font-extrabold">{t.code}</span>
+            <span className="min-w-0 flex-1 truncate text-[12.5px] text-[var(--text-muted)]">{areaName(t.areaId)}</span>
+            <span className="font-mono text-[13px] font-bold">{formatCurrency(t.order?.subtotal ?? 0)}</span>
+          </Row>
+        ))}
+      </Section>
+
+      <Section
+        k="res"
+        title="Đặt bàn hôm nay"
+        count={activeRes.length}
+        open={isOpen('res')}
+        onToggle={() => toggle('res')}
+        action={<button type="button" onClick={onAddReservation} className="inline-flex h-8 items-center gap-1 rounded-[8px] bg-[var(--accent)] px-2.5 text-[12.5px] font-bold text-white"><CalendarPlus size={14} />Thêm</button>}
+      >
+        {!reservations ? <Skeleton className="h-16" /> : activeRes.length === 0 ? <Empty>Hôm nay chưa có lịch đặt nào sắp tới.</Empty> : activeRes.map((r) => {
+          const diff = new Date(r.dateTime).getTime() - Date.now();
+          const t = byCode(r.tableCode);
+          return (
+            <Row key={r.id} onClick={() => onReservation(r)} accent={diff <= SOON_MS ? '#8b5cf6' : undefined} soft={diff <= SOON_MS}>
+              <span className="font-mono text-[15px] font-bold">{hhmm(r.dateTime)}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13.5px] font-semibold">{r.customerName} · {r.guests} khách</span>
+                <span className={cn('block truncate text-[12px]', diff < 0 ? 'font-semibold text-[var(--danger)]' : 'text-[var(--text-muted)]')}>
+                  {diff < 0 ? `Trễ ${dur(-diff)}` : diff <= SOON_MS ? `Còn ${dur(diff)}` : r.areaName}
+                  {r.status === 'pending' ? ' · chờ xác nhận' : ''}
+                </span>
+              </span>
+              {r.tableCode ? (
+                <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); if (t) onPick(t); }} onKeyDown={(e) => { if (e.key === 'Enter' && t) { e.stopPropagation(); onPick(t); } }} className="rounded-[8px] bg-[#8b5cf6] px-2 py-0.5 text-[12px] font-bold text-white">{r.tableCode}</span>
+              ) : <span className="rounded-[8px] border border-dashed border-[var(--border-strong)] px-1.5 py-0.5 text-[11.5px] text-[var(--text-muted)]">Chưa xếp</span>}
+            </Row>
+          );
+        })}
+        {doneRes.length ? (
+          <>
+            <button type="button" onClick={() => setShowDone((v) => !v)} className="mt-1 w-full rounded-[8px] px-2 py-1.5 text-left text-[12.5px] font-semibold text-[var(--text-muted)] hover:bg-[var(--bg-hover)]">
+              {showDone ? 'Ẩn' : 'Xem'} {doneRes.length} lịch đã xử lý (đã đến, hủy, không đến)
+            </button>
+            {showDone ? doneRes.map((r) => (
+              <Row key={r.id} onClick={() => onReservation(r)}>
+                <span className="font-mono text-[13px] text-[var(--text-muted)]">{hhmm(r.dateTime)}</span>
+                <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--text-secondary)]">{r.customerName} · {r.guests}</span>
+                <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', RES_STATUS[r.status].cls)}>{RES_STATUS[r.status].label}</span>
+              </Row>
+            )) : null}
+          </>
+        ) : null}
+      </Section>
+
+      <Section k="busy" title="Bàn đang có khách" count={busy.length} open={isOpen('busy')} onToggle={() => toggle('busy')}>
+        {busy.length === 0 ? <Empty>Chưa có bàn nào có khách.</Empty> : busy.map((t) => (
+          <Row key={t.id} onClick={() => onPick(t)} accent={STATE[stateOf(t)].bg}>
+            <span className="w-12 font-extrabold">{t.code}</span>
+            <span className="min-w-0 flex-1 truncate text-[12.5px] text-[var(--text-muted)]">{guestsOf(t) ? `${guestsOf(t)} khách · ` : ''}{elapsed(t.order!.openedAt)}</span>
+            <span className="font-mono text-[13px] font-semibold">{formatCurrency(t.order!.subtotal)}</span>
+          </Row>
+        ))}
+      </Section>
+    </aside>
+  );
+}
+
+function Section({ title, count, open, onToggle, action, tone, children }: { k: string; title: string; count: number; open: boolean; onToggle: () => void; action?: ReactNode; tone?: 'warn'; children: ReactNode }) {
+  return (
+    <section className="border-b border-[var(--border)]">
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <button type="button" aria-expanded={open} onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+          <ChevronDown size={16} className={cn('shrink-0 text-[var(--text-muted)] transition-transform', !open && '-rotate-90')} />
+          <span className="truncate text-[14px] font-bold">{title}</span>
+          <span className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 font-mono text-[11.5px] font-bold', tone === 'warn' ? 'bg-[#eab308] text-[#422006]' : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]')}>{count}</span>
+        </button>
+        {action}
+      </div>
+      {open ? <div className="space-y-1 px-2 pb-2.5">{children}</div> : null}
+    </section>
+  );
+}
+
+function Row({ onClick, accent, soft, children }: { onClick: () => void; accent?: string; soft?: boolean; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn('flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[14px] hover:border-[var(--border)] hover:bg-[var(--bg-hover)]', soft && 'bg-[#f5f3ff]')}
+      style={accent ? { boxShadow: `inset 3px 0 0 ${accent}` } : undefined}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** 125 phút → "2 giờ 5 phút". */
+const dur = (ms: number) => { const m = Math.round(ms / 60_000); return m < 60 ? `${m} phút` : `${Math.floor(m / 60)} giờ${m % 60 ? ` ${m % 60} phút` : ''}`; };
+
+const Empty = ({ children }: { children: ReactNode }) => <p className="px-2 py-3 text-center text-[12.5px] text-[var(--text-muted)]">{children}</p>;
 
 /* ---------------------------------------------------------------- Mở bàn */
 
@@ -156,73 +356,6 @@ function OpenTableBox({ table, onOpened }: { table: FloorTable; onOpened: (d: Ca
       <Button variant={res ? 'outline' : 'primary'} className="w-full" loading={open.isPending && !open.variables?.reservationId} onClick={() => open.mutate({ guests })}>
         {res ? 'Mở bàn cho khách khác' : 'Mở bàn'}
       </Button>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------- Bảng bên phải: chưa chọn bàn */
-
-function IdlePanel({ floor, onPickTable }: { floor: CashierFloor; onPickTable: (code: string) => void }) {
-  const [tab, setTab] = useState<'ready' | 'res'>(floor.ready.length ? 'ready' : 'res');
-  const readyByTable = useMemo(() => {
-    const m = new Map<string, CashierFloor['ready']>();
-    floor.ready.forEach((r) => m.set(r.tableCode, [...(m.get(r.tableCode) ?? []), r]));
-    return [...m.entries()];
-  }, [floor.ready]);
-  const upcoming = floor.reservations.filter((r) => r.status !== 'seated');
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid grid-cols-2 gap-1 border-b border-[var(--border)] p-2" role="tablist">
-        {([['ready', `Chờ mang ra (${floor.ready.length})`], ['res', `Đặt bàn hôm nay (${upcoming.length})`]] as const).map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={cn('h-10 rounded-[10px] text-[13.5px] font-semibold', tab === k ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]')}>{l}</button>
-        ))}
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {tab === 'ready' ? (
-          readyByTable.length === 0 ? (
-            <p className="py-10 text-center text-[13.5px] text-[var(--text-muted)]">Không có món nào chờ mang ra.</p>
-          ) : (
-            <div className="space-y-2.5">
-              <p className="text-[12.5px] text-[var(--text-muted)]">Món bếp đã nấu xong, đang chờ nhân viên phục vụ lấy. Bếp bấm "Đã lấy" khi món rời quầy.</p>
-              {readyByTable.map(([code, items]) => (
-                <div key={code} className="rounded-[12px] border border-[var(--border)] p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <button type="button" className="text-[15px] font-bold hover:text-[var(--accent)]" onClick={() => onPickTable(code)}>Bàn {code}</button>
-                    <span className="text-[12.5px] text-[var(--text-muted)]">{items.length} món</span>
-                  </div>
-                  <ul className="mt-2 space-y-1">
-                    {items.map((i) => (
-                      <li key={i.id} className="flex items-center justify-between gap-2 text-[13.5px]">
-                        <span className="min-w-0"><b>{i.qty}×</b> {i.dishName}{i.note ? <span className="text-[var(--text-muted)]"> · {i.note}</span> : null}<span className="ml-1 text-[12px] text-[var(--text-muted)]">({minutesSince(i.completedAt)}′)</span></span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )
-        ) : upcoming.length === 0 ? (
-          <p className="py-10 text-center text-[13.5px] text-[var(--text-muted)]">Hôm nay chưa có đặt bàn nào sắp tới.</p>
-        ) : (
-          <ul className="space-y-2">
-            {upcoming.map((r) => {
-              const diff = new Date(r.time).getTime() - Date.now();
-              const soon = diff <= SOON_MS;
-              return (
-                <li key={r.id} className={cn('rounded-[12px] border p-3', soon ? 'border-[#c4b5fd] bg-[#f5f3ff]' : 'border-[var(--border)]')}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-[16px] font-bold">{hhmm(r.time)}</span>
-                    {r.tableCode ? <button type="button" onClick={() => onPickTable(r.tableCode!)} className="rounded-lg bg-[#8b5cf6] px-2 py-0.5 text-[12.5px] font-bold text-white">Bàn {r.tableCode}</button> : <span className="text-[12.5px] text-[var(--text-muted)]">Chưa xếp bàn</span>}
-                  </div>
-                  <p className="mt-1 text-[14px] font-semibold">{r.customerName} · {r.guests} khách</p>
-                  <p className="text-[12.5px] text-[var(--text-muted)]">{r.phone}{diff < 0 ? ' · đã tới giờ' : soon ? ` · còn ${Math.round(diff / 60_000)} phút` : ''}</p>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
     </div>
   );
 }

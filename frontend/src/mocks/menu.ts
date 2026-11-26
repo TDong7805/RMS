@@ -41,21 +41,18 @@ export const menuGroups: MenuGroup[] = [
         ],
       },
       {
+        // Một mục "Sơ đồ bàn": tầng, khu vực, bàn (QUY_TAC_GIAO_DIEN.md, mục B7).
         id: 'tables',
-        label: 'Quản lý khu vực bàn',
+        label: 'Sơ đồ bàn',
         icon: 'layout-grid',
-        children: [
-          { id: 'table-list', label: 'Danh sách bàn', path: '/quan-ly/khu-vuc-ban' },
-        ],
+        path: '/quan-ly/khu-vuc-ban',
       },
       {
+        // Một mục "Thực đơn": trang có 4 tab Món ăn · Set menu · Danh mục · Nhóm món (QUY_TAC_GIAO_DIEN.md, mục B8).
         id: 'dishes',
-        label: 'Quản lý món ăn',
+        label: 'Thực đơn',
         icon: 'utensils',
-        children: [
-          { id: 'dish-list', label: 'Danh sách món ăn', path: '/quan-ly/mon-an' },
-          { id: 'dish-create', label: 'Thêm món ăn', path: '/quan-ly/mon-an/them' },
-        ],
+        path: '/quan-ly/mon-an',
       },
       {
         id: 'staff',
@@ -148,39 +145,15 @@ export const warehouseMenuGroups: MenuGroup[] = [
     id: 'kho-catalog',
     label: 'DANH MỤC',
     items: [
-      {
-        id: 'kho-ingredients',
-        label: 'Quản lý nguyên liệu',
-        icon: 'package',
-        children: [
-          { id: 'kho-ingredient-list', label: 'Danh sách nguyên liệu', path: '/kho/nguyen-lieu' },
-          { id: 'kho-ingredient-create', label: 'Thêm nguyên liệu', path: '/kho/nguyen-lieu/them' },
-        ],
-      },
-      {
-        id: 'kho-suppliers',
-        label: 'Quản lý nhà cung cấp',
-        icon: 'truck',
-        children: [
-          { id: 'kho-supplier-list', label: 'Danh sách nhà cung cấp', path: '/kho/nha-cung-cap' },
-          { id: 'kho-supplier-create', label: 'Thêm nhà cung cấp', path: '/kho/nha-cung-cap/them' },
-        ],
-      },
+      { id: 'kho-ingredients', label: 'Nguyên liệu', icon: 'package', path: '/kho/nguyen-lieu' },
+      { id: 'kho-suppliers', label: 'Nhà cung cấp', icon: 'truck', path: '/kho/nha-cung-cap' },
     ],
   },
   {
     id: 'kho-stock',
     label: 'NHẬP – XUẤT KHO',
     items: [
-      {
-        id: 'kho-purchase',
-        label: 'Quản lý phiếu mua',
-        icon: 'clipboard-list',
-        children: [
-          { id: 'kho-purchase-list', label: 'Danh sách phiếu mua', path: '/kho/phieu-mua' },
-          { id: 'kho-purchase-create', label: 'Tạo phiếu mua', path: '/kho/phieu-mua/them' },
-        ],
-      },
+      { id: 'kho-purchase', label: 'Phiếu mua', icon: 'clipboard-list', path: '/kho/phieu-mua' },
       { id: 'kho-receive', label: 'Nhập kho', icon: 'package-plus', path: '/kho/nhap-kho' },
       { id: 'kho-issue', label: 'Xuất kho', icon: 'package-minus', path: '/kho/xuat-kho' },
       { id: 'kho-stocktake', label: 'Kiểm kê', icon: 'clipboard-check', path: '/kho/kiem-ke' },

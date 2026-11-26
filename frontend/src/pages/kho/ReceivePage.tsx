@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ClipboardList, PackageCheck } from 'lucide-react';
+import { ClipboardList, PackageCheck } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { BlockError, EmptyState } from '@/components/common/EmptyState';
+import { StickySaveBar } from '@/components/common/StickySaveBar';
+import { SubPageHeader } from '@/components/common/SubPageHeader';
 import { Field, TextArea, TextInput } from '@/components/common/Form';
 import { ConfirmDialog } from '@/components/common/Modal';
-import { DataTable, PageHeader, TableSkeleton, Td, Th } from '@/components/common/PageParts';
+import { DataTable, TableSkeleton, Td, Th } from '@/components/common/PageParts';
 import { Skeleton } from '@/components/common/Skeleton';
 import { receivePurchaseOrder } from '@/api/warehouse-receipts';
 import { usePurchaseOrder, useWaitingPurchaseOrders, wk } from '@/features/warehouse/queries';
 import { formatQty, formatSpec, purchaseStatusLabel } from '@/features/warehouse/labels';
-import { isQty, parseQty, useLeaveGuard } from '@/features/warehouse/parts';
+import { isQty, parseQty } from '@/features/warehouse/parts';
+import { useUnsavedGuard } from '@/hooks/use-unsaved-guard';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { formatCurrency } from '@/lib/format';
 import { formatDateOnly } from '@/lib/labels';
@@ -26,12 +29,12 @@ export function ChooseWaitingPurchasePage() {
   const navigate = useNavigate();
   const list = useWaitingPurchaseOrders();
   return (
-    <AppShell meta={{ label: 'Nhận hàng theo phiếu mua', parent: 'Nhập kho' }}>
+    <AppShell meta={{ label: 'Nhận hàng theo phiếu mua', parent: 'Nhập kho', parentTo: '/kho/nhap-kho' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader
+        <SubPageHeader
           title="Nhận hàng theo phiếu mua"
           description="Chọn phiếu mua đang chờ nhận (Chưa nhận hoặc Nhận một phần)."
-          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/kho/nhap-kho')}>Về nhập kho</Button>}
+          backTo="/kho/nhap-kho"
         />
         <Card className="overflow-hidden">
           {list.isError ? (
@@ -42,7 +45,7 @@ export function ChooseWaitingPurchasePage() {
             <div className="p-5"><EmptyState icon={ClipboardList} title="Không có phiếu mua nào đang chờ nhận." /></div>
           ) : (
             <DataTable minWidth={860}>
-              <thead><tr><Th>Mã</Th><Th>Tên phiếu</Th><Th>Nhà cung cấp</Th><Th>Dự kiến nhận</Th><Th>Trạng thái</Th><Th className="text-right">Thao tác</Th></tr></thead>
+              <thead><tr><Th>Mã</Th><Th>Tên phiếu</Th><Th>Nhà cung cấp</Th><Th>Dự kiến nhận</Th><Th>Trạng thái</Th><Th className="text-right"><span className="sr-only">Thao tác</span></Th></tr></thead>
               <tbody>
                 {list.data.map((r) => {
                   const st = purchaseStatusLabel(r.status, r.receiveStatus);
@@ -51,7 +54,7 @@ export function ChooseWaitingPurchasePage() {
                       <Td className="font-mono text-[12.5px] font-semibold">{r.code}</Td>
                       <Td>{r.name}</Td>
                       <Td>{r.supplierName}</Td>
-                      <Td className="text-[13px]">{r.expectedDate ? formatDateOnly(r.expectedDate) : '—'}{r.late ? <> <Badge variant="danger">Trễ hạn</Badge></> : null}</Td>
+                      <Td className="whitespace-nowrap text-[13px]">{r.expectedDate ? formatDateOnly(r.expectedDate) : '—'}{r.late ? <> <Badge variant="danger">Trễ hạn</Badge></> : null}</Td>
                       <Td><Badge variant={st.variant}>{st.label}</Badge></Td>
                       <Td className="text-right">
                         <Button size="sm" leadingIcon={<PackageCheck size={14} />} onClick={() => navigate(`/kho/phieu-mua/${r.id}/nhan-hang`)}>Nhận hàng</Button>
@@ -96,8 +99,13 @@ export function ReceivePage() {
   }, [po, initialQty]);
 
   const dirty = Boolean(initialQty) && (JSON.stringify(qty) !== initialQty || note !== '' || Object.values(notes).some(Boolean));
-  const { guard, dialog } = useLeaveGuard(dirty);
-  const back = () => navigate(id ? `/kho/phieu-mua/${id}` : '/kho/phieu-mua');
+  const leave = useUnsavedGuard(dirty);
+  const discard = () => {
+    if (initialQty) setQty(JSON.parse(initialQty) as Record<string, string>);
+    setNotes({});
+    setNote('');
+    setErrors({});
+  };
 
   const parsed = lines.map((l) => {
     const text = (qty[l.id] ?? '').trim();
@@ -121,7 +129,10 @@ export function ReceivePage() {
       setErrors(mapped);
       setConfirming(false);
     },
-    onSuccess: () => navigate('/kho/phieu-mua'),
+    onSuccess: () => {
+      leave.allowLeave();
+      navigate('/kho/phieu-mua');
+    },
   });
 
   const validate = (): boolean => {
@@ -147,12 +158,12 @@ export function ReceivePage() {
   const waiting = po && po.status === 'ordered' && (po.receiveStatus === 'not_received' || po.receiveStatus === 'partial');
 
   return (
-    <AppShell meta={{ label: 'Nhận hàng', parent: 'Nhập kho' }}>
+    <AppShell meta={{ label: 'Nhận hàng', parent: 'Nhập kho', parentTo: '/kho/nhap-kho' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader
+        <SubPageHeader
           title={po ? `Nhận hàng · ${po.code}` : 'Nhận hàng theo phiếu mua'}
+          backTo={id ? `/kho/phieu-mua/${id}` : '/kho/phieu-mua'}
           description={po ? `${po.supplier.name} · đặt ngày ${po.orderDate ? formatDateOnly(po.orderDate) : '—'}. Đối chiếu đơn giá với hóa đơn của nhà cung cấp trước khi nhập kho.` : undefined}
-          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => guard(back)}>Về phiếu mua</Button>}
         />
         {detail.isError ? (
           <BlockError message="Không tìm thấy phiếu mua" onRetry={() => navigate('/kho/phieu-mua')} />
@@ -224,9 +235,6 @@ export function ReceivePage() {
                   })}
                 </tbody>
               </DataTable>
-              <div className="flex justify-end border-t border-[var(--border)] p-5 text-[14px]">
-                Tổng giá trị lần này: <span className="ml-2 font-mono text-[18px] font-bold text-[var(--accent)]">{formatCurrency(totalValue)}</span>
-              </div>
             </Card>
 
             <Card padded>
@@ -235,17 +243,24 @@ export function ReceivePage() {
               </Field>
             </Card>
 
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => guard(back)}>Hủy</Button>
-              <Button leadingIcon={<PackageCheck size={15} />} onClick={() => validate() && setConfirming(true)}>Nhập kho</Button>
-            </div>
-            <p className="text-right text-[12.5px] text-[var(--text-muted)]">
+            <p className="text-[12.5px] text-[var(--text-muted)]">
               Đơn giá sai so với hóa đơn? Đừng nhập kho — <Link to={`/kho/phieu-mua/${po.id}`} className="text-[var(--accent)] hover:underline">hủy phiếu / kết thúc nhận hàng</Link> rồi lập phiếu mới đúng giá.
             </p>
+            <StickySaveBar
+              dirty={dirty}
+              idleText="Đã điền sẵn số lượng còn lại"
+              errorCount={Object.values(errors).filter(Boolean).length}
+              summary={<>{count} nguyên liệu · giá trị lần này <b className="font-mono text-[var(--text-primary)]">{formatCurrency(totalValue)}</b></>}
+              saveLabel="Nhập kho"
+              saveIcon={<PackageCheck size={15} />}
+              canSave={count > 0}
+              onDiscard={discard}
+              onSave={() => validate() && setConfirming(true)}
+            />
           </>
         )}
       </div>
-      {dialog}
+      {leave.dialog}
       <ConfirmDialog
         open={confirming}
         onOpenChange={(o) => !o && setConfirming(false)}

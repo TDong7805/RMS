@@ -9,7 +9,7 @@ import {
 import { ChevronDown, ImagePlus, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/cn';
-import { prepareImage } from '@/lib/image';
+import { WIDE_SIDE, prepareImage } from '@/lib/image';
 import { validateImageFile } from '@/lib/mock';
 
 const CONTROL =
@@ -260,6 +260,8 @@ export interface ImageUploadProps {
   onError?: (message: string) => void;
   aspect?: 'square' | 'wide';
   label?: string;
+  /** Ảnh toàn khổ website: nhận file gốc tới 15 MB, thu nhỏ còn cạnh dài 2400px (vẫn ≤ 2 MB khi gửi). */
+  large?: boolean;
 }
 
 /** Chọn ảnh JPG/PNG/WebP ≤ 2MB, xem trước ngay (mock upload bằng data URL). */
@@ -270,19 +272,22 @@ export function ImageUpload({
   onError,
   aspect = 'square',
   label = 'Chọn ảnh',
+  large,
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
-    const problem = validateImageFile(file);
+    const problem = large
+      ? (validateImageFile(file)?.startsWith('Chỉ') ? validateImageFile(file) : file.size > 15 * 1024 * 1024 ? 'Ảnh tối đa 15 MB' : null)
+      : validateImageFile(file);
     if (problem) {
       if (onError) onError(problem);
       else toast.error(problem);
       return;
     }
     try {
-      onChange(await prepareImage(file));
+      onChange(await prepareImage(file, large ? WIDE_SIDE : undefined));
     } catch {
       const message = 'Không đọc được ảnh, file có thể bị hỏng. Vui lòng chọn ảnh khác';
       if (onError) onError(message);
@@ -320,7 +325,7 @@ export function ImageUpload({
           >
             <ImagePlus size={22} strokeWidth={1.6} />
             <span className="text-[12.5px] font-semibold">{label}</span>
-            <span className="text-[11px]">JPG, PNG, WebP · tối đa 2 MB</span>
+            <span className="text-[11px]">JPG, PNG, WebP · tối đa {large ? '15' : '2'} MB</span>
           </button>
         )}
       </div>

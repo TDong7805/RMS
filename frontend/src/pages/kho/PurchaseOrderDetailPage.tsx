@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Ban, PackageCheck, Pencil, StopCircle, Trash2, Wallet } from 'lucide-react';
+import { Ban, PackageCheck, Pencil, StopCircle, Trash2, Wallet } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { BlockError } from '@/components/common/EmptyState';
-import { DataTable, PageHeader, StatTile, Td, Th } from '@/components/common/PageParts';
+import { DataTable, StatTile, Td, Th } from '@/components/common/PageParts';
+import { RowActions, type RowAction } from '@/components/common/RowActions';
+import { SubPageHeader } from '@/components/common/SubPageHeader';
 import { Skeleton } from '@/components/common/Skeleton';
 import { PurchaseCancelDialog, PurchaseCloseDialog, PurchaseDeleteDialog, type PurchaseTarget } from '@/features/warehouse/PurchaseDialogs';
 import { CancelPaymentDialog, PaymentDialog, type PayableOrder } from '@/features/warehouse/PaymentDialogs';
@@ -51,11 +53,11 @@ export function PurchaseOrderDetailPage() {
   };
 
   return (
-    <AppShell meta={{ label: po ? po.code : 'Chi tiết phiếu mua', parent: 'Quản lý phiếu mua' }}>
+    <AppShell meta={{ label: po ? po.code : 'Chi tiết phiếu mua', parent: 'Phiếu mua', parentTo: '/kho/phieu-mua' }}>
       <div className="min-w-0 space-y-4">
         {detail.isError ? (
           <>
-            <PageHeader title="Chi tiết phiếu mua" />
+            <SubPageHeader title="Chi tiết phiếu mua" backTo="/kho/phieu-mua" />
             <BlockError message="Không tìm thấy phiếu mua" onRetry={() => navigate('/kho/phieu-mua')} />
           </>
         ) : !po ? (
@@ -104,35 +106,31 @@ function Body({
 }) {
   const st = purchaseStatusLabel(po.status, po.receiveStatus);
   const waiting = po.status === 'ordered' && (po.receiveStatus === 'not_received' || po.receiveStatus === 'partial');
+  const canPay = po.status === 'ordered' && po.debt > 0;
+  const more: RowAction[] = [];
+  if (canPay && waiting) more.push({ label: 'Thanh toán', icon: <Wallet size={15} />, onSelect: onPay });
+  if (po.status === 'ordered' && po.receiveStatus === 'partial') more.push({ label: 'Kết thúc nhận hàng', icon: <StopCircle size={15} />, onSelect: onClose });
+  if (po.status === 'ordered' && po.receiveStatus === 'not_received') more.push({ label: 'Hủy phiếu', icon: <Ban size={15} />, danger: true, onSelect: onCancel });
+  if (po.status === 'draft') more.push({ label: 'Xóa phiếu nháp', icon: <Trash2 size={15} />, danger: true, onSelect: onDelete });
 
   return (
     <>
-      <PageHeader
+      <SubPageHeader
         title={`${po.code} · ${po.name}`}
+        badge={<span className="inline-flex gap-1.5"><Badge variant={st.variant}>{st.label}</Badge>{po.late ? <Badge variant="danger">Trễ hạn</Badge> : null}</span>}
+        backTo="/kho/phieu-mua"
         description={`Tạo bởi ${po.createdBy || '—'} lúc ${formatDateTime(po.createdAt)}${po.orderedAt ? ` · đặt hàng bởi ${po.orderedBy ?? '—'} lúc ${formatDateTime(po.orderedAt)}` : ''}`}
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/kho/phieu-mua')}>Về danh sách</Button>
-            {po.status === 'draft' ? (
-              <>
-                <Button variant="outline" size="sm" leadingIcon={<Pencil size={15} />} onClick={() => navigate(`/kho/phieu-mua/${po.id}/sua`)}>Sửa</Button>
-                <Button variant="danger" size="sm" leadingIcon={<Trash2 size={15} />} onClick={onDelete}>Xóa phiếu</Button>
-              </>
-            ) : null}
-            {waiting ? <Button size="sm" leadingIcon={<PackageCheck size={15} />} onClick={() => navigate(`/kho/phieu-mua/${po.id}/nhan-hang`)}>Nhận hàng</Button> : null}
-            {po.status === 'ordered' && po.receiveStatus === 'not_received' ? (
-              <Button variant="outline" size="sm" leadingIcon={<Ban size={15} />} onClick={onCancel}>Hủy phiếu</Button>
-            ) : null}
-            {po.status === 'ordered' && po.receiveStatus === 'partial' ? (
-              <Button variant="outline" size="sm" leadingIcon={<StopCircle size={15} />} onClick={onClose}>Kết thúc nhận hàng</Button>
-            ) : null}
-            {po.status === 'ordered' && po.debt > 0 ? <Button variant="outline" size="sm" leadingIcon={<Wallet size={15} />} onClick={onPay}>Thanh toán</Button> : null}
-          </div>
+          <>
+            {po.status === 'draft' ? <Button leadingIcon={<Pencil size={15} />} onClick={() => navigate(`/kho/phieu-mua/${po.id}/sua`)}>Sửa phiếu nháp</Button> : null}
+            {waiting ? <Button leadingIcon={<PackageCheck size={15} />} onClick={() => navigate(`/kho/phieu-mua/${po.id}/nhan-hang`)}>Nhận hàng</Button> : null}
+            {canPay && !waiting ? <Button leadingIcon={<Wallet size={15} />} onClick={onPay}>Thanh toán</Button> : null}
+            {more.length ? <RowActions inHeader name={po.code} items={more} /> : null}
+          </>
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Trạng thái" value={<span className="font-sans text-[18px]"><Badge variant={st.variant}>{st.label}</Badge>{po.late ? <> <Badge variant="danger">Trễ hạn</Badge></> : null}</span>} hint={po.status === 'ordered' ? 'Đã đặt hàng' : undefined} />
+      <div className="grid gap-3 sm:grid-cols-3">
         <StatTile label="Tổng cộng" value={formatCurrency(po.total)} />
         <StatTile label="Phải trả (theo hàng đã nhận)" value={formatCurrency(po.payable)} hint={po.status === 'ordered' ? `Đã trả ${formatCurrency(po.paid)}` : 'Chưa phát sinh công nợ'} />
         <StatTile
@@ -224,7 +222,7 @@ function Body({
         </div>
       </Card>
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-4">
         <Card className="overflow-hidden">
           <div className="p-5 pb-3"><CardHeader title="Lịch sử nhận hàng" /></div>
           {po.receipts.length === 0 ? (
@@ -261,7 +259,7 @@ function Body({
                     <Td className="text-right font-mono">{formatCurrency(p.amount)}</Td>
                     <Td>{PAYMENT_METHOD[p.method]}</Td>
                     <Td><Badge variant={p.status === 'valid' ? 'accent' : 'neutral'}>{p.status === 'valid' ? 'Hiệu lực' : 'Đã hủy'}</Badge></Td>
-                    <Td className="text-right">{p.status === 'valid' ? <Button size="sm" variant="ghost" aria-label={`Hủy thanh toán ${p.code}`} onClick={() => onCancelPayment(p)}><Ban size={14} /></Button> : null}</Td>
+                    <Td className="text-right">{p.status === 'valid' ? <RowActions name={p.code} items={[{ label: 'Hủy thanh toán', icon: <Ban size={15} />, danger: true, onSelect: () => onCancelPayment(p) }]} /> : null}</Td>
                   </tr>
                 ))}
               </tbody>

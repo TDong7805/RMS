@@ -1,6 +1,5 @@
-import { useCallback, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Badge } from '@/components/common/Badge';
-import { ConfirmDialog } from '@/components/common/Modal';
 import { toDateKey } from '@/lib/mock';
 import { STOCK_LEVEL } from './labels';
 import type { StockLevel } from '@/types';
@@ -37,37 +36,6 @@ export function parseQty(text: string): number {
 
 /** Số lượng đúng quy ước: không âm, tối đa 3 chữ số thập phân. */
 export const isQty = (n: number) => Number.isFinite(n) && n >= 0 && Math.abs(Math.round(n * 1000) - n * 1000) < 1e-6;
-
-/**
- * Quy ước chung "Hủy form thêm / sửa": form đã có thay đổi thì hỏi "Bỏ thay đổi?" trước khi rời;
- * chưa thay đổi thì rời ngay. Trả về hàm bọc thao tác rời trang và hộp xác nhận để đặt vào trang.
- */
-export function useLeaveGuard(dirty: boolean): { guard: (leave: () => void) => void; dialog: ReactNode } {
-  const [pending, setPending] = useState<(() => void) | null>(null);
-  const guard = useCallback(
-    (leave: () => void) => {
-      if (dirty) setPending(() => leave);
-      else leave();
-    },
-    [dirty],
-  );
-  const dialog = (
-    <ConfirmDialog
-      open={Boolean(pending)}
-      onOpenChange={(open) => !open && setPending(null)}
-      title="Bỏ thay đổi?"
-      description="Dữ liệu chưa được lưu sẽ bị mất."
-      cancelLabel="Ở lại"
-      confirmLabel="Bỏ thay đổi"
-      onConfirm={() => {
-        const leave = pending;
-        setPending(null);
-        leave?.();
-      }}
-    />
-  );
-  return { guard, dialog };
-}
 
 /** Ô thông tin nhỏ trong trang chi tiết. */
 export function InfoItem({ label, children }: { label: string; children: ReactNode }) {

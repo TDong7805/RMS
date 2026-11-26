@@ -3,12 +3,16 @@ package com.rms.ordering;
 import com.rms.common.Db;
 import com.rms.common.Ids;
 import com.rms.common.Times;
+import com.rms.common.Vi;
+import com.rms.storage.ImageStore;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
@@ -35,15 +39,32 @@ public class SalesDashboardService {
 
     public record TopDishes(String period, List<DishRank> best, List<DishRank> slow, boolean hasData) {}
 
+    /** Một chỉ số trên thẻ đầu trang: giá trị kỳ này, kỳ trước và % thay đổi (null khi kỳ trước bằng 0). */
+    public record Kpi(long value, long previous, Double change) {}
+
+    public record Slice(String key, String label, long value) {}
+
+    public record HourLoad(int hour, String label, int orders, int guests) {}
+
+    /** kind: food (món ăn) · drink (đồ uống) · extra (gọi thêm). */
+    public record DishStat(String id, String name, String category, String kind, String imageUrl, boolean selling,
+                           int quantity, long revenue, int prevQuantity) {}
+
+    public record Overview(String period, Kpi revenue, Kpi orders, Kpi avgOrder, Kpi guests, List<Point> series,
+                           List<Slice> byCategory, List<Slice> byPayment, List<HourLoad> peakHours, List<DishStat> dishes,
+                           boolean hasData) {}
+
     private enum Grain { HOUR, DAY, WEEK }
 
     /** [from, to) theo ngày; kỳ trước cùng độ dài. */
     private record Range(String key, LocalDate from, LocalDate to, LocalDate prevFrom, LocalDate prevTo, Grain grain) {}
 
     private final JdbcClient jdbc;
+    private final ImageStore images;
 
-    public SalesDashboardService(JdbcClient jdbc) {
+    public SalesDashboardService(JdbcClient jdbc, ImageStore images) {
         this.jdbc = jdbc;
+        this.images = images;
     }
 
     private static Range range(String period) {
@@ -81,10 +102,7 @@ public class SalesDashboardService {
         return dow + " " + d.format(DM);
     }
 
-    public Revenue revenue(String period) {
-        Range r = range(period);
-        List<Paid> cur = paid(r.from(), r.to());
-        List<Paid> prev = paid(r.prevFrom(), r.prevTo());
+    private static List<Point> series(Range r, List<Paid> cur, List<Paid> prev) {
         List<Point> series = new ArrayList<>();
         switch (r.grain()) {
             case HOUR -> {
@@ -121,6 +139,14 @@ public class SalesDashboardService {
                 for (int i = 0; i < weeks; i++) series.add(new Point("Tuần " + (i + 1), c[i], pv[i]));
             }
         }
+        return series;
+    }
+
+    public Revenue revenue(String period) {
+        Range r = range(period);
+        List<Paid> cur = paid(r.from(), r.to());
+        List<Paid> prev = paid(r.prevFrom(), r.prevTo());
+        List<Point> series = series(r, cur, prev);
         long total = cur.stream().mapToLong(Paid::total).sum();
         long prevTotal = prev.stream().mapToLong(Paid::total).sum();
         int orders = cur.size();
@@ -158,5 +184,120 @@ public class SalesDashboardService {
             .sorted((a, b) -> a.qty() != b.qty() ? Integer.compare(a.qty(), b.qty()) : a.name().compareTo(b.name()))
             .limit(5).map(toRank).toList();
         return new TopDishes(r.key(), best, slow, !best.isEmpty());
+    }
+
+    private static Kpi kpi(long value, long previous) {
+        return new Kpi(value, previous, previous > 0 ? (value - previous) * 100.0 / previous : null);
+    }
+
+    private static String kindOf(String category) {
+        String n = Vi.normalize(category);
+        if (n.contains("do uong")) return "drink";
+        if (n.contains("goi them")) return "extra";
+        return "food";
+    }
+
+    private static final Map<String, String> METHOD_LABEL = Map.of(
+        "cash", "Tiền mặt", "card", "Thẻ", "transfer", "Chuyển khoản", "ewallet", "Ví điện tử");
+
+    /**
+     * Mọi số liệu của Dashboard trong một lần gọi: 4 chỉ số, biểu đồ doanh thu, cơ cấu doanh thu (theo danh mục / theo
+     * hình thức trả), giờ đông khách và số bán từng món (kỳ này + kỳ trước) để trang tự xếp bán chạy / bán chậm / đang lên.
+     */
+    public Overview overview(String period) {
+        Range r = range(period);
+        LocalDateTime from = r.from().atStartOfDay();
+        LocalDateTime to = r.to().atStartOfDay();
+        LocalDateTime pFrom = r.prevFrom().atStartOfDay();
+        LocalDateTime pTo = r.prevTo().atStartOfDay();
+        List<Paid> cur = paid(r.from(), r.to());
+        List<Paid> prev = paid(r.prevFrom(), r.prevTo());
+        long total = cur.stream().mapToLong(Paid::total).sum();
+        long prevTotal = prev.stream().mapToLong(Paid::total).sum();
+        int orders = cur.size();
+        int prevOrders = prev.size();
+
+        String guestSql = """
+            SELECT COALESCE(SUM(COALESCE(o.guests, 0)), 0) FROM invoices i JOIN orders o ON o.id = i.order_id
+            WHERE i.status = 'paid' AND i.paid_at >= ? AND i.paid_at < ?
+            """;
+        long guests = jdbc.sql(guestSql).params(from, to).query(Long.class).single();
+        long prevGuests = jdbc.sql(guestSql).params(pFrom, pTo).query(Long.class).single();
+
+        // Cơ cấu theo danh mục: tiền món (số lượng × đơn giá), quy về đúng tổng hóa đơn để khớp số Doanh thu.
+        List<Slice> rawCat = jdbc.sql("""
+                SELECT c.id, c.name, SUM(oi.quantity * oi.unit_price) AS amount
+                FROM order_items oi JOIN invoices i ON i.order_id = oi.order_id
+                JOIN dishes d ON d.id = oi.dish_id JOIN dish_categories c ON c.id = d.category_id
+                WHERE i.status = 'paid' AND i.paid_at >= ? AND i.paid_at < ? AND oi.status <> 'cancelled'
+                GROUP BY c.id, c.name ORDER BY amount DESC, c.id
+                """).params(from, to)
+            .query((rs, n) -> new Slice(Ids.str(rs.getLong("id")), rs.getString("name"), rs.getBigDecimal("amount").longValue()))
+            .list();
+        long rawSum = rawCat.stream().mapToLong(Slice::value).sum();
+        List<Slice> byCategory = rawCat.stream()
+            .map(x -> new Slice(x.key(), x.label(), rawSum > 0 ? Math.round((double) x.value() * total / rawSum) : 0))
+            .toList();
+
+        List<Slice> byPayment = jdbc.sql("""
+                SELECT p.method, SUM(p.amount) AS amount FROM payments p JOIN invoices i ON i.id = p.invoice_id
+                WHERE i.status = 'paid' AND i.paid_at >= ? AND i.paid_at < ?
+                GROUP BY p.method ORDER BY amount DESC, p.method
+                """).params(from, to)
+            .query((rs, n) -> new Slice(rs.getString("method"),
+                METHOD_LABEL.getOrDefault(rs.getString("method"), rs.getString("method")), rs.getBigDecimal("amount").longValue()))
+            .list();
+
+        // Giờ đông khách: theo giờ khách vào bàn (giờ tạo đơn) của các đơn đã thanh toán trong kỳ.
+        int[] hOrders = new int[24];
+        int[] hGuests = new int[24];
+        jdbc.sql("""
+                SELECT HOUR(o.created_at) AS h, COUNT(*) AS n, COALESCE(SUM(COALESCE(o.guests, 0)), 0) AS g
+                FROM invoices i JOIN orders o ON o.id = i.order_id
+                WHERE i.status = 'paid' AND i.paid_at >= ? AND i.paid_at < ?
+                GROUP BY HOUR(o.created_at)
+                """).params(from, to)
+            .query((rs, n) -> {
+                hOrders[rs.getInt("h")] = rs.getInt("n");
+                hGuests[rs.getInt("h")] = rs.getInt("g");
+                return 0;
+            }).list();
+        List<HourLoad> peakHours = new ArrayList<>();
+        for (int h = 0; h < 24; h++) {
+            if ((h >= HOUR_FROM && h <= HOUR_TO) || hOrders[h] > 0)
+                peakHours.add(new HourLoad(h, String.format("%02dh", h), hOrders[h], hGuests[h]));
+        }
+
+        String qtySql = """
+            SELECT oi.dish_id, SUM(oi.quantity) AS qty, SUM(oi.quantity * oi.unit_price) AS revenue
+            FROM order_items oi JOIN invoices i ON i.order_id = oi.order_id
+            WHERE i.status = 'paid' AND i.paid_at >= ? AND i.paid_at < ? AND oi.status <> 'cancelled'
+            GROUP BY oi.dish_id
+            """;
+        Map<Long, long[]> curQty = new HashMap<>();
+        Map<Long, long[]> prevQty = new HashMap<>();
+        jdbc.sql(qtySql).params(from, to)
+            .query((rs, n) -> curQty.put(rs.getLong(1), new long[] {rs.getLong(2), rs.getBigDecimal(3).longValue()})).list();
+        jdbc.sql(qtySql).params(pFrom, pTo)
+            .query((rs, n) -> prevQty.put(rs.getLong(1), new long[] {rs.getLong(2), rs.getBigDecimal(3).longValue()})).list();
+        List<DishStat> dishes = jdbc.sql("""
+                SELECT d.id, d.name, d.image_url, d.status, c.name AS category
+                FROM dishes d JOIN dish_categories c ON c.id = d.category_id ORDER BY d.id
+                """)
+            .query((rs, n) -> {
+                long id = rs.getLong("id");
+                long[] c = curQty.getOrDefault(id, new long[2]);
+                long[] pv = prevQty.getOrDefault(id, new long[2]);
+                String category = rs.getString("category");
+                return new DishStat(Ids.str(id), rs.getString("name"), category, kindOf(category), images.url(rs.getString("image_url")),
+                    "selling".equals(rs.getString("status")), (int) c[0], c[1], (int) pv[0]);
+            }).list()
+            // Món đã ngừng bán mà cả hai kỳ đều không bán được phần nào thì không đưa lên trang.
+            .stream().filter(d -> d.selling() || d.quantity() > 0 || d.prevQuantity() > 0).toList();
+
+        long avg = orders == 0 ? 0 : Math.round((double) total / orders);
+        long prevAvg = prevOrders == 0 ? 0 : Math.round((double) prevTotal / prevOrders);
+        return new Overview(r.key(), kpi(total, prevTotal), kpi(orders, prevOrders), kpi(avg, prevAvg), kpi(guests, prevGuests),
+            series(r, cur, prev), byCategory, byPayment, peakHours, dishes, total > 0);
     }
 }

@@ -11,6 +11,7 @@ vào CSDL khi khởi động (`SeedImageLoader`). Chạy thật (`prod`) không 
 | Ảnh danh mục (vòng tròn ở dải danh mục trang QR) | `danh-muc/` | đúng cột `ten_file_anh` trong [danh-muc/danh-sach.csv](danh-muc/danh-sach.csv), ví dụ `bit-tet.png` — món tách nền, nền trắng / trong suốt |
 | Ảnh nhóm món (thẻ gộp nhiều loại, vd. Nước ngọt có ga) | `nhom/` | đúng cột `ten_file_anh` trong [nhom/danh-sach.csv](nhom/danh-sach.csv) |
 | Ảnh set menu | `set/` | đúng cột `ten_file_anh` trong [set/danh-sach.csv](set/danh-sach.csv) (4:3, bày đủ món của set) |
+| Ảnh trang chủ website (đầu trang, món đặc trưng, trải nghiệm, không gian, bếp trưởng…) | `website/` | đúng cột `ten_file_anh` trong [website/danh-sach.csv](website/danh-sach.csv) (cột `muc`: hero / about / reserve / chef / signature:N / experience:N / gallery). Ảnh giữ tới cạnh dài 2400px. Prompt: [website/PROMPT_ANH_WEBSITE.md](website/PROMPT_ANH_WEBSITE.md) |
 | Ảnh bìa trang đặt món (QR) | thư mục này | `anh-bia.jpg` (ngang 16:9 — biển hiệu có tên quán; có ảnh bìa thì trang khách không hiện dòng chào) |
 
 - Đuôi `.jpg`, `.jpeg`, `.png` hoặc `.webp`.

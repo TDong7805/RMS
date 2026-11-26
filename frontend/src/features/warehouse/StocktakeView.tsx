@@ -3,11 +3,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Ban, Check, CheckCheck, Plus, Send, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardHeader } from '@/components/common/Card';
-import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { Field, SearchInput, SelectInput, TextArea, TextInput } from '@/components/common/Form';
 import { ConfirmDialog } from '@/components/common/Modal';
 import { DataTable, StatTile, Td, Th, Toolbar } from '@/components/common/PageParts';
+import { StickyActionBar } from '@/components/common/StickySaveBar';
 import { Segmented } from '@/components/common/Segmented';
 import {
   addStocktakeLine,
@@ -25,7 +25,7 @@ import { formatCurrency } from '@/lib/format';
 import { formatDateTime } from '@/lib/labels';
 import { matchesKeyword } from '@/lib/normalize';
 import { BusinessError, ValidationError } from '@/lib/mock';
-import { formatQty, INGREDIENT_GROUP_KEYS, INGREDIENT_GROUPS, STOCKTAKE_EVENT, STOCKTAKE_REASON, STOCKTAKE_SCOPE, STOCKTAKE_STATUS } from './labels';
+import { formatQty, INGREDIENT_GROUP_KEYS, INGREDIENT_GROUPS, STOCKTAKE_EVENT, STOCKTAKE_REASON, STOCKTAKE_SCOPE } from './labels';
 import { InfoItem, parseMoney, parseQty } from './parts';
 import { useIngredientOptions, wk } from './queries';
 import type { StocktakeDetail, StocktakeLine, StocktakeReason } from '@/types';
@@ -203,9 +203,9 @@ export function StocktakeView({ stocktake: st, mode, onDeleted, onDecided }: Pro
     setSubmitOpen(true);
   };
 
-  const status = STOCKTAKE_STATUS[st.status];
   const pickable = options.filter((o) => (o.active || o.onHand > 0) && !st.lines.some((l) => l.ingredientId === o.id));
   const valueLabel = st.provisional ? ' (tạm tính)' : '';
+  const hasActions = (mode === 'warehouse' && (st.status === 'draft' || st.status === 'rejected')) || editable || (mode === 'manager' && st.status === 'pending');
 
   return (
     <div className="space-y-4">
@@ -217,7 +217,7 @@ export function StocktakeView({ stocktake: st, mode, onDeleted, onDecided }: Pro
       {st.status === 'cancelled' && st.cancelReason ? <div className="rounded-item bg-[var(--bg-subtle)] px-4 py-3 text-[13.5px]"><b>Đã hủy:</b> {st.cancelReason}</div> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Trạng thái" value={<span className="font-sans text-[18px]"><Badge variant={status.variant}>{status.label}</Badge></span>} hint={STOCKTAKE_SCOPE[st.scope]} />
+        <StatTile label="Phạm vi" value={<span className="font-sans text-[18px]">{STOCKTAKE_SCOPE[st.scope]}</span>} hint={st.groups.length ? st.groups.map((g) => INGREDIENT_GROUPS[g]).join(', ') : undefined} />
         <StatTile label="Đã đếm" value={`${st.countedCount}/${st.itemCount}`} hint={`${st.diffCount} dòng chênh lệch`} />
         <StatTile label={`Giá trị tăng${valueLabel}`} value={formatCurrency(st.increaseValue)} tone="accent" />
         <StatTile label={`Giá trị giảm${valueLabel}`} value={formatCurrency(st.decreaseValue)} tone={st.decreaseValue > 0 ? 'danger' : 'default'} />
@@ -410,9 +410,10 @@ export function StocktakeView({ stocktake: st, mode, onDeleted, onDecided }: Pro
       </Card>
 
       {/* Thao tác theo trạng thái */}
-      <div className="flex flex-wrap justify-end gap-2">
-        {mode === 'warehouse' && st.status === 'draft' ? <Button variant="danger" className="mr-auto" leadingIcon={<Trash2 size={15} />} onClick={() => setDeleteOpen(true)}>Xóa phiếu</Button> : null}
-        {mode === 'warehouse' && st.status === 'rejected' ? <Button variant="danger" className="mr-auto" leadingIcon={<Ban size={15} />} onClick={() => { setReason(''); setReasonError(''); setCancelOpen(true); }}>Hủy phiếu</Button> : null}
+      {hasActions ? (
+      <StickyActionBar summary={<>Đã đếm <b className="font-mono text-[var(--text-primary)]">{st.countedCount}/{st.itemCount}</b> · {st.diffCount} dòng chênh lệch</>}>
+        {mode === 'warehouse' && st.status === 'draft' ? <Button variant="danger" leadingIcon={<Trash2 size={15} />} onClick={() => setDeleteOpen(true)}>Xóa phiếu</Button> : null}
+        {mode === 'warehouse' && st.status === 'rejected' ? <Button variant="danger" leadingIcon={<Ban size={15} />} onClick={() => { setReason(''); setReasonError(''); setCancelOpen(true); }}>Hủy phiếu</Button> : null}
         {editable ? <Button leadingIcon={<Send size={15} />} onClick={openSubmit}>{st.status === 'rejected' ? 'Sửa và gửi lại' : 'Gửi duyệt'}</Button> : null}
         {mode === 'manager' && st.status === 'pending' ? (
           <>
@@ -420,7 +421,8 @@ export function StocktakeView({ stocktake: st, mode, onDeleted, onDecided }: Pro
             <Button leadingIcon={<Check size={15} />} onClick={() => setApproveOpen(true)}>Duyệt</Button>
           </>
         ) : null}
-      </div>
+      </StickyActionBar>
+      ) : null}
 
       <ConfirmDialog
         open={submitOpen}

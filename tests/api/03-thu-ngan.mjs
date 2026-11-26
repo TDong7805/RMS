@@ -213,6 +213,24 @@ for (const p of ['today', 'yesterday', 'last7', 'last30', 'thisMonth', 'lastMont
 }
 const top = await ql.get('/api/dashboard/top-dishes?period=last30');
 ok('món bán chạy / chậm', top.body.best.length === 5 && top.body.slow.length === 5 && top.body.best[0].share === 100, top.body.best.map((d) => d.name + ':' + d.quantity));
+// Dashboard bản mới (26/11/2026): mọi số liệu trong một lần gọi, phải khớp với các API cũ.
+for (const p of ['today', 'last7', 'last30', 'thisMonth']) {
+  const ov = (await ql.get('/api/dashboard/overview?period=' + p)).body;
+  const rev = (await ql.get('/api/dashboard/revenue?period=' + p)).body;
+  const sumCat = ov.byCategory.reduce((a, x) => a + x.value, 0);
+  const hourOrders = ov.peakHours.reduce((a, x) => a + x.orders, 0);
+  ok(`tổng quan ${p}: doanh thu / số đơn khớp API doanh thu`, ov.revenue.value === rev.total && ov.orders.value === rev.orders && ov.avgOrder.value === rev.avgOrder, { ov: ov.revenue, rev: rev.total });
+  ok(`tổng quan ${p}: cơ cấu theo danh mục cộng lại ≈ doanh thu, giờ đông khách đủ số đơn`,
+    Math.abs(sumCat - ov.revenue.value) <= ov.byCategory.length && hourOrders === ov.orders.value, { sumCat, total: ov.revenue.value, hourOrders });
+}
+const ov30 = (await ql.get('/api/dashboard/overview?period=last30')).body;
+const qty30 = Object.fromEntries(top.body.best.map((d) => [d.id, d.quantity]));
+ok('tổng quan: số phần từng món khớp API món bán chạy, có phân loại món ăn / đồ uống',
+  ov30.dishes.filter((d) => qty30[d.id] !== undefined).every((d) => d.quantity === qty30[d.id])
+  && ov30.dishes.some((d) => d.kind === 'drink') && ov30.dishes.some((d) => d.kind === 'food'), ov30.dishes.slice(0, 3));
+ok('tổng quan: số khách và trả tiền theo cách có số liệu', ov30.guests.value >= 0 && ov30.byPayment.length > 0, { g: ov30.guests, pay: ov30.byPayment });
+r = await tn.get('/api/dashboard/overview');
+ok('thu ngân không xem tổng quan Dashboard → 403', r.status === 403, r.status);
 fakeClockOut(); // không ảnh hưởng bộ chấm công – lương
 
 console.log(`\n${pass} PASS, ${fail} FAIL`);

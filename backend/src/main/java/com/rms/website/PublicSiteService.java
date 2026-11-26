@@ -51,7 +51,17 @@ public class PublicSiteService {
 
     /** today: ngày hiện tại theo giờ nhà hàng (yyyy-MM-dd); serverTime: ISO UTC — để form tính giờ đặt sớm nhất. */
     public record Site(Brand brand, About about, Contact contact, List<OpeningDay> openingHours,
-                       ReservationSettings reservation, List<AreaOption> areas, String today, String serverTime) {}
+                       ReservationSettings reservation, List<AreaOption> areas, String today, String serverTime,
+                       Chef chef, String reserveImage, List<Highlight> signatures, List<Highlight> experiences, Space space) {}
+
+    /** Lời từ bếp trưởng; null khi chưa nhập lá thư (website ẩn mục). */
+    public record Chef(String name, String title, List<String> paragraphs, String image) {}
+
+    /** Một mục Món đặc trưng / Trải nghiệm đang hiện. */
+    public record Highlight(String id, String title, String subtitle, String description, String image) {}
+
+    /** Số liệu khối "Không gian", lấy từ sơ đồ bàn: chỉ tính khu đang phục vụ và bàn đang dùng. */
+    public record Space(int floors, int areas, int tables, int seats) {}
 
     public record Category(String id, String name, String image) {}
 
@@ -102,8 +112,36 @@ public class PublicSiteService {
         ReservationSettings reservation = new ReservationSettings(cfg.slotMinutes(), cfg.durationMinutes(), cfg.minGuests(),
             cfg.maxGuests(), cfg.leadTimeMinutes(), cfg.maxDaysAhead(), cfg.requireEmail(), cfg.allowAreaChoice(), cfg.allowNote(),
             Vi.trim(cfg.notice()));
+        Chef chef = Vi.blank(c.chefLetter()) ? null
+            : new Chef(c.chefName(), c.chefTitle(), WebsiteContentService.lines(c.chefLetter()), images.url(c.chefKey()));
         return new Site(brand, about, contact, settings.getOpeningHours(), reservation,
-            cfg.allowAreaChoice() ? bookableAreas() : List.of(), Times.today().toString(), Times.iso(Times.now()));
+            cfg.allowAreaChoice() ? bookableAreas() : List.of(), Times.today().toString(), Times.iso(Times.now()),
+            chef, images.url(c.reserveKey()), highlights("signature"), highlights("experience"), space());
+    }
+
+    private List<Highlight> highlights(String kind) {
+        return jdbc.sql("SELECT * FROM website_features WHERE kind = ? AND is_visible = 1 ORDER BY sort_order, id").param(kind)
+            .query((rs, n) -> new Highlight(Ids.str(rs.getLong("id")), rs.getString("title"), Vi.trim(rs.getString("subtitle")),
+                Vi.trim(rs.getString("description")), images.url(rs.getString("image_url"))))
+            .list();
+    }
+
+    /** Bàn đang dùng (không tính bàn ngừng dùng) thuộc khu đang phục vụ; tầng = số tầng có ít nhất một bàn như vậy. */
+    private Space space() {
+        Map<String, TableService.Area> active = new LinkedHashMap<>();
+        tables.areas().stream().filter(TableService.Area::active).forEach(a -> active.put(a.id(), a));
+        Set<String> floors = new HashSet<>();
+        Set<String> areas = new HashSet<>();
+        int count = 0, seats = 0;
+        for (var t : tables.tables()) {
+            TableService.Area a = active.get(t.areaId());
+            if (a == null || "inactive".equals(t.status())) continue;
+            count++;
+            seats += t.seats();
+            areas.add(a.id());
+            if (a.floorId() != null) floors.add(a.floorId());
+        }
+        return new Space(Math.max(floors.size(), count > 0 ? 1 : 0), areas.size(), count, seats);
     }
 
     /** Khu đang phục vụ và có ít nhất một bàn đang dùng — khách chọn được khi đặt bàn. */

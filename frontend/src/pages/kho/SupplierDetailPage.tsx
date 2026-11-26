@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, History, Pencil, Plus, Power, PowerOff, RotateCcw, Tag, Trash2 } from 'lucide-react';
+import { History, Pencil, Plus, Power, PowerOff, RotateCcw, Tag, Trash2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { BlockError, EmptyState } from '@/components/common/EmptyState';
 import { SearchInput } from '@/components/common/Form';
-import { DataTable, PageHeader, StatTile, Td, Th, Toolbar } from '@/components/common/PageParts';
+import { DataTable, StatTile, Td, Th, Toolbar } from '@/components/common/PageParts';
+import { RowActions } from '@/components/common/RowActions';
+import { SubPageHeader } from '@/components/common/SubPageHeader';
 import { Segmented } from '@/components/common/Segmented';
 import { Skeleton } from '@/components/common/Skeleton';
 import { LinkFormDialog, LinkStopDialog, PriceHistoryDialog, type LinkDialogMode } from '@/features/warehouse/LinkDialogs';
@@ -47,13 +49,12 @@ export function SupplierDetailPage() {
   const active = s?.status === 'active';
 
   return (
-    <AppShell meta={{ label: s ? s.name : 'Chi tiết nhà cung cấp', parent: 'Quản lý nhà cung cấp' }}>
+    <AppShell meta={{ label: s ? s.name : 'Chi tiết nhà cung cấp', parent: 'Nhà cung cấp', parentTo: '/kho/nha-cung-cap' }}>
       <div className="min-w-0 space-y-4">
         {detail.isError ? (
           <>
-            <PageHeader title="Chi tiết nhà cung cấp" />
+            <SubPageHeader title="Chi tiết nhà cung cấp" backTo="/kho/nha-cung-cap" />
             <BlockError message="Không tìm thấy nhà cung cấp" onRetry={() => void detail.refetch()} retrying={detail.isFetching} />
-            <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/kho/nha-cung-cap')}>Về danh sách</Button>
           </>
         ) : !s ? (
           <div className="space-y-4">
@@ -63,27 +64,28 @@ export function SupplierDetailPage() {
           </div>
         ) : (
           <>
-            <PageHeader
+            <SubPageHeader
               title={s.name}
-              description={`Mã ${s.code} · thêm ngày ${formatDateOnly(s.createdAt)} · cập nhật ${formatDateTime(s.updatedAt)}`}
+              badge={<ActiveBadge active={active} activeLabel="Đang hoạt động" inactiveLabel="Ngừng hoạt động" />}
+              description={`Mã ${s.code} · thêm ngày ${formatDateOnly(s.createdAt)} · cập nhật ${formatDateTime(s.updatedAt)}${!active && s.stopReason ? ` · Lý do ngừng: ${SUPPLIER_STOP_REASON[s.stopReason]}` : ''}`}
+              backTo="/kho/nha-cung-cap"
               actions={
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/kho/nha-cung-cap')}>Về danh sách</Button>
-                  <Button variant="outline" size="sm" leadingIcon={<Pencil size={15} />} onClick={() => navigate(`/kho/nha-cung-cap/${s.id}/sua`)}>Sửa</Button>
-                  {active ? (
-                    <Button variant="outline" size="sm" leadingIcon={<PowerOff size={15} />} onClick={() => setStopTarget(s)}>Ngừng hoạt động</Button>
-                  ) : (
-                    <Button variant="outline" size="sm" leadingIcon={<Power size={15} />} onClick={() => setActivateTarget(s)}>Kích hoạt lại</Button>
-                  )}
-                  {!s.hasPurchases ? (
-                    <Button variant="danger" size="sm" leadingIcon={<Trash2 size={15} />} onClick={() => setDeleteTarget(s)}>Xóa</Button>
-                  ) : null}
-                </div>
+                <>
+                  <Button variant="outline" leadingIcon={<Pencil size={15} />} onClick={() => navigate(`/kho/nha-cung-cap/${s.id}/sua`)}>Sửa</Button>
+                  {!active ? <Button leadingIcon={<Power size={15} />} onClick={() => setActivateTarget(s)}>Kích hoạt lại</Button> : null}
+                  <RowActions
+                    inHeader
+                    name={s.name}
+                    items={[
+                      ...(active ? [{ label: 'Ngừng hoạt động', icon: <PowerOff size={15} />, onSelect: () => setStopTarget(s) }] : []),
+                      ...(!s.hasPurchases ? [{ label: 'Xóa nhà cung cấp', icon: <Trash2 size={15} />, danger: true, onSelect: () => setDeleteTarget(s) }] : []),
+                    ]}
+                  />
+                </>
               }
             />
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <StatTile label="Trạng thái" value={<span className="font-sans text-[18px]"><ActiveBadge active={active} activeLabel="Đang hoạt động" inactiveLabel="Ngừng hoạt động" /></span>} hint={!active && s.stopReason ? `Lý do: ${SUPPLIER_STOP_REASON[s.stopReason]}` : undefined} />
+            <div className="grid gap-3 sm:grid-cols-2">
               <StatTile label="Nguyên liệu đang cung cấp" value={s.activeLinkCount} hint={`${s.links.length} liên kết (kể cả đã ngừng)`} tone="accent" />
               <StatTile label="Phiếu mua chờ nhận" value={s.openPurchaseCount} hint={s.hasPurchases ? 'Đã có phiếu mua nên không xóa được' : 'Chưa có phiếu mua nào'} />
             </div>
@@ -190,26 +192,22 @@ export function SupplierDetailPage() {
                         <Td className="whitespace-nowrap text-[13px]">{formatDateOnly(l.effectiveFrom)}</Td>
                         <Td><ActiveBadge active={l.status === 'active'} activeLabel="Đang cung cấp" inactiveLabel="Đã ngừng" /></Td>
                         <Td className="text-right">
-                          <div className="inline-flex gap-0.5">
-                            <Button size="sm" variant="ghost" aria-label={`Lịch sử giá ${l.ingredientName}`} onClick={() => setHistoryTarget(l)}><History size={14} /></Button>
-                            {l.status === 'active' ? (
-                              <>
-                                <Button size="sm" variant="ghost" aria-label={`Sửa giá ${l.ingredientName}`} disabled={!l.ingredientActive} onClick={() => setLinkDialog({ mode: 'edit', link: l })}><Pencil size={14} /></Button>
-                                <Button size="sm" variant="ghost" aria-label={`Ngừng cung cấp ${l.ingredientName}`} onClick={() => setStopLinkTarget(l)}><PowerOff size={14} /></Button>
-                              </>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                aria-label={`Kích hoạt lại ${l.ingredientName}`}
-                                disabled={!l.ingredientActive || !active}
-                                title={!l.ingredientActive ? 'Nguyên liệu đang ngừng sử dụng' : !active ? 'Nhà cung cấp đang ngừng hoạt động' : undefined}
-                                onClick={() => setLinkDialog({ mode: 'reactivate', link: l })}
-                              >
-                                <RotateCcw size={14} />
-                              </Button>
-                            )}
-                          </div>
+                          <RowActions
+                            name={l.ingredientName}
+                            primaryLabel="Sửa giá"
+                            onPrimary={l.status === 'active' && l.ingredientActive ? () => setLinkDialog({ mode: 'edit', link: l }) : undefined}
+                            items={[
+                              { label: 'Lịch sử giá nhập', icon: <History size={15} />, onSelect: () => setHistoryTarget(l) },
+                              l.status === 'active'
+                                ? { label: 'Ngừng cung cấp', icon: <PowerOff size={15} />, onSelect: () => setStopLinkTarget(l) }
+                                : {
+                                    label: !l.ingredientActive ? 'Kích hoạt lại (nguyên liệu đang ngừng)' : !active ? 'Kích hoạt lại (NCC đang ngừng)' : 'Kích hoạt lại',
+                                    icon: <RotateCcw size={15} />,
+                                    disabled: !l.ingredientActive || !active,
+                                    onSelect: () => setLinkDialog({ mode: 'reactivate', link: l }),
+                                  },
+                            ]}
+                          />
                         </Td>
                       </tr>
                     ))}

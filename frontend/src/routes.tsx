@@ -14,12 +14,9 @@ const QrOrderPage = lazy(() => import('@/pages/goi-mon/QrOrderPage'));
 /* Website khách hàng: tải riêng (phông, bộ màu riêng), người vào trang quản lý không phải tải phần này. */
 const PublicLayout = lazy(() => import('@/features/public-site/PublicLayout'));
 const SiteHomePage = lazy(() => import('@/pages/khach/HomePage'));
-const SiteAboutPage = lazy(() => import('@/pages/khach/AboutPage'));
 const SiteMenuPage = lazy(() => import('@/pages/khach/MenuPage'));
 const SiteFlipMenuPage = lazy(() => import('@/pages/khach/FlipMenuPage'));
 const SiteReservationPage = lazy(() => import('@/pages/khach/ReservationPage'));
-const SiteGalleryPage = lazy(() => import('@/pages/khach/GalleryPage'));
-const SiteContactPage = lazy(() => import('@/pages/khach/ContactPage'));
 const SiteNotFoundPage = lazy(() => import('@/pages/khach/NotFoundPage'));
 import ReservationsPage from '@/pages/ReservationsPage';
 import ReservationFormPage from '@/pages/ReservationFormPage';
@@ -27,6 +24,9 @@ import TablesPage from '@/pages/TablesPage';
 import DishesPage from '@/pages/DishesPage';
 import DishFormPage from '@/pages/DishFormPage';
 import SetMenuPage from '@/pages/SetMenuPage';
+import SetFormPage from '@/pages/SetFormPage';
+import MenuCategoriesPage from '@/pages/MenuCategoriesPage';
+import MenuGroupsPage from '@/pages/MenuGroupsPage';
 import ShiftsPage from '@/pages/ShiftsPage';
 import FacesPage from '@/pages/FacesPage';
 import PostsPage from '@/pages/PostsPage';
@@ -67,7 +67,6 @@ import WaiterFloorPage from '@/pages/phuc-vu/WaiterFloorPage';
 import WaiterRequestsPage from '@/pages/phuc-vu/WaiterRequestsPage';
 import WaiterServePage from '@/pages/phuc-vu/WaiterServePage';
 import WaiterMenuPage from '@/pages/phuc-vu/WaiterMenuPage';
-import { CashierSelfPage, KitchenSelfPage, WaiterSelfPage } from '@/pages/SelfPages';
 import WaiterNotificationsPage from '@/pages/phuc-vu/WaiterNotificationsPage';
 
 /**
@@ -77,7 +76,8 @@ import WaiterNotificationsPage from '@/pages/phuc-vu/WaiterNotificationsPage';
  *  - /thu-ngan, /bep, /kho    khu vực Thu ngân / Bếp / Kho
  *  - /phuc-vu                 khu vực Nhân viên phục vụ (giao diện điện thoại)
  *  - /quan-ly/...             Quản lý nhà hàng (MANAGER_HOME trong lib/paths.ts)
- *  - /, /gioi-thieu, /thuc-don, /dat-ban, /album, /lien-he   website khách hàng (công khai, PublicLayout);
+ *  - /, /thuc-don, /dat-ban   website khách hàng (công khai, PublicLayout); trang chủ dài một trang, /gioi-thieu,
+ *                             /album, /lien-he chuyển về mục tương ứng (/#gioi-thieu, /#khong-gian, /#lien-he);
  *                             đường dẫn lạ cũng hiện trang "không tìm thấy" của website. Nhân viên vào bằng /dang-nhap.
  * Thêm trang cho Thu ngân: đặt route con trong khối roles={['cashier']}, đường dẫn bắt đầu bằng /thu-ngan.
  */
@@ -108,18 +108,16 @@ export function AppRoutes() {
         <Route path="/thu-ngan/cham-cong" element={<AttendancePage />} />
         <Route path="/thu-ngan/bang-luong" element={<PayrollPage />} />
         <Route path="/thu-ngan/bang-luong/:id" element={<PayrollDetailPage />} />
-        <Route path="/thu-ngan/toi" element={<CashierSelfPage />} />
         <Route path="/thu-ngan/*" element={<PlaceholderPage title="Không tìm thấy trang" description="Đường dẫn không tồn tại trong khu Thu ngân." />} />
       </Route>
       <Route element={<RequireAuth roles={['waiter']} />}>
         {/* Nhân viên phục vụ — giao diện điện thoại, thanh tab dưới đáy (features/waiter/WaiterShell) */}
         <Route path="/phuc-vu" element={<WaiterFloorPage />} />
         <Route path="/phuc-vu/yeu-cau" element={<WaiterRequestsPage />} />
-        <Route path="/phuc-vu/mang-mon" element={<WaiterServePage />} />
+        <Route path="/phuc-vu/mon-xong" element={<WaiterServePage />} />
+        <Route path="/phuc-vu/mang-mon" element={<Navigate to="/phuc-vu/mon-xong" replace />} />
         <Route path="/phuc-vu/thuc-don" element={<WaiterMenuPage />} />
         <Route path="/phuc-vu/goi-mon/:tableId" element={<WaiterMenuPage />} />
-        <Route path="/phuc-vu/toi" element={<WaiterSelfPage />} />
-        <Route path="/phuc-vu/ca-lam" element={<Navigate to="/phuc-vu/toi?tab=shifts" replace />} />
         <Route path="/phuc-vu/thong-bao" element={<WaiterNotificationsPage />} />
         <Route path="/phuc-vu/*" element={<Navigate to="/phuc-vu" replace />} />
       </Route>
@@ -129,7 +127,6 @@ export function AppRoutes() {
         <Route path="/bep/nguyen-lieu" element={<StockCheckPage />} />
         <Route path="/bep/cong-thuc" element={<RecipesPage />} />
         <Route path="/bep/cong-thuc/:dishId" element={<RecipesPage />} />
-        <Route path="/bep/toi" element={<KitchenSelfPage />} />
         <Route path="/bep/*" element={<Navigate to="/bep" replace />} />
       </Route>
       <Route element={<RequireAuth roles={['warehouse']} />}>
@@ -184,6 +181,10 @@ export function AppRoutes() {
         <Route path="/quan-ly/mon-an" element={<DishesPage />} />
         <Route path="/quan-ly/mon-an/them" element={<DishFormPage />} />
         <Route path="/quan-ly/mon-an/set-menu" element={<SetMenuPage />} />
+        <Route path="/quan-ly/mon-an/set-menu/them" element={<SetFormPage />} />
+        <Route path="/quan-ly/mon-an/set-menu/:id/sua" element={<SetFormPage />} />
+        <Route path="/quan-ly/mon-an/danh-muc" element={<MenuCategoriesPage />} />
+        <Route path="/quan-ly/mon-an/nhom-mon" element={<MenuGroupsPage />} />
         <Route path="/quan-ly/mon-an/:id/sua" element={<DishFormPage />} />
 
         {/* Quản lý nhân viên */}
@@ -224,13 +225,14 @@ export function AppRoutes() {
       {/* Website khách hàng (công khai, không đăng nhập) — khung riêng PublicLayout, tải riêng như trang gọi món QR. */}
       <Route element={<Suspense fallback={<PageLoader />}><PublicLayout /></Suspense>}>
         <Route path="/" element={<Suspense fallback={null}><SiteHomePage /></Suspense>} />
-        <Route path="/gioi-thieu" element={<Suspense fallback={null}><SiteAboutPage /></Suspense>} />
+        {/* Trang chủ dài một trang (E1): link cũ chuyển về đúng mục ở trang chủ. */}
+        <Route path="/gioi-thieu" element={<Navigate to="/#gioi-thieu" replace />} />
         {/* Thực đơn dạng sách lật trang; dạng danh sách cũ giữ ở /thuc-don/danh-sach để có thể quay lại */}
         <Route path="/thuc-don" element={<Suspense fallback={null}><SiteFlipMenuPage /></Suspense>} />
         <Route path="/thuc-don/danh-sach" element={<Suspense fallback={null}><SiteMenuPage /></Suspense>} />
         <Route path="/dat-ban" element={<Suspense fallback={null}><SiteReservationPage /></Suspense>} />
-        <Route path="/album" element={<Suspense fallback={null}><SiteGalleryPage /></Suspense>} />
-        <Route path="/lien-he" element={<Suspense fallback={null}><SiteContactPage /></Suspense>} />
+        <Route path="/album" element={<Navigate to="/#khong-gian" replace />} />
+        <Route path="/lien-he" element={<Navigate to="/#lien-he" replace />} />
         <Route path="*" element={<Suspense fallback={null}><SiteNotFoundPage /></Suspense>} />
       </Route>
     </Routes>

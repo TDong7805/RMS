@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Card, CardHeader } from '@/components/common/Card';
-import { Button } from '@/components/common/Button';
-import { Field, TextInput, ToggleRow } from '@/components/common/Form';
+import { TextInput, Toggle } from '@/components/common/Form';
+import { SettingRow, SettingsSaveBar, SettingsSection, UnitInput } from '@/components/common/SettingsParts';
 import { Skeleton } from '@/components/common/Skeleton';
 import { getOrderingSettings, saveOrderingSettings } from '@/api/ordering';
+import { useDraft } from '@/hooks/use-draft';
 import { ValidationError } from '@/lib/mock';
 
 const KEY = ['settings', 'ordering'] as const;
@@ -17,21 +17,13 @@ const KEY = ['settings', 'ordering'] as const;
 export function OrderingSettingsCard() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: KEY, queryFn: getOrderingSettings });
-  const [minutes, setMinutes] = useState('');
-  const [requireConfirm, setRequireConfirm] = useState(true);
-  const [remind, setRemind] = useState('');
+  const d = useDraft(q.data, (x) => ({ minutes: String(x.openTableTimeoutMinutes), requireConfirm: x.requireConfirm, remind: String(x.confirmRemindMinutes) }));
   const [errors, setErrors] = useState<Record<string, string>>({});
-  useEffect(() => {
-    if (q.data) {
-      setMinutes(String(q.data.openTableTimeoutMinutes));
-      setRequireConfirm(q.data.requireConfirm);
-      setRemind(String(q.data.confirmRemindMinutes));
-    }
-  }, [q.data]);
   const save = useMutation({
-    mutationFn: () => saveOrderingSettings({ openTableTimeoutMinutes: Number(minutes), requireConfirm, confirmRemindMinutes: Number(remind) }),
-    onSuccess: (d) => {
-      qc.setQueryData(KEY, d);
+    mutationFn: () => saveOrderingSettings({ openTableTimeoutMinutes: Number(d.draft!.minutes), requireConfirm: d.draft!.requireConfirm, confirmRemindMinutes: Number(d.draft!.remind) }),
+    onSuccess: (data) => {
+      qc.setQueryData(KEY, data);
+      d.commit(data);
       setErrors({});
       toast.success('Đã lưu cấu hình gọi món tại bàn');
     },
@@ -40,36 +32,43 @@ export function OrderingSettingsCard() {
       else toast.error(e instanceof Error ? e.message : 'Không lưu được');
     },
   });
+
+  if (!d.draft) return <Skeleton className="h-60" />;
+  const f = d.draft;
+  const change = (patch: Partial<typeof f>) => {
+    setErrors({});
+    d.set(patch);
+  };
   return (
-    <Card padded>
-      <CardHeader title="Gọi món tại bàn" description="Mã QR trên bàn chỉ gửi được món khi thu ngân / phục vụ đã mở bàn." />
-      {q.isLoading ? (
-        <Skeleton className="mt-3 h-10" />
-      ) : (
-        <form
-          className="mt-3 grid gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save.mutate();
-          }}
+    <div className="space-y-6">
+      <SettingsSection title="Gọi món tại bàn" description="Mã QR trên bàn chỉ gửi được món khi thu ngân đã mở bàn.">
+        <SettingRow
+          label="Tự đóng bàn chưa gọi món"
+          description="Bàn đã mở mà khách chưa gọi món sau số phút này thì tự đóng (khách bỏ về, mở nhầm bàn). 0 = không tự đóng."
+          htmlFor="open-timeout"
+          error={errors.openTableTimeoutMinutes}
         >
-          <Field label="Tự đóng bàn chưa gọi món sau (phút)" htmlFor="open-timeout" error={errors.openTableTimeoutMinutes} hint="0 = không tự đóng; tối đa 240 phút (khách bỏ về, mở nhầm bàn)">
-            <TextInput id="open-timeout" type="number" min={0} max={240} value={minutes} invalid={Boolean(errors.openTableTimeoutMinutes)} onChange={(e) => { setErrors({}); setMinutes(e.target.value); }} className="w-[160px]" />
-          </Field>
-          <ToggleRow
-            title="Nhân viên phục vụ xác nhận đơn trước khi chuyển bếp"
-            description="Món khách gửi qua QR chờ phục vụ đã vào ca của khu xác nhận (ghi tên người xác nhận). Tắt khi quán vắng người phục vụ."
-            checked={requireConfirm}
-            onChange={setRequireConfirm}
-          />
-          {requireConfirm ? (
-            <Field label="Nhắc lại sau (phút)" htmlFor="confirm-remind" error={errors.confirmRemindMinutes} hint="Chờ xác nhận quá số phút này: báo lại và hiện cho mọi phục vụ đã vào ca (1–60)">
-              <TextInput id="confirm-remind" type="number" min={1} max={60} value={remind} invalid={Boolean(errors.confirmRemindMinutes)} onChange={(e) => { setErrors({}); setRemind(e.target.value); }} className="w-[160px]" />
-            </Field>
-          ) : null}
-          <div><Button type="submit" loading={save.isPending}>Lưu</Button></div>
-        </form>
-      )}
-    </Card>
+          <UnitInput unit="phút">
+            <TextInput id="open-timeout" type="number" min={0} max={240} value={f.minutes} invalid={Boolean(errors.openTableTimeoutMinutes)} onChange={(e) => change({ minutes: e.target.value })} className="w-[96px]" />
+          </UnitInput>
+        </SettingRow>
+        <SettingRow label="Phục vụ xác nhận món trước khi chuyển bếp" description="Món khách gửi qua QR chờ phục vụ của khu xác nhận. Tắt khi quán vắng người phục vụ.">
+          <Toggle checked={f.requireConfirm} label="Phục vụ xác nhận món trước khi chuyển bếp" onChange={(v) => change({ requireConfirm: v })} />
+        </SettingRow>
+        {f.requireConfirm ? (
+          <SettingRow
+            label="Nhắc lại khi chờ quá lâu"
+            description="Chờ xác nhận quá số phút này thì báo lại và hiện cho mọi phục vụ đang trong ca (1–60)."
+            htmlFor="confirm-remind"
+            error={errors.confirmRemindMinutes}
+          >
+            <UnitInput unit="phút">
+              <TextInput id="confirm-remind" type="number" min={1} max={60} value={f.remind} invalid={Boolean(errors.confirmRemindMinutes)} onChange={(e) => change({ remind: e.target.value })} className="w-[96px]" />
+            </UnitInput>
+          </SettingRow>
+        ) : null}
+      </SettingsSection>
+      <SettingsSaveBar dirty={d.dirty} saving={save.isPending} errorCount={Object.values(errors).filter(Boolean).length} onSave={() => save.mutate()} onDiscard={() => { d.reset(); setErrors({}); }} />
+    </div>
   );
 }

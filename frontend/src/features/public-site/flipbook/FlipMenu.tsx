@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn';
 import type { PublicMenu, PublicSite } from '@/types';
 import { CategoryTabs, type TabItem } from './CategoryTabs';
 import { PageFace } from './FlipPages';
+import { FlipGuide } from './FlipGuide';
 import { MenuSearch, normalizeVi, type SearchEntry } from './MenuSearch';
 import { PageFlipBook, type BookHandle } from './PageFlipBook';
 import { StaticBook } from './StaticBook';
@@ -51,7 +52,9 @@ export function FlipMenu({ menu, site, initialQuery, paper }: { menu: PublicMenu
   const bookRef = useRef<BookHandle>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const landscape = useMedia('(orientation: landscape)');
-  const reduce = useMedia('(prefers-reduced-motion: reduce)');
+  // Website luôn bật đủ hiệu ứng, kể cả khi máy bật "giảm chuyển động" (QUY_TAC_GIAO_DIEN K3, chốt 24/11/2026).
+  // Sách tĩnh (StaticBook) giữ lại để dùng khi cần, hiện không bật.
+  const reduce = false;
   const shortLandscape = useMedia('(orientation: landscape) and (max-height: 520px)');
 
   /* ---------------------------------------------------- Đo khung (có debounce) */
@@ -296,6 +299,7 @@ export function FlipMenu({ menu, site, initialQuery, paper }: { menu: PublicMenu
                 onState={onState}
               />
             </div>
+            <FlipGuide atCover={view === 0} />
             {layout.sideNav ? (
               <button type="button" className="fb-side fb-side--next" onClick={next} disabled={view >= views - 1} aria-label="Trang sau">
                 <ChevronRight size={26} aria-hidden />

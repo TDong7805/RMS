@@ -33,7 +33,16 @@ const SIZES: Record<ButtonSize, string> = {
 };
 
 const BASE =
-  'inline-flex items-center justify-center font-semibold whitespace-nowrap transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50 select-none';
+  'inline-flex items-center justify-center font-semibold whitespace-nowrap transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/45 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--bg-surface)]';
+
+/*
+ * Cấp nút (docs/thiet-ke/QUY_TAC_GIAO_DIEN.md, quy tắc 3 — theo Atlassian Button):
+ *  primary   = việc chính của màn (tối đa 1 mỗi màn / hộp thoại)
+ *  secondary = việc phụ nổi bật nhẹ (nền xanh nhạt)
+ *  outline   = việc thường (viền)
+ *  ghost     = việc ít dùng / Hủy (chữ)
+ *  danger    = xóa, hủy không hoàn lại (đỏ, đứng tách khỏi nút chính)
+ */
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {

@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, PackagePlus, Plus, Trash2 } from 'lucide-react';
+import { PackagePlus, Plus, Trash2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/common/Form';
 import { ConfirmDialog } from '@/components/common/Modal';
-import { DataTable, PageHeader, Td, Th } from '@/components/common/PageParts';
+import { DataTable, Td, Th } from '@/components/common/PageParts';
+import { StickySaveBar } from '@/components/common/StickySaveBar';
+import { SubPageHeader } from '@/components/common/SubPageHeader';
 import { createDirectReceipt } from '@/api/warehouse-receipts';
 import { useIngredientOptions, useSupplier, useSupplierOptions, wk } from '@/features/warehouse/queries';
 import { formatQty } from '@/features/warehouse/labels';
-import { parseMoney, parseQty, useLeaveGuard } from '@/features/warehouse/parts';
+import { parseMoney, parseQty } from '@/features/warehouse/parts';
+import { useUnsavedGuard } from '@/hooks/use-unsaved-guard';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { formatCurrency } from '@/lib/format';
 import type { DirectReceiptInput } from '@/types';
@@ -47,8 +50,15 @@ export function DirectReceiptPage() {
   const option = (ingredientId: string) => options.find((o) => o.id === ingredientId);
 
   const dirty = Boolean(source || sourceName || note || rows.length);
-  const { guard, dialog } = useLeaveGuard(dirty);
+  const leave = useUnsavedGuard(dirty);
   const back = () => navigate('/kho/nhap-kho');
+  const discard = () => {
+    setSource('');
+    setSourceName('');
+    setNote('');
+    setRows([]);
+    setErrors({});
+  };
 
   const chosen = new Set(rows.map((r) => r.ingredientId));
   const activeOptions = useMemo(() => options.filter((o) => o.active), [options]);
@@ -83,7 +93,10 @@ export function DirectReceiptPage() {
       setErrors(f);
       setConfirming(false);
     },
-    onSuccess: back,
+    onSuccess: () => {
+      leave.allowLeave();
+      back();
+    },
   });
 
   const validate = (): boolean => {
@@ -124,12 +137,12 @@ export function DirectReceiptPage() {
     });
 
   return (
-    <AppShell meta={{ label: 'Nhập kho không phiếu', parent: 'Nhập kho' }}>
+    <AppShell meta={{ label: 'Nhập kho không phiếu', parent: 'Nhập kho', parentTo: '/kho/nhap-kho' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader
+        <SubPageHeader
           title="Nhập kho không phiếu"
           description="Mua lẻ (chợ, cửa hàng) đã trả tiền ngay — không phát sinh công nợ. Muốn theo dõi công nợ thì lập phiếu mua."
-          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => guard(back)}>Về nhập kho</Button>}
+          backTo="/kho/nhap-kho"
         />
 
         <Card padded>
@@ -220,17 +233,21 @@ export function DirectReceiptPage() {
               </tbody>
             </DataTable>
           )}
-          <div className="flex justify-end border-t border-[var(--border)] p-5 text-[14px]">
-            Tổng tiền: <span className="ml-2 font-mono text-[18px] font-bold text-[var(--accent)]">{formatCurrency(total)}</span>
-          </div>
         </Card>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => guard(back)}>Hủy</Button>
-          <Button leadingIcon={<PackagePlus size={15} />} onClick={submit}>Nhập kho</Button>
-        </div>
+        <StickySaveBar
+          dirty={dirty}
+          idleText="Chưa nhập gì"
+          errorCount={Object.values(errors).filter(Boolean).length}
+          summary={<>Tổng tiền <b className="font-mono text-[var(--text-primary)]">{formatCurrency(total)}</b></>}
+          saveLabel="Nhập kho"
+          saveIcon={<PackagePlus size={15} />}
+          canSave={rows.length > 0}
+          onDiscard={discard}
+          onSave={submit}
+        />
       </div>
-      {dialog}
+      {leave.dialog}
       <ConfirmDialog
         open={Boolean(priceWarnings)}
         onOpenChange={(o) => !o && setPriceWarnings(null)}

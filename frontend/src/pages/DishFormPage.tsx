@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Bot, Save } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
-import { Button } from '@/components/common/Button';
 import { BlockError } from '@/components/common/EmptyState';
 import { ChipSelect, Field, ImageUpload, SelectInput, TextArea, TextInput } from '@/components/common/Form';
-import { PageHeader } from '@/components/common/PageParts';
+import { StickySaveBar } from '@/components/common/StickySaveBar';
+import { MENU_HOME, MenuFormHeader } from '@/features/dishes/MenuLayout';
 import { Segmented } from '@/components/common/Segmented';
 import { Skeleton } from '@/components/common/Skeleton';
 import { DESCRIPTION_MAX, createDish, updateDish } from '@/api/dishes';
 import { qk, useAllergens, useCategories, useDish, useDishGroups } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
+import { useUnsavedGuard } from '@/hooks/use-unsaved-guard';
 import { formatCurrency } from '@/lib/format';
 import { SPICY_LEVELS, formatDateTime } from '@/lib/labels';
 import type { DishInput, DishStatus } from '@/types';
@@ -43,6 +44,7 @@ export function DishFormPage() {
   const [priceText, setPriceText] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(!isEdit);
+  const [initial, setInitial] = useState<string>(JSON.stringify({ form: EMPTY, priceText: '' }));
 
   // Đổi giữa "Thêm" và "Sửa" (hoặc sang món khác) thì nạp lại biểu mẫu.
   useEffect(() => {
@@ -50,6 +52,7 @@ export function DishFormPage() {
     if (!id) {
       setForm(EMPTY);
       setPriceText('');
+      setInitial(JSON.stringify({ form: EMPTY, priceText: '' }));
       setLoaded(true);
     } else {
       setLoaded(false);
@@ -59,7 +62,7 @@ export function DishFormPage() {
   useEffect(() => {
     const d = dishQuery.data;
     if (isEdit && d && d.id === id && !loaded) {
-      setForm({
+      const next: DishInput = {
         name: d.name,
         categoryId: d.categoryId,
         price: d.price,
@@ -71,8 +74,10 @@ export function DishFormPage() {
         spicyLevel: d.spicyLevel,
         groupId: d.groupId,
         variantLabel: d.variantLabel ?? '',
-      });
+      };
+      setForm(next);
       setPriceText(String(d.price));
+      setInitial(JSON.stringify({ form: next, priceText: String(d.price) }));
       setLoaded(true);
     }
   }, [dishQuery.data, isEdit, loaded, id]);
@@ -81,7 +86,10 @@ export function DishFormPage() {
     invalidate: [qk.dishes, qk.categories, qk.chatbot, qk.dishGroups],
     success: (d) => (isEdit ? `Đã cập nhật món ${d.name}` : `Đã thêm món ${d.name} (${d.code})`),
     onFieldErrors: setErrors,
-    onSuccess: () => navigate('/quan-ly/mon-an'),
+    onSuccess: () => {
+      guard.allowLeave();
+      navigate(MENU_HOME);
+    },
   });
 
   const set = <K extends keyof DishInput>(key: K, value: DishInput[K]) => {
@@ -89,8 +97,8 @@ export function DishFormPage() {
     setErrors((prev) => ({ ...prev, [key]: '' }));
   };
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = (e?: React.FormEvent) => {
+    e?.preventDefault();
     const local: Record<string, string> = {};
     const rawPrice = priceText.replace(/[.\s]/g, '');
     const price = Number(rawPrice);
@@ -105,24 +113,29 @@ export function DishFormPage() {
     mutation.mutate({ ...form, price });
   };
 
-  const title = isEdit ? 'Chỉnh sửa món ăn' : 'Thêm món ăn';
+  const title = isEdit ? 'Sửa món' : 'Thêm món';
+  const dirty = loaded && JSON.stringify({ form, priceText }) !== initial;
+  const discard = () => {
+    const snap = JSON.parse(initial) as { form: DishInput; priceText: string };
+    setForm(snap.form);
+    setPriceText(snap.priceText);
+    setErrors({});
+  };
+  const errorCount = Object.values(errors).filter(Boolean).length;
+  const guard = useUnsavedGuard(dirty && !mutation.isPending);
   const priceNumber = Number(priceText.replace(/[.\s]/g, ''));
 
   return (
-    <AppShell meta={{ label: title, parent: 'Quản lý món ăn' }}>
+    <AppShell meta={{ label: isEdit ? 'Sửa' : 'Thêm mới', parent: 'Thực đơn', parentTo: MENU_HOME, trail: [{ label: 'Món ăn', to: MENU_HOME }] }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader
-          title={title}
+        <MenuFormHeader
+          title={isEdit && dishQuery.data ? dishQuery.data.name : title}
           description={
             isEdit && dishQuery.data
-              ? `Mã món ${dishQuery.data.code} · cập nhật lần cuối ${formatDateTime(dishQuery.data.updatedAt)}. Đổi giá không ảnh hưởng đơn hàng đã tạo.`
-              : 'Mã món do hệ thống tự phát sinh sau khi lưu.'
+              ? `Mã món ${dishQuery.data.code} · sửa lần cuối ${formatDateTime(dishQuery.data.updatedAt)}. Đổi giá không ảnh hưởng hóa đơn đã tạo.`
+              : 'Mã món tự có sau khi lưu.'
           }
-          actions={
-            <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/quan-ly/mon-an')}>
-              Về danh sách
-            </Button>
-          }
+          backTo={MENU_HOME}
         />
 
         {isEdit && dishQuery.isError ? (
@@ -130,7 +143,7 @@ export function DishFormPage() {
         ) : !loaded ? (
           <Card padded><div className="grid gap-4 sm:grid-cols-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div></Card>
         ) : (
-          <form onSubmit={submit} noValidate className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <form id="dish-form" onSubmit={submit} noValidate className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
             <div className="min-w-0 space-y-4">
               <Card padded>
                 <CardHeader title="Thông tin cơ bản" />
@@ -221,17 +234,13 @@ export function DishFormPage() {
                   <p className="mt-2 text-[12px] leading-5 text-[var(--text-muted)]">Món ngừng bán vẫn được giữ trong lịch sử, chỉ không được chọn cho đơn hàng mới.</p>
                 </div>
               </Card>
-              <div className="flex gap-2 lg:flex-col">
-                <Button type="submit" loading={mutation.isPending} leadingIcon={<Save size={15} />} className="flex-1 lg:flex-none">
-                  {isEdit ? 'Lưu thay đổi' : 'Thêm món'}
-                </Button>
-                <Button variant="ghost" onClick={() => navigate('/quan-ly/mon-an')} disabled={mutation.isPending} className="flex-1 lg:flex-none">
-                  Hủy
-                </Button>
-              </div>
             </div>
           </form>
         )}
+        {guard.dialog}
+        {loaded ? (
+          <StickySaveBar dirty={dirty} saving={mutation.isPending} errorCount={errorCount} idleText={isEdit ? 'Chưa có thay đổi' : 'Điền thông tin món rồi bấm Thêm món'} saveLabel={isEdit ? 'Lưu' : 'Thêm món'} onSave={() => submit()} onDiscard={discard} />
+        ) : null}
       </div>
     </AppShell>
   );

@@ -100,7 +100,9 @@ ok('Bỏ ảnh banner → xóa file', r.status === 200 && r.data.heroImage === n
 
 // ---------------------------------------------------------------- Album ảnh
 r = await guest('GET', '/api/public/site/gallery');
-ok('Album mẫu trống', r.status === 200 && r.data.length === 0);
+// Album mẫu có thể có sẵn ảnh không gian (seed-images/website) — so sánh theo số ảnh ban đầu.
+const g0 = r.data.length;
+ok('Đọc album công khai', r.status === 200 && Array.isArray(r.data));
 r = await m('POST', '/api/website/gallery', { image: null, caption: 'x' });
 ok('Thêm ảnh thiếu ảnh → 422', r.status === 422 && r.data.fields.image);
 r = await m('POST', '/api/website/gallery', { image: dataUrl(png(600, 400)), caption: 'Phòng VIP', visible: true });
@@ -109,18 +111,63 @@ ok('Thêm ảnh 1', r.status === 200 && p1.image.startsWith('/uploads/gallery/')
 r = await m('POST', '/api/website/gallery', { image: dataUrl(png(600, 400)), caption: 'Quầy bar', visible: true });
 const p2 = r.data;
 r = await guest('GET', '/api/public/site/gallery');
-ok('Website thấy 2 ảnh theo thứ tự', r.data.length === 2 && r.data[0].id === p1.id && r.data[1].caption === 'Quầy bar');
+ok('Website thấy 2 ảnh mới ở cuối, đúng thứ tự', r.data.length === g0 + 2 && r.data[g0].id === p1.id && r.data[g0 + 1].caption === 'Quầy bar');
 r = await m('PATCH', `/api/website/gallery/${p2.id}/move`, { direction: 'up' });
-ok('Đưa ảnh 2 lên trước', r.status === 200 && r.data[0].id === p2.id && r.data[1].id === p1.id);
+ok('Đưa ảnh 2 lên trước', r.status === 200 && r.data[g0].id === p2.id && r.data[g0 + 1].id === p1.id);
 r = await m('PUT', `/api/website/gallery/${p1.id}`, { image: p1.image, caption: 'Phòng VIP tầng 2', visible: false });
 ok('Ẩn ảnh, giữ nguyên file ảnh', r.status === 200 && !r.data.visible && r.data.image === p1.image && existsSync(fileOf(p1.image)));
 r = await guest('GET', '/api/public/site/gallery');
-ok('Ảnh ẩn không hiện trên website', r.data.length === 1 && r.data[0].id === p2.id);
+ok('Ảnh ẩn không hiện trên website', r.data.length === g0 + 1 && r.data.every((x) => x.id !== p1.id));
 r = await m('DELETE', `/api/website/gallery/${p2.id}`);
 ok('Xóa ảnh → 204, xóa file', r.status === 204 && !existsSync(fileOf(p2.image)), r.status);
 r = await m('DELETE', `/api/website/gallery/${p2.id}`);
 ok('Xóa lần nữa → 404', r.status === 404);
 await m('DELETE', `/api/website/gallery/${p1.id}`);
+
+// ---------------------------------------------------------------- Trang chủ dài một trang (E1): bếp trưởng, món đặc trưng, trải nghiệm, không gian
+r = await guest('GET', '/api/public/site');
+ok('Website có lời bếp trưởng mẫu (tên + các đoạn thư)', r.data.chef?.name === 'Trần Minh Khôi' && r.data.chef.paragraphs.length >= 2, JSON.stringify(r.data.chef)?.slice(0, 120));
+ok('Website có 4 món đặc trưng + 4 trải nghiệm mẫu', r.data.signatures.length === 4 && r.data.experiences.length === 4);
+const tablesNow = Number(sql("SELECT COUNT(*) FROM dining_tables t JOIN areas a ON a.id = t.area_id WHERE t.status <> 'inactive' AND a.is_active = 1"));
+ok('Số liệu Không gian lấy từ sơ đồ bàn (bàn đang dùng)', r.data.space.tables === tablesNow && r.data.space.seats > 0 && r.data.space.floors >= 1, JSON.stringify(r.data.space));
+r = await m('PUT', '/api/website/content', { ...content, chefLetter: 'x'.repeat(2001), chefName: '' });
+ok('Lá thư quá 2000 ký tự → 422', r.status === 422 && r.data.fields.chefLetter, JSON.stringify(r.data?.fields));
+r = await m('PUT', '/api/website/content', { ...content, chefLetter: 'Xin chào', chefName: '' });
+ok('Có lá thư mà thiếu tên người viết → 422 tại ô tên', r.status === 422 && r.data.fields.chefName);
+r = await m('PUT', '/api/website/content', { ...content, chefLetter: '', chefImage: dataUrl(png(300, 400)), reserveImage: dataUrl(png(300, 400)) });
+ok('Xóa lá thư, lưu ảnh chân dung + ảnh cạnh form', r.status === 200 && r.data.chefImage?.startsWith('/uploads/website/') && r.data.reserveImage?.startsWith('/uploads/website/'));
+const chefFile = fileOf(r.data.chefImage), reserveFile = fileOf(r.data.reserveImage);
+r = await guest('GET', '/api/public/site');
+ok('Lá thư trống → website ẩn mục bếp trưởng (chef = null), vẫn có ảnh cạnh form', r.data.chef === null && r.data.reserveImage?.startsWith('/uploads/website/'));
+r = await m('PUT', '/api/website/content', { ...content });
+ok('Khôi phục nội dung → bỏ ảnh thì xóa file', r.status === 200 && !existsSync(chefFile) && !existsSync(reserveFile));
+
+r = await m('GET', '/api/website/features?kind=experience');
+const exp0 = r.data.length;
+r = await m('POST', '/api/website/features', { kind: 'abc', title: 'x' });
+ok('Loại mục sai → 422', r.status === 422 && r.data.fields.kind);
+r = await m('POST', '/api/website/features', { kind: 'experience', title: ' ', description: 'x'.repeat(501) });
+ok('Thiếu tên, mô tả quá dài → 422', r.status === 422 && r.data.fields.title && r.data.fields.description, JSON.stringify(r.data?.fields));
+r = await m('POST', '/api/website/features', { kind: 'experience', title: '  Tiệc   cưới nhỏ ', description: 'Dưới 30 khách', image: dataUrl(png(1600, 2000)), visible: true });
+const f1 = r.data;
+ok('Thêm trải nghiệm (gộp khoảng trắng, ảnh lưu ở website/)', r.status === 200 && f1.title === 'Tiệc cưới nhỏ' && f1.sortOrder === exp0 + 1 && f1.image?.startsWith('/uploads/website/'), JSON.stringify(r.data));
+r = await guest('GET', '/api/public/site');
+ok('Website thấy trải nghiệm mới ở cuối', r.data.experiences.at(-1)?.id === f1.id);
+r = await m('PATCH', `/api/website/features/${f1.id}/move`, { direction: 'up' });
+ok('Đưa lên trước một bậc (chỉ trong cùng loại)', r.status === 200 && r.data.every((x) => x.kind === 'experience') && r.data[exp0 - 1].id === f1.id);
+r = await m('PUT', `/api/website/features/${f1.id}`, { ...f1, visible: false });
+ok('Ẩn trải nghiệm, giữ file ảnh', r.status === 200 && !r.data.visible && existsSync(fileOf(f1.image)));
+r = await guest('GET', '/api/public/site');
+ok('Mục ẩn không hiện trên website', r.data.experiences.every((x) => x.id !== f1.id));
+for (let i = exp0 + 1; i < 8; i++) await m('POST', '/api/website/features', { kind: 'experience', title: 'KT đầy ' + i });
+r = await m('POST', '/api/website/features', { kind: 'experience', title: 'KT thứ 9' });
+ok('Tối đa 8 mục mỗi loại → báo lỗi', r.status >= 400 && /Tối đa 8/.test(r.data?.message ?? ''), JSON.stringify(r.data));
+r = await m('DELETE', `/api/website/features/${f1.id}`);
+ok('Xóa trải nghiệm → 204, xóa file ảnh', r.status === 204 && !existsSync(fileOf(f1.image)));
+sql("DELETE FROM website_features WHERE title LIKE 'KT %'");
+ok('Thêm / sửa / xóa mục có ghi nhật ký', Number(sql("SELECT COUNT(*) FROM audit_logs WHERE action LIKE 'Website: %'")) >= 3);
+r = await guest('GET', '/api/website/features?kind=signature');
+ok('Khách không gọi được API cấu hình mục', r.status === 401 || r.status === 403, r.status);
 
 // ---------------------------------------------------------------- Đặt bàn: kiểm tra dữ liệu
 const today = site.today;

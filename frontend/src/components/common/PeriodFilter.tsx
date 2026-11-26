@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { CalendarRange, Check } from 'lucide-react';
 import { PERIOD_OPTIONS } from '@/lib/format';
@@ -14,9 +15,10 @@ export interface PeriodFilterProps {
 
 export function PeriodFilter({ value, onChange, label, disabled }: PeriodFilterProps) {
   const current = PERIOD_OPTIONS.find((o) => o.key === value) ?? PERIOD_OPTIONS[0];
+  const [open, setOpen] = useState(false);
 
   return (
-    <Popover.Root>
+    <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button
           type="button"
@@ -54,7 +56,7 @@ export function PeriodFilter({ value, onChange, label, disabled }: PeriodFilterP
                     type="button"
                     role="option"
                     aria-selected={selected}
-                    onClick={() => onChange(option.key)}
+                    onClick={() => { onChange(option.key); setOpen(false); }}
                     className={cn(
                       'flex h-9 w-full items-center justify-between rounded-[9px] px-2.5 text-left text-[13.5px] transition-colors duration-150',
                       selected

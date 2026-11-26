@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowRightLeft, Check, ClipboardCheck, HandPlatter, LayoutGrid, List, Lock, Merge, ShoppingBag, X } from 'lucide-react';
+import { ArrowRightLeft, Check, ChefHat, ClipboardCheck, LayoutGrid, List, Merge, ShoppingBag, X } from 'lucide-react';
 import { Button } from '@/components/common/Button';
 import { BlockError } from '@/components/common/EmptyState';
 import { Skeleton } from '@/components/common/Skeleton';
@@ -18,13 +18,12 @@ import {
   waiterMove,
   waiterMoveTargets,
   waiterOpenTable,
-  waiterServe,
   waiterSetGuests,
   WAITER_KEYS,
 } from '@/api/waiter';
 import { WaiterShell } from '@/features/waiter/WaiterShell';
 import { MoveTableDialog } from '@/features/ordering/CashierDialogs';
-import { CELL, elapsed, FloorCanvas, guestsOf, hhmm, LEGEND, soonReservation, STATE, stateOf, type TableState } from '@/features/ordering/floorParts';
+import { areaWindow, CELL, elapsed, FloorCanvas, guestsOf, hhmm, LEGEND, soonReservation, STATE, stateOf, type TableState } from '@/features/ordering/floorParts';
 import { REQUEST_TYPE_LABEL } from '@/features/ordering/requestLabels';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -40,7 +39,8 @@ const PRIORITY: Record<TableState, number> = { confirm: 0, calling: 1, late: 2, 
  * Sơ đồ bàn của Nhân viên phục vụ (giao diện điện thoại).
  *  - Mặc định: lưới thẻ bàn chữ to, màu theo trạng thái, bàn cần xử lý (chờ xác nhận, khách gọi, món chờ mang…) lên đầu.
  *  - "Sơ đồ": vị trí thật như Quản lý đã xếp, tự thu vừa màn hình — để kê bàn ghế (quản lý sửa → cập nhật ngay).
- * Mở sẵn khu của ca đang làm; xem được khu khác. Chưa vào ca: chỉ xem, thao tác bị khóa (V22).
+ * Mở sẵn khu của ca đang làm (theo lịch ca); xem được khu khác. Chạm bàn → bảng dưới: Mở bàn · Gọi món · Xác nhận đơn · Chuyển / ghép.
+ * D15: không khóa theo chấm công; món xong chỉ xem (bếp bấm Đã mang đi).
  */
 export default function WaiterFloorPage() {
   const q = useQuery({ queryKey: WAITER_KEYS.floor, queryFn: getWaiterFloor, refetchInterval: 15_000 });
@@ -67,7 +67,6 @@ export default function WaiterFloorPage() {
 
   const f = q.data?.floor;
   const mine = q.data?.myAreaIds ?? [];
-  const onDuty = q.data?.clockedIn ?? false;
   const areaId = area ?? mine[0] ?? f?.areas[0]?.id ?? null;
   const areaTables = useMemo(() => (f?.tables ?? []).filter((t) => t.areaId === areaId), [f, areaId]);
   const sorted = useMemo(
@@ -80,12 +79,11 @@ export default function WaiterFloorPage() {
     areaTables.forEach((t) => c[stateOf(t)]++);
     return c;
   }, [areaTables]);
-  // Sơ đồ chỉ lấy vùng có bàn (cột / hàng xa nhất) rồi thu vừa chiều ngang → bàn to nhất có thể trên điện thoại.
-  const usedCols = Math.max(1, ...areaTables.map((t) => t.x + 1));
-  const usedRows = Math.max(1, ...areaTables.map((t) => t.y + 1));
-  const mapFloor = f ? { ...f, cols: Math.min(f.cols, usedCols), rows: Math.min(f.rows, usedRows) } : null;
+  // Sơ đồ chỉ cắt khung quanh khu đang xem (vùng khu + bàn của khu) rồi thu vừa chiều ngang → bàn to nhất có thể trên điện thoại.
+  const areaInfo = f?.areas.find((a) => a.id === areaId);
+  const win = areaWindow(f?.floors.find((x) => x.id === areaInfo?.floorId), areaInfo?.zone ?? null, areaTables);
   // Tối thiểu 0,5 để bàn vẫn đủ to để chạm; khu rộng (nhiều cột) thì vuốt ngang.
-  const fitZoom = mapFloor ? Math.max(0.5, Math.min(1.1, (boxWidth - 8) / (mapFloor.cols * CELL))) : 1;
+  const fitZoom = Math.max(0.5, Math.min(1.1, (boxWidth - 8) / (win.cols * CELL)));
 
   return (
     <WaiterShell fill>
@@ -97,7 +95,7 @@ export default function WaiterFloorPage() {
         <div className="flex min-h-0 flex-1">
           <section className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center gap-2 border-b border-[var(--border)] bg-[var(--bg-surface)] px-3 py-2">
-              <div className="no-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto" role="tablist" aria-label="Khu vực">
+              <div className="no-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-full bg-[var(--bg-subtle)] p-1" role="tablist" aria-label="Khu vực">
                 {f.areas.map((a) => {
                   const list = f.tables.filter((t) => t.areaId === a.id);
                   const alert = list.some((t) => ['confirm', 'calling', 'late', 'ready'].includes(stateOf(t)));
@@ -110,18 +108,18 @@ export default function WaiterFloorPage() {
                       role="tab"
                       aria-selected={on}
                       onClick={() => { setArea(a.id); setSelected(null); }}
-                      className={cn('relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[10px] px-3 text-[13.5px] font-semibold', on ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]')}
+                      className={cn('relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13.5px] font-semibold transition-colors', on ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--text-secondary)]')}
                     >
                       {a.name}
                       {my ? <span className={cn('rounded-full px-1.5 text-[10.5px] font-bold', on ? 'bg-white/25' : 'bg-[var(--accent-soft)] text-[var(--accent)]')}>Của tôi</span> : null}
-                      {alert ? <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#db2777] ring-2 ring-[var(--bg-surface)]" aria-label="Có bàn cần xử lý" /> : null}
+                      {alert ? <span className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-[#db2777] ring-2 ring-[var(--bg-subtle)]" aria-label="Có bàn cần xử lý" /> : null}
                     </button>
                   );
                 })}
               </div>
-              <div className="flex items-center rounded-[10px] bg-[var(--bg-subtle)] p-0.5" role="group" aria-label="Kiểu xem">
-                <button type="button" aria-pressed={view === 'list'} aria-label="Danh sách bàn" onClick={() => setView('list')} className={cn('grid h-8 w-9 place-items-center rounded-lg', view === 'list' && 'bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm')}><List size={17} /></button>
-                <button type="button" aria-pressed={view === 'map'} aria-label="Sơ đồ vị trí bàn" onClick={() => setView('map')} className={cn('grid h-8 w-9 place-items-center rounded-lg', view === 'map' && 'bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm')}><LayoutGrid size={17} /></button>
+              <div className="flex items-center rounded-full bg-[var(--bg-subtle)] p-1" role="group" aria-label="Kiểu xem">
+                <button type="button" aria-pressed={view === 'list'} aria-label="Danh sách bàn" onClick={() => setView('list')} className={cn('grid h-8 w-9 place-items-center rounded-full', view === 'list' && 'bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm')}><List size={17} /></button>
+                <button type="button" aria-pressed={view === 'map'} aria-label="Sơ đồ vị trí bàn" onClick={() => setView('map')} className={cn('grid h-8 w-9 place-items-center rounded-full', view === 'map' && 'bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm')}><LayoutGrid size={17} /></button>
               </div>
             </div>
 
@@ -135,7 +133,7 @@ export default function WaiterFloorPage() {
                   </div>
                 )
               ) : (
-                <FloorCanvas floor={mapFloor ?? f} tables={areaTables} zoom={fitZoom} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
+                <FloorCanvas floor={f} floorId={areaInfo?.floorId ?? ''} win={win} tables={areaTables} zoom={fitZoom} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
               )}
             </div>
             <footer className="no-scrollbar flex shrink-0 gap-1.5 overflow-x-auto border-t border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1.5">
@@ -152,7 +150,7 @@ export default function WaiterFloorPage() {
             <>
               <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setSelected(null)} />
               <aside className="fixed inset-x-0 bottom-0 z-40 flex max-h-[85dvh] flex-col rounded-t-[20px] bg-[var(--bg-surface)] shadow-2xl lg:static lg:z-auto lg:max-h-none lg:w-[380px] lg:rounded-none lg:border-l lg:border-[var(--border)] lg:shadow-none">
-                <WaiterTablePanel key={sel.id} table={sel} floor={f} onDuty={onDuty} onClose={() => setSelected(null)} />
+                <WaiterTablePanel key={sel.id} table={sel} floor={f} onClose={() => setSelected(null)} />
               </aside>
             </>
           ) : null}
@@ -172,7 +170,7 @@ function TableCard({ t, selected, onClick }: { t: FloorTable; selected: boolean;
   const line =
     st === 'confirm' ? `${o!.unconfirmedCount} món chờ xác nhận`
     : st === 'calling' ? 'Khách đang gọi'
-    : st === 'ready' ? `${o!.readyCount} món chờ mang ra`
+    : st === 'ready' ? `${o!.readyCount} món xong – lấy ở bếp`
     : st === 'late' ? `${o!.lateCount} món chờ lâu`
     : st === 'payment' ? 'Chờ thanh toán'
     : o ? `${g ? `${g} khách · ` : ''}${formatCurrency(o.subtotal)}`
@@ -184,7 +182,7 @@ function TableCard({ t, selected, onClick }: { t: FloorTable; selected: boolean;
       onClick={onClick}
       aria-label={`Bàn ${t.code}: ${s.label}`}
       data-table={t.code}
-      className={cn('flex min-h-[92px] flex-col justify-between rounded-[14px] border-2 bg-[var(--bg-surface)] p-2.5 text-left shadow-sm transition-transform active:scale-[0.98]', selected ? 'border-[var(--text-primary)]' : 'border-transparent', st === 'confirm' || st === 'calling' ? 'pos-call' : '')}
+      className={cn('flex min-h-[92px] flex-col justify-between rounded-[18px] border-2 bg-[var(--bg-surface)] p-2.5 text-left shadow-sm transition-transform active:scale-[0.98]', selected ? 'border-[var(--text-primary)]' : 'border-transparent', st === 'confirm' || st === 'calling' ? 'pos-call' : '')}
       style={{ borderLeft: `6px solid ${s.bg}` }}
     >
       <span className="flex items-start justify-between gap-1">
@@ -201,9 +199,9 @@ function TableCard({ t, selected, onClick }: { t: FloorTable; selected: boolean;
 
 /* ---------------------------------------------------------------- Bảng một bàn */
 
-const ITEM_STATE: Record<OrderItemStatus, string> = { unconfirmed: 'Chờ xác nhận', pending: 'Chờ bếp', cooking: 'Đang làm', done: 'Chờ mang ra', served: 'Đã mang', cancelled: 'Hủy' };
+const ITEM_STATE: Record<OrderItemStatus, string> = { unconfirmed: 'Chờ xác nhận', pending: 'Chờ bếp', cooking: 'Đang làm', done: 'Xong – lấy ở bếp', served: 'Đã mang', cancelled: 'Hủy' };
 
-function WaiterTablePanel({ table: t, floor, onDuty, onClose }: { table: FloorTable; floor: CashierFloor; onDuty: boolean; onClose: () => void }) {
+function WaiterTablePanel({ table: t, floor, onClose }: { table: FloorTable; floor: CashierFloor; onClose: () => void }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const st = STATE[stateOf(t)];
@@ -238,11 +236,6 @@ function WaiterTablePanel({ table: t, floor, onDuty, onClose }: { table: FloorTa
     onSuccess: () => { toast.success(`Đã xác nhận đơn bàn ${t.code} — món chuyển xuống bếp`); void detail.refetch(); refresh(); },
     onError: (e) => { onErr(e); void detail.refetch(); },
   });
-  const serve = useMutation({
-    mutationFn: waiterServe,
-    onSuccess: (_, ids) => { toast.success(`Đã mang ${ids.length} món ra bàn ${t.code}`); void detail.refetch(); refresh(); },
-    onError: (e) => { onErr(e); void detail.refetch(); },
-  });
 
   const d = detail.data;
   const o = d?.order;
@@ -266,13 +259,6 @@ function WaiterTablePanel({ table: t, floor, onDuty, onClose }: { table: FloorTa
         <button type="button" aria-label="Đóng" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg hover:bg-[var(--bg-hover)]"><X size={18} /></button>
       </div>
 
-      {!onDuty ? (
-        <button type="button" onClick={() => navigate('/phuc-vu/toi')} className="flex items-center gap-2 border-b border-[#fcd34d] bg-[#fffbeb] px-3 py-2 text-left text-[13px] text-[#92400e]">
-          <Lock size={15} className="shrink-0" /> <span>Bạn chưa vào ca — chỉ xem. <b className="underline">Vào ca</b> để mở bàn, gọi món, xác nhận đơn.</span>
-        </button>
-      ) : null}
-      {/* Chưa vào ca: mọi nút / ô nhập bên trong bị vô hiệu hóa (máy chủ cũng chặn). */}
-      <fieldset disabled={!onDuty} className="m-0 flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0">
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         {!t.order ? (
           <>
@@ -301,7 +287,7 @@ function WaiterTablePanel({ table: t, floor, onDuty, onClose }: { table: FloorTa
                     ))}
                   </div>
                 </div>
-                <Button variant={t.reservation ? 'outline' : 'primary'} className="w-full" loading={open.isPending && !open.variables?.reservationId} onClick={() => open.mutate({ guests: guestsPick })}>
+                <Button variant={t.reservation ? 'outline' : 'primary'} className="h-12 w-full rounded-full text-[15px]" loading={open.isPending && !open.variables?.reservationId} onClick={() => open.mutate({ guests: guestsPick })}>
                   {t.reservation ? 'Mở bàn cho khách khác' : 'Mở bàn'}
                 </Button>
               </div>
@@ -355,12 +341,9 @@ function WaiterTablePanel({ table: t, floor, onDuty, onClose }: { table: FloorTa
             </div>
 
             {ready.length ? (
-              <div className="rounded-[12px] border border-[#86efac] bg-[#f0fdf4] p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[13.5px] font-semibold text-[#15803d]">{ready.length} món bếp đã xong — chờ mang ra</p>
-                  <Button size="sm" leadingIcon={<HandPlatter size={14} />} loading={serve.isPending} onClick={() => serve.mutate(ready.map((i) => i.id))}>Đã mang hết</Button>
-                </div>
-              </div>
+              <p className="flex items-center gap-2 rounded-[12px] border border-[#86efac] bg-[#f0fdf4] p-3 text-[13.5px] font-semibold text-[#15803d]">
+                <ChefHat size={16} className="shrink-0" />{ready.length} món bếp đã xong — ra bếp lấy món (bếp bấm Đã mang đi)
+              </p>
             ) : null}
 
             <div>
@@ -372,11 +355,7 @@ function WaiterTablePanel({ table: t, floor, onDuty, onClose }: { table: FloorTa
                   {activeItems.map((i) => (
                     <li key={i.id} className="flex items-center gap-2 px-3 py-2 text-[13.5px]">
                       <span className="min-w-0 flex-1"><b className="font-mono">{i.qty}</b> {i.name}{i.note ? <span className="text-[var(--text-muted)]"> · {i.note}</span> : null}</span>
-                      {i.status === 'done' ? (
-                        <button type="button" disabled={serve.isPending} onClick={() => serve.mutate([i.id])} className="shrink-0 rounded-full bg-[#16a34a] px-2.5 py-1 text-[11.5px] font-bold text-white">Mang ra</button>
-                      ) : (
-                        <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-semibold', i.status === 'served' ? 'bg-[var(--bg-subtle)] text-[var(--text-muted)]' : i.status === 'cooking' ? 'bg-[var(--warning-soft)] text-[var(--warning)]' : 'bg-[var(--info-soft)] text-[var(--info)]')}>{ITEM_STATE[i.status]}</span>
-                      )}
+                      <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-semibold', i.status === 'done' ? 'bg-[#dcfce7] text-[#15803d]' : i.status === 'served' ? 'bg-[var(--bg-subtle)] text-[var(--text-muted)]' : i.status === 'cooking' ? 'bg-[var(--warning-soft)] text-[var(--warning)]' : 'bg-[var(--info-soft)] text-[var(--info)]')}>{ITEM_STATE[i.status]}</span>
                     </li>
                   ))}
                 </ul>
@@ -388,17 +367,16 @@ function WaiterTablePanel({ table: t, floor, onDuty, onClose }: { table: FloorTa
 
       {t.order && o && o.status === 'open' ? (
         <div className="grid grid-cols-2 gap-2 border-t border-[var(--border)] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <Button className="col-span-2" leadingIcon={<ShoppingBag size={16} />} disabled={o.locked} onClick={() => navigate(`/phuc-vu/goi-mon/${t.id}`)}>
+          <Button className="col-span-2 h-12 rounded-full text-[15px]" leadingIcon={<ShoppingBag size={17} />} disabled={o.locked} onClick={() => navigate(`/phuc-vu/goi-mon/${t.id}`)}>
             {o.locked ? 'Đang chờ thanh toán — không gọi thêm' : 'Gọi món cho khách'}
           </Button>
-          <Button variant="outline" leadingIcon={<ArrowRightLeft size={15} />} onClick={() => setMoveOpen('move')}>Chuyển bàn</Button>
-          <Button variant="outline" leadingIcon={<Merge size={15} />} disabled={o.locked} onClick={() => setMoveOpen('merge')}>Ghép bàn</Button>
+          <Button variant="outline" className="rounded-full" leadingIcon={<ArrowRightLeft size={15} />} onClick={() => setMoveOpen('move')}>Chuyển bàn</Button>
+          <Button variant="outline" className="rounded-full" leadingIcon={<Merge size={15} />} disabled={o.locked} onClick={() => setMoveOpen('merge')}>Ghép bàn</Button>
           {activeItems.length === 0 && !o.locked ? (
             <Button variant="ghost" className="col-span-2" leadingIcon={<X size={15} />} loading={close.isPending} onClick={() => close.mutate(o.id)}>Đóng bàn (khách chưa gọi món)</Button>
           ) : null}
         </div>
       ) : null}
-      </fieldset>
 
       {o ? (
         <MoveTableDialog

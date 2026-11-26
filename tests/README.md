@@ -1,7 +1,7 @@
 # Kiểm thử API tự động
 
 Bộ kiểm thử gọi thẳng API của backend đang chạy (giống frontend gọi) và đối chiếu kết quả, kể cả dữ liệu trong MySQL.
-Mỗi bước in `PASS` / `FAIL`. Hiện có **15 bộ, khoảng 670 bước** — chạy hết khoảng 1 phút (bộ 05 chờ ~15 giây để thử tự đóng bàn).
+Mỗi bước in `PASS` / `FAIL`. Hiện có **17 bộ, khoảng 755 bước** — chạy hết khoảng 1 phút (bộ 05 chờ ~15 giây để thử tự đóng bàn).
 
 Đây là kiểm thử **mức API** (gọi qua HTTP). Kiểm thử đơn vị JUnit cho các công thức tính toán chưa làm — xem mục "Việc để sau" trong [docs/tien-do/TIEN_DO_THU_NGAN_BEP.md](../docs/tien-do/TIEN_DO_THU_NGAN_BEP.md).
 
@@ -53,25 +53,27 @@ Ví dụ (Git Bash): `RMS_API=http://localhost:8081 RMS_TEST_DB=rms_kho_test nod
 
 ## Các bộ kiểm thử
 
-Mã ở cột "Kịch bản" là số dòng trong [docs/kiem-thu/KICH_BAN_TEST.md](../docs/kiem-thu/KICH_BAN_TEST.md) (kịch bản thử bằng tay).
+Cột "Kịch bản" là số trang trong [docs/kiem-thu/KICH_BAN_TEST.md](../docs/kiem-thu/KICH_BAN_TEST.md): kịch bản thử bằng mắt cho cùng chức năng (giao diện, luồng, nghiệp vụ giữa các vai trò). Phần bộ kiểm thử này đã kiểm thì kịch bản tay không lặp lại.
 
 | File | Kịch bản | Nội dung |
 |---|---|---|
-| `01-dang-nhap-phan-quyen.mjs` | G1–G3, G7 | Đăng nhập, khóa khi sai nhiều lần, phân quyền theo khu vực, đổi mật khẩu, phiên |
-| `02-dat-mon-bep.mjs` | B, C | Khách gọi món qua QR; bếp bắt đầu / xong / Đã lấy / hủy món / món tạm hết |
-| `03-thu-ngan.mjs` | A, D1–D16 | Yêu cầu khách (thanh toán → thu ngân, hỗ trợ → phục vụ), hủy món / hủy đơn, chuyển bàn, hóa đơn, thanh toán |
-| `04-cham-cong-luong-cong-thuc.mjs` | C8–C16, D17–D33 | Chấm công từ Excel, kỳ lương, công thức định lượng, kiểm tra nguyên liệu |
-| `05-mo-ban.mjs` | A2b, B22–B25 | Mở bàn, đóng bàn, tự đóng bàn (bộ này chờ ~1 phút để thử tự đóng) |
-| `06-kho.mjs` | F1–F12, E3, E11, E12 | Nguyên liệu, nhà cung cấp, phiếu mua, nhập / xuất, kiểm kê, công nợ |
-| `07-tai-khoan.mjs` | E14, E15 | Tài khoản nhân viên |
-| `08-mon-an.mjs` | E8, E9 | Món ăn, danh mục, ảnh món, thực đơn AI, set (API combo cũ) |
-| `09-bai-viet.mjs` | E13 | Bài viết |
-| `10-ca-lam.mjs` | E10 | Ca làm việc, phân công |
-| `11-chatbot.mjs` | E16 | Cấu hình chatbot, FAQ |
-| `13-phuc-vu-cham-cong.mjs` | A22–A25, H1–H18 | Phục vụ: quyền, khu vực theo ca, yêu cầu hỗ trợ theo khu, mở bàn, gọi món hộ, bưng món, ghép / chuyển bàn, sự kiện "sơ đồ đổi"; chấm công khuôn mặt: đăng ký / duyệt, WiFi quán, vào ca / tan ca, trễ / sớm, ảnh không công khai; hồ sơ, phiếu lương |
-| `14-tro-ly-goi-mon.mjs` | — | Trợ lý gọi món trên trang QR (theo luật; cấu hình Gemini — bộ này tắt Gemini để không phụ thuộc mạng / key): ngân sách, số người, cay / chay / trẻ em / dị ứng, loại món, hỏi một món, ăn kèm theo giỏ, set menu, món tạm hết; nối Quản lý Chatbot: lời chào, FAQ, câu hỏi chưa giải đáp, món tắt "cho AI gợi ý", tắt Chatbot |
-| `15-website-khach.mjs` | — | Website khách hàng (không đăng nhập): thông tin nhà hàng không lộ dữ liệu nội bộ, thực đơn (tìm không dấu, lọc danh mục, ẩn món / danh mục khỏi website), nội dung + ảnh banner, album (thêm / ẩn / đổi thứ tự / xóa file); đặt bàn: lỗi theo trường, ngày nghỉ, quá 30 ngày, SĐT quá 3 lịch, trùng lịch, chọn khu / tự xếp khu, tự xác nhận, bản ghi `reservations` + thông báo Quản lý, giới hạn 5 lượt / IP / 10 phút (chạy lại phải khởi động lại backend) |
-| `12-nhom-mon-set.mjs` | B26–B37, C0, E8c, E8d | Nhóm món (thẻ gộp nhiều loại), Set menu: thực đơn QR, gửi set, chia giá, hủy set, bếp, hóa đơn 1 dòng set, ẩn set khi món con hết / ngoài giờ, quản lý nhóm và set |
+| `01-dang-nhap-phan-quyen.mjs` | Trang 2, 3, 15 | Đăng nhập, khóa khi sai nhiều lần, phân quyền theo khu vực, đổi mật khẩu, phiên |
+| `02-dat-mon-bep.mjs` | Trang 28, 44 | Khách gọi món qua QR; bếp bắt đầu / xong / Đã lấy / hủy món / món tạm hết |
+| `03-thu-ngan.mjs` | Trang 36–40, 5 | Yêu cầu khách (thanh toán → thu ngân, hỗ trợ → phục vụ), hủy món / hủy đơn, chuyển bàn, hóa đơn, thanh toán; số liệu Dashboard (`/revenue`, `/top-dishes`, `/overview`) |
+| `04-cham-cong-luong-cong-thuc.mjs` | Trang 29, 30, 41, 42 | Chấm công từ Excel, kỳ lương, công thức định lượng, kiểm tra nguyên liệu |
+| `05-mo-ban.mjs` | Trang 31, 36, 44A, 18 | Mở bàn, đóng bàn, tự đóng bàn (bộ này chờ ~1 phút để thử tự đóng) |
+| `06-kho.mjs` | Trang 19–27 | Nguyên liệu, nhà cung cấp, phiếu mua, nhập / xuất, kiểm kê, công nợ |
+| `07-tai-khoan.mjs` | Trang 15 | Tài khoản nhân viên |
+| `08-mon-an.mjs` | Trang 9, 10 | Món ăn, danh mục, ảnh món, thực đơn AI, set (API combo cũ) |
+| `09-bai-viet.mjs` | Trang 14 | Bài viết |
+| `10-ca-lam.mjs` | Trang 12 | Ca làm việc, phân công |
+| `11-chatbot.mjs` | Trang 16 | Cấu hình chatbot, FAQ |
+| `13-phuc-vu-cham-cong.mjs` | Trang 13, 31–35, 43 | Phục vụ: quyền, khu vực theo lịch ca (không khóa theo chấm công; không ai có ca → báo mọi phục vụ), yêu cầu hỗ trợ theo khu, mở bàn, gọi món hộ, món xong (bếp bấm Đã mang đi), ghép / chuyển bàn, sự kiện "sơ đồ đổi"; chấm công khuôn mặt: đăng ký / duyệt, WiFi quán, vào ca / tan ca, trễ / sớm, ảnh không công khai; hồ sơ, phiếu lương |
+| `14-tro-ly-goi-mon.mjs` | Trang 45 | Trợ lý gọi món trên trang QR (theo luật; cấu hình Gemini — bộ này tắt Gemini để không phụ thuộc mạng / key): ngân sách, số người, cay / chay / trẻ em / dị ứng, loại món, hỏi một món, ăn kèm theo giỏ, set menu, món tạm hết; nối Quản lý Chatbot: lời chào, FAQ, câu hỏi chưa giải đáp, món tắt "cho AI gợi ý", tắt Chatbot |
+| `16-so-do-tang.mjs` | Trang 8, 31, 36 | Sơ đồ bàn theo tầng: tầng (lỗi tại ô, trùng tên, tường ngoài tự có, không thu nhỏ làm mất bàn, tầng còn khu không xóa), khu thuộc tầng (khu còn bàn không chuyển tầng), lưu cả sơ đồ (tường chéo 400, vùng chồng nhau, hai bàn chung ô, ra ngoài sơ đồ, lỗi thì không ghi gì, bàn kéo vào vùng khu khác đổi khu), bàn mới vào ô trống trong vùng khu, một ô một bàn theo tầng, sơ đồ trực tiếp cho Quản lý, dữ liệu sơ đồ thu ngân có tầng / vùng |
+| `17-dat-ban-thu-ngan.mjs` | Trang 36 | Đặt bàn ở màn POS thu ngân: lịch trong ngày (khu, mã bàn), thêm lịch điện thoại / tại quầy (lỗi tại ô, giờ mở cửa, bàn ít ghế, trùng bàn), sửa, hủy, không đến, "Đã đến" chỉ qua Mở bàn, khách đã đến → mở bàn, lịch website báo thu ngân; thu ngân không bị khóa vì chưa chấm công |
+| `15-website-khach.mjs` | Trang 7, 18, 46–52 | Website khách hàng (không đăng nhập): thông tin nhà hàng không lộ dữ liệu nội bộ, thực đơn (tìm không dấu, lọc danh mục, ẩn món / danh mục khỏi website), nội dung + ảnh banner, album (thêm / ẩn / đổi thứ tự / xóa file); trang chủ E1: lời bếp trưởng (lỗi tại ô, trống thì ẩn), món đặc trưng / trải nghiệm (thêm / ẩn / đổi thứ tự / xóa file, tối đa 8), số liệu Không gian từ sơ đồ bàn; đặt bàn: lỗi theo trường, ngày nghỉ, quá 30 ngày, SĐT quá 3 lịch, trùng lịch, chọn khu / tự xếp khu, tự xác nhận, bản ghi `reservations` + thông báo Quản lý, giới hạn 5 lượt / IP / 10 phút (chạy lại phải khởi động lại backend) |
+| `12-nhom-mon-set.mjs` | Trang 9, 11, 44C, 44D, 37 | Nhóm món (thẻ gộp nhiều loại), Set menu: thực đơn QR, gửi set, chia giá, hủy set, bếp, hóa đơn 1 dòng set, ẩn set khi món con hết / ngoài giờ, quản lý nhóm và set |
 
 ## Cấu trúc
 

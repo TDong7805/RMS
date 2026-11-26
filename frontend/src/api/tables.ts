@@ -1,9 +1,21 @@
 import { api } from '@/lib/http';
-import type { Area, AreaInput, DiningTable, TableInput } from '@/types';
+import type { Area, AreaInput, CashierFloor, DiningTable, Floor, FloorInput, FloorLayoutInput, TableInput } from '@/types';
 
-/** Kích thước lưới sơ đồ bàn — khớp TableService.FLOOR_COLS/FLOOR_ROWS ở backend. */
-export const FLOOR_COLS = 8;
-export const FLOOR_ROWS = 5;
+/* ------------------------------------------------------------ Tầng + sơ đồ (mục B7) */
+
+export const getFloors = () => api.get<Floor[]>('/api/floors');
+
+/** Sơ đồ trực tiếp (chỉ xem) cho Quản lý — cùng dữ liệu với sơ đồ thu ngân. */
+export const getLiveFloor = () => api.get<CashierFloor>('/api/floors/live');
+
+export const createFloor = (input: FloorInput) => api.post<Floor>('/api/floors', input);
+
+export const updateFloor = (id: string, input: FloorInput) => api.put<Floor>(`/api/floors/${id}`, input);
+
+export const deleteFloor = (id: string) => api.delete(`/api/floors/${id}`);
+
+/** Lưu cả sơ đồ một tầng: tường, vùng khu, vị trí bàn. */
+export const saveFloorLayout = (id: string, input: FloorLayoutInput) => api.put<Floor>(`/api/floors/${id}/layout`, input);
 
 /* ------------------------------------------------------------ Khu vực */
 
@@ -22,9 +34,5 @@ export const getTables = () => api.get<DiningTable[]>('/api/tables');
 export const createTable = (input: TableInput) => api.post<DiningTable>('/api/tables', input);
 
 export const updateTable = (id: string, input: TableInput) => api.put<DiningTable>(`/api/tables/${id}`, input);
-
-/** Kéo thả trên sơ đồ. */
-export const moveTable = (id: string, x: number, y: number) =>
-  api.patch<DiningTable>(`/api/tables/${id}/position`, { x, y });
 
 export const deleteTable = (id: string) => api.delete(`/api/tables/${id}`);

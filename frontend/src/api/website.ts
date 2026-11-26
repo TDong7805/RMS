@@ -1,5 +1,5 @@
 import { api } from '@/lib/http';
-import type { WebsiteContent, WebsiteContentInput, WebsiteMenuCategory, WebsitePhoto, WebsitePhotoInput } from '@/types';
+import type { WebsiteContent, WebsiteContentInput, WebsiteFeature, WebsiteFeatureInput, WebsiteFeatureKind, WebsiteMenuCategory, WebsitePhoto, WebsitePhotoInput } from '@/types';
 
 /* Cấu hình website khách hàng — chỉ Quản lý nhà hàng (Cấu hình hệ thống → tab Website khách hàng). */
 
@@ -27,3 +27,18 @@ export const setWebsiteCategoryVisible = ({ id, visible }: { id: string; visible
 
 export const setWebsiteDishVisible = ({ id, visible }: { id: string; visible: boolean }) =>
   api.patch<WebsiteMenuCategory[]>(`/api/website/menu/dishes/${encodeURIComponent(id)}`, { visible });
+
+/* Món đặc trưng / trải nghiệm trên trang chủ */
+
+export const getWebsiteFeatures = (kind: WebsiteFeatureKind) => api.get<WebsiteFeature[]>('/api/website/features', { kind });
+
+export const addWebsiteFeature = (input: WebsiteFeatureInput) => api.post<WebsiteFeature>('/api/website/features', input);
+
+export const updateWebsiteFeature = ({ id, ...input }: WebsiteFeatureInput & { id: string }) =>
+  api.put<WebsiteFeature>(`/api/website/features/${encodeURIComponent(id)}`, input);
+
+/** Đổi chỗ với mục liền trước / sau cùng loại → trả cả danh sách loại đó theo thứ tự mới. */
+export const moveWebsiteFeature = ({ id, direction }: { id: string; direction: 'up' | 'down' }) =>
+  api.patch<WebsiteFeature[]>(`/api/website/features/${encodeURIComponent(id)}/move`, { direction });
+
+export const deleteWebsiteFeature = (id: string) => api.delete(`/api/website/features/${encodeURIComponent(id)}`);

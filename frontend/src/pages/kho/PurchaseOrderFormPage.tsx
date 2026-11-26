@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Save, Send, Trash2 } from 'lucide-react';
+import { Plus, Save, Send, Trash2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { BlockError } from '@/components/common/EmptyState';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/common/Form';
 import { ConfirmDialog } from '@/components/common/Modal';
-import { DataTable, PageHeader, Td, Th } from '@/components/common/PageParts';
+import { DataTable, Td, Th } from '@/components/common/PageParts';
+import { StickySaveBar } from '@/components/common/StickySaveBar';
+import { SubPageHeader } from '@/components/common/SubPageHeader';
 import { Segmented } from '@/components/common/Segmented';
 import { Skeleton } from '@/components/common/Skeleton';
 import { createPurchaseOrder, updatePurchaseOrder, type PurchaseAction } from '@/api/warehouse-purchases';
 import { PurchaseDeleteDialog, type PurchaseTarget } from '@/features/warehouse/PurchaseDialogs';
-import { useIngredient, useIngredientOptions, usePurchaseOrder, useSupplier, useSupplierOptions, wk } from '@/features/warehouse/queries';
+import { useIngredientOptions, useIngredientsByIds, usePurchaseOrder, useSupplier, useSupplierOptions, wk } from '@/features/warehouse/queries';
 import { formatQty, formatSpec, PAYMENT_METHOD } from '@/features/warehouse/labels';
-import { dateKeyOffset, InfoItem, parseMoney, parseQty, useLeaveGuard } from '@/features/warehouse/parts';
+import { dateKeyOffset, InfoItem, parseMoney, parseQty } from '@/features/warehouse/parts';
+import { useUnsavedGuard } from '@/hooks/use-unsaved-guard';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { formatCurrency } from '@/lib/format';
 import { formatDateOnly } from '@/lib/labels';
@@ -73,12 +76,17 @@ export function PurchaseOrderFormPage() {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const presetIngredient = isEdit ? null : params.get('nl');
+  // ?nl=12 hoặc ?nl=12,15,20 (tick chọn nhiều nguyên liệu ở Dashboard kho).
+  const nlParam = isEdit ? '' : params.get('nl') ?? '';
+  const presetIds = useMemo(() => [...new Set(nlParam.split(',').map((x) => x.trim()).filter(Boolean))], [nlParam]);
+  const presetIngredient = presetIds.length > 0;
 
   const detail = usePurchaseOrder(id);
   const { data: supplierOptions = [] } = useSupplierOptions();
   const { data: ingredientOptions = [] } = useIngredientOptions();
-  const preset = useIngredient(presetIngredient ?? undefined);
+  const presetQueries = useIngredientsByIds(presetIds);
+  const presetData = presetQueries.map((q) => q.data).filter((x): x is NonNullable<typeof x> => Boolean(x));
+  const presetReady = presetData.length === presetIds.length;
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [lines, setLines] = useState<LineRow[]>([]);
@@ -128,26 +136,43 @@ export function PurchaseOrderFormPage() {
     if (!isEdit) setInitial(JSON.stringify({ state: emptyForm(), rows: [] }));
   }, [isEdit]);
 
-  // Mở từ "Tạo phiếu mua" của một nguyên liệu: chọn sẵn nhà cung cấp duy nhất (nếu chỉ có một) và thêm dòng.
-  const presetSuppliers = useMemo(
-    () => (preset.data?.suppliers ?? []).filter((s) => s.supplierActive && s.linkActive).map((s) => s.supplierId),
-    [preset.data],
-  );
-  useEffect(() => {
-    if (presetIngredient && presetSuppliers.length === 1 && !form.supplierId) chooseSupplier(presetSuppliers[0]);
+  // Mở từ "Tạo phiếu mua" của một / nhiều nguyên liệu: gợi ý nhà cung cấp bán được nhiều nguyên liệu nhất,
+  // tự chọn khi chỉ có một nhà cung cấp phù hợp nhất; rồi thêm sẵn các dòng nhà cung cấp đó bán.
+  const presetCoverage = useMemo(() => {
+    const count = new Map<string, number>();
+    presetData.forEach((it) => it.suppliers.filter((x) => x.supplierActive && x.linkActive).forEach((x) => count.set(x.supplierId, (count.get(x.supplierId) ?? 0) + 1)));
+    return count;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presetSuppliers]);
+  }, [presetReady, nlParam]);
+  const presetSuppliers = useMemo(() => [...presetCoverage.keys()], [presetCoverage]);
+  useEffect(() => {
+    if (!presetIngredient || !presetReady || form.supplierId || presetCoverage.size === 0) return;
+    const best = Math.max(...presetCoverage.values());
+    const top = [...presetCoverage].filter(([, n]) => n === best).map(([sid]) => sid);
+    if (top.length === 1) chooseSupplier(top[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetCoverage, presetReady]);
   useEffect(() => {
     if (!presetIngredient || !form.supplierId || lines.length > 0) return;
-    const link = linkOf(presetIngredient);
-    if (link && link.status === 'active') {
-      setLines([{ key: nextKey(), ingredientId: link.ingredientId, savedUnit: null, savedFactor: null, qty: '', price: String(link.price) }]);
-    }
+    const rows = presetIds
+      .map((pid) => linkOf(pid))
+      .filter((link): link is SupplierLink => Boolean(link && link.status === 'active'))
+      .map((link) => ({ key: nextKey(), ingredientId: link.ingredientId, savedUnit: null, savedFactor: null, qty: '', price: String(link.price) }));
+    if (rows.length) setLines(rows);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presetIngredient, form.supplierId, links]);
+  }, [nlParam, form.supplierId, links]);
+  const presetMissing = form.supplierId && links.length
+    ? presetData.filter((it) => !links.some((l) => l.ingredientId === it.id && l.status === 'active')).map((it) => it.name)
+    : [];
 
   const dirty = JSON.stringify({ state: form, rows: lines.map(({ key: _k, ...r }) => r) }) !== initial;
-  const { guard, dialog } = useLeaveGuard(dirty);
+  const leave = useUnsavedGuard(dirty);
+  const discard = () => {
+    const saved = JSON.parse(initial) as { state: FormState; rows: Omit<LineRow, 'key'>[] };
+    setForm(saved.state);
+    setLines(saved.rows.map((x) => ({ ...x, key: nextKey() })));
+    setErrors({});
+  };
   const backToList = () => navigate('/kho/phieu-mua');
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -217,7 +242,10 @@ export function PurchaseOrderFormPage() {
       invalidate: [wk.all],
       success: (r: PurchaseOrderRow) => (r.status === 'ordered' ? `Đã đặt hàng phiếu ${r.code}` : `Đã lưu nháp phiếu ${r.code}`),
       onFieldErrors: setErrors,
-      onSuccess: backToList,
+      onSuccess: () => {
+        leave.allowLeave();
+        backToList();
+      },
     },
   );
 
@@ -293,13 +321,18 @@ export function PurchaseOrderFormPage() {
   const minOrderDate = dateKeyOffset(-7);
 
   return (
-    <AppShell meta={{ label: title, parent: 'Quản lý phiếu mua' }}>
+    <AppShell meta={{ label: title, parent: 'Phiếu mua', parentTo: '/kho/phieu-mua' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader
+        <SubPageHeader
           title={title}
           description={isEdit && d ? `Phiếu ${d.code} · mã phiếu giữ nguyên khi lưu nháp hoặc đặt hàng.` : 'Mã phiếu do hệ thống tạo khi lưu (PM…). Phiếu đã đặt hàng không sửa được.'}
+          backTo="/kho/phieu-mua"
           actions={
-            <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => guard(backToList)}>Về danh sách</Button>
+            isEdit && d && d.status === 'draft' ? (
+              <Button variant="outline" leadingIcon={<Trash2 size={15} />} onClick={() => setDeleteTarget({ id: d.id, code: d.code, supplierName: d.supplier.name, payable: 0 })}>
+                Xóa phiếu nháp
+              </Button>
+            ) : null
           }
         />
 
@@ -317,7 +350,15 @@ export function PurchaseOrderFormPage() {
                   htmlFor="po-supplier"
                   required
                   error={errors.supplierId}
-                  hint={presetIngredient && preset.data ? `Gợi ý nhà cung cấp đang bán ${preset.data.name}` : undefined}
+                  hint={
+                    presetMissing.length
+                      ? `Nhà cung cấp này không bán: ${presetMissing.join(', ')} — tạo phiếu khác cho các nguyên liệu này`
+                      : presetIngredient && presetReady
+                        ? presetData.length === 1
+                          ? `Gợi ý nhà cung cấp đang bán ${presetData[0].name}`
+                          : `Gợi ý nhà cung cấp bán ${presetData.length} nguyên liệu đã chọn; mỗi phiếu chỉ một nhà cung cấp`
+                        : undefined
+                  }
                 >
                   <SelectInput
                     id="po-supplier"
@@ -325,7 +366,10 @@ export function PurchaseOrderFormPage() {
                     invalid={Boolean(errors.supplierId)}
                     onChange={(e) => chooseSupplier(e.target.value)}
                     placeholder="— Chọn nhà cung cấp —"
-                    options={activeSuppliers.map((s) => ({ value: s.id, label: `${s.name} (${s.code})${s.active ? '' : ' – đang ngừng'}` }))}
+                    options={activeSuppliers.map((s) => ({
+                      value: s.id,
+                      label: `${s.name} (${s.code})${s.active ? '' : ' – đang ngừng'}${presetIds.length > 1 && presetCoverage.has(s.id) ? ` · bán ${presetCoverage.get(s.id)}/${presetIds.length} nguyên liệu đã chọn` : ''}`,
+                    }))}
                   />
                 </Field>
                 <Field label="Tên phiếu" htmlFor="po-name" required error={errors.name}>
@@ -477,20 +521,29 @@ export function PurchaseOrderFormPage() {
               </Card>
             </div>
 
-            <div className="flex flex-wrap justify-end gap-2">
-              {isEdit && d ? (
-                <Button variant="danger" className="mr-auto" leadingIcon={<Trash2 size={15} />} onClick={() => setDeleteTarget({ id: d.id, code: d.code, supplierName: d.supplier.name, payable: 0 })}>
-                  Xóa phiếu
-                </Button>
-              ) : null}
-              <Button variant="ghost" onClick={() => guard(backToList)} disabled={mutation.isPending}>Hủy</Button>
-              <Button variant="outline" leadingIcon={<Save size={15} />} disabled={mutation.isPending} onClick={() => save('draft')}>Lưu nháp</Button>
-              <Button type="submit" leadingIcon={<Send size={15} />} loading={mutation.isPending}>Đặt hàng</Button>
-            </div>
           </form>
         )}
+        {loaded && !(isEdit && (detail.isError || notDraft)) ? (
+          <StickySaveBar
+            dirty={dirty}
+            saving={mutation.isPending}
+            idleText={isEdit ? 'Chưa có thay đổi' : 'Chưa nhập gì'}
+            errorCount={Object.values(errors).filter(Boolean).length}
+            summary={<>Tổng cộng <b className="font-mono text-[var(--text-primary)]">{formatCurrency(total)}</b></>}
+            saveLabel="Đặt hàng"
+            saveIcon={<Send size={15} />}
+            canSave={lines.length > 0}
+            extraActions={
+              <Button variant="outline" leadingIcon={<Save size={15} />} disabled={mutation.isPending || !dirty || !form.supplierId} onClick={() => save('draft')}>
+                Lưu nháp
+              </Button>
+            }
+            onDiscard={discard}
+            onSave={() => save('order')}
+          />
+        ) : null}
       </div>
-      {dialog}
+      {leave.dialog}
 
       <ConfirmDialog
         open={Boolean(pendingSupplier)}
@@ -518,7 +571,7 @@ export function PurchaseOrderFormPage() {
           if (input) mutation.mutate({ input, action: 'order' });
         }}
       />
-      <PurchaseDeleteDialog target={deleteTarget} onClose={() => setDeleteTarget(null)} onDone={backToList} />
+      <PurchaseDeleteDialog target={deleteTarget} onClose={() => setDeleteTarget(null)} onDone={() => { leave.allowLeave(); backToList(); }} />
     </AppShell>
   );
 }

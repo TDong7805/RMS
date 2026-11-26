@@ -13,8 +13,8 @@ export interface PageHeaderProps {
 
 export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
+    <div className="flex flex-wrap items-end justify-between gap-3 sm:flex-nowrap">
+      <div className="min-w-0 flex-1">
         <h1 className="truncate text-[26px] font-bold leading-tight tracking-[-0.02em] text-[var(--text-primary)] sm:text-[30px]">
           {title}
         </h1>
@@ -22,7 +22,7 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
           <p className="mt-1 text-[14px] text-[var(--text-secondary)]">{description}</p>
         ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
   );
 }
@@ -46,7 +46,7 @@ export function Toolbar({ children, className }: { children: ReactNode; classNam
 
 export function DataTable({ children, minWidth = 720 }: { children: ReactNode; minWidth?: number }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full border-collapse text-left text-[13.5px]" style={{ minWidth }}>
         {children}
       </table>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Wallet } from 'lucide-react';
-import { AppShell } from '@/components/layout/AppShell';
+import { CashierShell } from '@/features/ordering/CashierShell';
 import { Card } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
@@ -35,7 +35,7 @@ export default function PayrollPage() {
   const [creating, setCreating] = useState(false);
 
   return (
-    <AppShell meta={{ label: 'Bảng lương', parent: 'Nhân sự' }}>
+    <CashierShell>
       <div className="min-w-0 space-y-4">
         <PageHeader
           title="Bảng lương"
@@ -71,7 +71,7 @@ export default function PayrollPage() {
         </Card>
       </div>
       <CreatePeriodDialog open={creating} onClose={() => setCreating(false)} onCreated={(id) => navigate(`/thu-ngan/bang-luong/${id}`)} />
-    </AppShell>
+    </CashierShell>
   );
 }
 

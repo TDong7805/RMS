@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, FolderCog, Layers, Pencil, Plus, Soup, Trash2, UtensilsCrossed } from 'lucide-react';
-import { AppShell } from '@/components/layout/AppShell';
+import { Ban, Eye, FolderTree, Play, Plus, Tag, Trash2, UtensilsCrossed } from 'lucide-react';
 import { Card } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
-import { BlockError, EmptyState } from '@/components/common/EmptyState';
-import { SearchInput, SelectInput, Toggle } from '@/components/common/Form';
+import { BlockError, EmptyState, FilteredEmpty } from '@/components/common/EmptyState';
+import { FilterChips } from '@/components/common/FilterChips';
+import { SearchInput, Toggle } from '@/components/common/Form';
 import { ConfirmDialog } from '@/components/common/Modal';
-import { DataTable, PageHeader, Pagination, TableSkeleton, Td, Th, Toolbar } from '@/components/common/PageParts';
-import { Segmented } from '@/components/common/Segmented';
-import { CategoryModal, DishDetailModal, DishThumb } from '@/features/dishes/DishParts';
-import { GroupModal } from '@/features/dishes/GroupModal';
+import { DataTable, Pagination, TableSkeleton, Td, Th, Toolbar } from '@/components/common/PageParts';
+import { RowActions } from '@/components/common/RowActions';
+import { DishDetailModal, DishThumb } from '@/features/dishes/DishParts';
+import { MenuLayout } from '@/features/dishes/MenuLayout';
 import { DISH_PAGE_SIZE, deleteDish, setDishStatus } from '@/api/dishes';
 import { qk, useCategories, useDishes } from '@/features/management/queries';
 import { useApiMutation } from '@/hooks/use-api-mutation';
@@ -20,23 +20,24 @@ import { formatCurrency } from '@/lib/format';
 import { DISH_STATUS } from '@/lib/labels';
 import type { Dish, DishStatus } from '@/types';
 
+/** Thực đơn › tab Món ăn (docs/thiet-ke/QUY_TAC_GIAO_DIEN.md, mục B8). */
 export function DishesPage() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [status, setStatus] = useState<DishStatus | 'all'>('all');
+  const [filters, setFilters] = useState<Record<string, string | undefined>>({});
+  const categoryId = filters.category ?? '';
+  const status = (filters.status as DishStatus | undefined) ?? 'all';
   const [page, setPage] = useState(1);
   const debounced = useDebounced(keyword);
 
   const [detail, setDetail] = useState<Dish | null>(null);
   const [toggleTarget, setToggleTarget] = useState<Dish | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Dish | null>(null);
-  const [categoryOpen, setCategoryOpen] = useState(false);
-  const [groupOpen, setGroupOpen] = useState(false);
 
   const list = useDishes({ keyword: debounced, categoryId, status, page });
   const { data: categories = [] } = useCategories();
   const categoryName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+  const totalDishes = categories.reduce((sum, c) => sum + c.dishCount, 0);
 
   useEffect(() => setPage(1), [debounced, categoryId, status]);
 
@@ -53,116 +54,109 @@ export function DishesPage() {
   });
 
   const hasFilter = Boolean(keyword || categoryId || status !== 'all');
+  const clearFilters = () => {
+    setKeyword('');
+    setFilters({});
+  };
 
   return (
-    <AppShell meta={{ label: 'Danh sách món ăn', parent: 'Quản lý món ăn' }}>
-      <div className="min-w-0 space-y-4">
-        <PageHeader
-          title="Danh sách món ăn"
-          description="Thực đơn, giá bán và trạng thái kinh doanh. Món ngừng bán không được chọn cho đơn hàng mới."
-          actions={
-            <>
-              <Button variant="outline" size="sm" leadingIcon={<FolderCog size={15} />} onClick={() => setCategoryOpen(true)}>
-                Danh mục
-              </Button>
-              <Button variant="outline" size="sm" leadingIcon={<Layers size={15} />} onClick={() => setGroupOpen(true)}>
-                Nhóm món
-              </Button>
-              <Button variant="outline" size="sm" leadingIcon={<Soup size={15} />} onClick={() => navigate('/quan-ly/mon-an/set-menu')}>
-                Set menu
-              </Button>
-              <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => navigate('/quan-ly/mon-an/them')}>
-                Thêm món
-              </Button>
-            </>
-          }
-        />
+    <MenuLayout
+      tab="dishes"
+      action={<Button leadingIcon={<Plus size={15} />} onClick={() => navigate('/quan-ly/mon-an/them')}>Thêm món</Button>}
+    >
+      <Card className="overflow-hidden">
+        <Toolbar>
+          <SearchInput value={keyword} onChange={setKeyword} placeholder="Tìm theo tên hoặc mã món…" className="w-full sm:w-[280px]" />
+          <FilterChips
+            value={filters}
+            onChange={setFilters}
+            fields={[
+              {
+                key: 'category',
+                label: 'Danh mục',
+                icon: <FolderTree size={14} />,
+                options: categories.map((c) => ({ value: c.id, label: c.active ? c.name : `${c.name} (ngừng)` })),
+              },
+              {
+                key: 'status',
+                label: 'Trạng thái',
+                icon: <Tag size={14} />,
+                options: [
+                  { value: 'selling', label: 'Đang bán' },
+                  { value: 'stopped', label: 'Ngừng bán' },
+                ],
+              },
+            ]}
+          />
+        </Toolbar>
 
-        <Card className="overflow-hidden">
-          <Toolbar>
-            <SearchInput value={keyword} onChange={setKeyword} placeholder="Tìm theo tên hoặc mã món…" className="w-full sm:w-[280px]" />
-            <SelectInput
-              aria-label="Lọc theo danh mục"
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              placeholder="Tất cả danh mục"
-              options={categories.map((c) => ({ value: c.id, label: c.active ? c.name : `${c.name} (ngừng)` }))}
-              className="w-full sm:w-[190px]"
-            />
-            <Segmented<DishStatus | 'all'>
-              ariaLabel="Lọc theo trạng thái"
-              value={status}
-              onChange={setStatus}
-              options={[
-                { value: 'all', label: 'Tất cả' },
-                { value: 'selling', label: 'Đang bán' },
-                { value: 'stopped', label: 'Ngừng bán' },
-              ]}
-            />
-          </Toolbar>
-
-          {list.isError ? (
-            <div className="p-5"><BlockError onRetry={() => void list.refetch()} retrying={list.isFetching} /></div>
-          ) : list.isLoading || !list.data ? (
-            <TableSkeleton cols={6} />
-          ) : list.data.items.length === 0 ? (
-            <div className="p-5">
-              <EmptyState
-                icon={UtensilsCrossed}
-                title={hasFilter ? 'Không tìm thấy món phù hợp' : 'Chưa có món ăn'}
-                description={hasFilter ? 'Thử từ khóa khác hoặc bỏ bớt bộ lọc.' : 'Bắt đầu xây dựng thực đơn bằng nút “Thêm món”.'}
-              />
-            </div>
+        {list.isError ? (
+          <div className="p-5"><BlockError onRetry={() => void list.refetch()} retrying={list.isFetching} /></div>
+        ) : list.isLoading || !list.data ? (
+          <TableSkeleton cols={6} />
+        ) : list.data.items.length === 0 ? (
+          hasFilter ? (
+            <FilteredEmpty title="Không có món phù hợp" hiddenCount={totalDishes} unit="món" onClear={clearFilters} />
           ) : (
-            <div className={list.isFetching ? 'opacity-60 transition-opacity' : ''}>
-              <DataTable minWidth={880}>
-                <thead>
-                  <tr>
-                    <Th>Mã món</Th>
-                    <Th>Món ăn</Th>
-                    <Th>Danh mục</Th>
-                    <Th className="text-right">Giá bán</Th>
-                    <Th>Trạng thái bán</Th>
-                    <Th className="text-right">Thao tác</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {list.data.items.map((d) => (
-                    <tr key={d.id} className="hover:bg-[var(--bg-subtle)]">
-                      <Td className="font-mono text-[12.5px] font-semibold">{d.code}</Td>
-                      <Td>
-                        <div className="flex min-w-0 items-center gap-3">
-                          <DishThumb dish={d} />
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold">{d.name}</p>
-                            <p className="max-w-[320px] truncate text-[12px] text-[var(--text-muted)]">{d.description || d.ingredients || '—'}</p>
-                          </div>
-                        </div>
-                      </Td>
-                      <Td>{categoryName.get(d.categoryId) ?? '—'}</Td>
-                      <Td className="text-right font-mono font-semibold">{formatCurrency(d.price)}</Td>
-                      <Td>
-                        <div className="flex items-center gap-2">
-                          <Toggle checked={d.status === 'selling'} label={`Đổi trạng thái bán ${d.name}`} onChange={() => setToggleTarget(d)} />
-                          <Badge variant={DISH_STATUS[d.status].variant}>{DISH_STATUS[d.status].label}</Badge>
-                        </div>
-                      </Td>
-                      <Td className="text-right">
-                        <div className="inline-flex gap-0.5">
-                          <Button size="sm" variant="ghost" aria-label={`Xem ${d.name}`} onClick={() => setDetail(d)}><Eye size={14} /></Button>
-                          <Button size="sm" variant="ghost" aria-label={`Sửa ${d.name}`} onClick={() => navigate(`/quan-ly/mon-an/${d.id}/sua`)}><Pencil size={14} /></Button>
-                          <Button size="sm" variant="ghost" aria-label={`Xóa ${d.name}`} onClick={() => setDeleteTarget(d)}><Trash2 size={14} /></Button>
-                        </div>
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
-              <Pagination page={list.data.page} pageCount={list.data.pageCount} total={list.data.total} pageSize={DISH_PAGE_SIZE} onChange={setPage} unit="món" />
+            <div className="p-5">
+              <EmptyState icon={UtensilsCrossed} title="Chưa có món ăn" description="Bắt đầu bằng nút “Thêm món”." />
             </div>
-          )}
-        </Card>
-      </div>
+          )
+        ) : (
+          <div className={list.isFetching ? 'opacity-60 transition-opacity' : ''}>
+            <DataTable minWidth={880}>
+              <thead>
+                <tr>
+                  <Th>Mã món</Th>
+                  <Th>Món ăn</Th>
+                  <Th>Danh mục</Th>
+                  <Th className="text-right">Giá bán</Th>
+                  <Th>Trạng thái bán</Th>
+                  <Th className="text-right"><span className="sr-only">Thao tác</span></Th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.data.items.map((d) => (
+                  <tr key={d.id} className="hover:bg-[var(--bg-subtle)]">
+                    <Td className="font-mono text-[12.5px] font-semibold">{d.code}</Td>
+                    <Td>
+                      <button type="button" onClick={() => setDetail(d)} className="group flex min-w-0 items-center gap-3 text-left">
+                        <DishThumb dish={d} />
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold group-hover:text-[var(--accent)]">{d.name}</span>
+                          <span className="block max-w-[320px] truncate text-[12px] text-[var(--text-muted)]">{d.description || d.ingredients || '—'}</span>
+                        </span>
+                      </button>
+                    </Td>
+                    <Td>{categoryName.get(d.categoryId) ?? '—'}</Td>
+                    <Td className="text-right font-mono font-semibold">{formatCurrency(d.price)}</Td>
+                    <Td>
+                      <div className="flex items-center gap-2">
+                        <Toggle checked={d.status === 'selling'} label={`Đổi trạng thái bán ${d.name}`} onChange={() => setToggleTarget(d)} />
+                        <Badge variant={DISH_STATUS[d.status].variant}>{DISH_STATUS[d.status].label}</Badge>
+                      </div>
+                    </Td>
+                    <Td className="text-right">
+                      <RowActions
+                        name={d.name}
+                        onPrimary={() => navigate(`/quan-ly/mon-an/${d.id}/sua`)}
+                        items={[
+                          { label: 'Xem chi tiết', icon: <Eye size={15} />, onSelect: () => setDetail(d) },
+                          d.status === 'selling'
+                            ? { label: 'Ngừng bán', icon: <Ban size={15} />, onSelect: () => setToggleTarget(d) }
+                            : { label: 'Mở bán lại', icon: <Play size={15} />, onSelect: () => setToggleTarget(d) },
+                          { label: 'Xóa món', icon: <Trash2 size={15} />, danger: true, onSelect: () => setDeleteTarget(d) },
+                        ]}
+                      />
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+            <Pagination page={list.data.page} pageCount={list.data.pageCount} total={list.data.total} pageSize={DISH_PAGE_SIZE} onChange={setPage} unit="món" />
+          </div>
+        )}
+      </Card>
 
       <DishDetailModal
         dish={detail}
@@ -171,8 +165,6 @@ export function DishesPage() {
         onOpenChange={(o) => !o && setDetail(null)}
         onEdit={(d) => navigate(`/quan-ly/mon-an/${d.id}/sua`)}
       />
-      <CategoryModal open={categoryOpen} onOpenChange={setCategoryOpen} />
-      <GroupModal open={groupOpen} onOpenChange={setGroupOpen} />
       <ConfirmDialog
         open={Boolean(toggleTarget)}
         onOpenChange={(o) => !o && setToggleTarget(null)}
@@ -180,8 +172,8 @@ export function DishesPage() {
         title={toggleTarget?.status === 'selling' ? 'Ngừng bán món này?' : 'Mở bán lại món này?'}
         description={
           toggleTarget?.status === 'selling'
-            ? `“${toggleTarget?.name}” sẽ không được chọn cho đơn hàng mới và Chatbot AI sẽ ngừng gợi ý món. Lịch sử giao dịch vẫn được giữ nguyên.`
-            : `“${toggleTarget?.name}” sẽ hiển thị lại trên thực đơn cho khách gọi món.`
+            ? `“${toggleTarget?.name}” sẽ ẩn khỏi thực đơn, khách không gọi được và trợ lý AI ngừng gợi ý. Hóa đơn cũ vẫn giữ nguyên.`
+            : `“${toggleTarget?.name}” sẽ hiện lại trên thực đơn cho khách gọi món.`
         }
         confirmLabel={toggleTarget?.status === 'selling' ? 'Ngừng bán' : 'Mở bán'}
         loading={statusMutation.isPending}
@@ -190,22 +182,34 @@ export function DishesPage() {
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
-        title="Xóa món ăn?"
+        title={deleteTarget?.usedInOrders ? `Không xóa được “${deleteTarget.name}”` : `Xóa “${deleteTarget?.name ?? ''}”?`}
         description={
           deleteTarget?.usedInOrders ? (
             <>
-              <p>“{deleteTarget.name}” đã xuất hiện trong đơn hàng nên hệ thống sẽ <b>không cho xóa cứng</b>.</p>
-              <p className="mt-2">Hãy chuyển món sang trạng thái “Ngừng bán” để bảo toàn lịch sử giao dịch.</p>
+              <p>Món này đã có trong hóa đơn cũ. Xóa đi thì lịch sử bán hàng và báo cáo doanh thu sẽ bị sai.</p>
+              <p className="mt-2">
+                {deleteTarget.status === 'selling'
+                  ? 'Bạn có thể chọn "Ngừng bán": món ẩn khỏi thực đơn, hóa đơn cũ vẫn giữ nguyên, muốn bán lại thì bật lên.'
+                  : 'Món đang ở trạng thái "Ngừng bán", khách đã không còn thấy món này.'}
+              </p>
             </>
           ) : (
-            `Món “${deleteTarget?.name}” (${deleteTarget?.code}) chưa phát sinh giao dịch và sẽ bị xóa vĩnh viễn.`
+            'Món này chưa có trong hóa đơn nào. Xóa rồi sẽ mất hẳn, không lấy lại được.'
           )
         }
-        confirmLabel="Xóa món"
-        loading={deleteMutation.isPending}
-        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+        cancelLabel={deleteTarget?.usedInOrders ? 'Đóng' : 'Hủy'}
+        tone={deleteTarget?.usedInOrders ? 'primary' : 'danger'}
+        confirmLabel={deleteTarget?.usedInOrders ? 'Ngừng bán' : 'Xóa món'}
+        confirmDisabled={Boolean(deleteTarget?.usedInOrders && deleteTarget.status !== 'selling')}
+        loading={deleteMutation.isPending || statusMutation.isPending}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          if (deleteTarget.usedInOrders) {
+            statusMutation.mutate(deleteTarget, { onSuccess: () => setDeleteTarget(null) });
+          } else deleteMutation.mutate(deleteTarget);
+        }}
       />
-    </AppShell>
+    </MenuLayout>
   );
 }
 

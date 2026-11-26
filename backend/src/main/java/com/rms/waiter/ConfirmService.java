@@ -28,12 +28,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Xác nhận đơn của khách (V22): món khách gửi qua QR ở trạng thái Chờ xác nhận; nhân viên phục vụ đã vào ca của khu
+ * Xác nhận đơn của khách (V22): món khách gửi qua QR ở trạng thái Chờ xác nhận; nhân viên phục vụ trong ca (theo lịch) của khu
  * kiểm tra với khách rồi xác nhận (→ Chờ chế biến, bếp thấy) hoặc bỏ từng món kèm lý do (khách thấy lý do).
  * Người xác nhận được ghi vào từng món (confirmed_by) — người chịu trách nhiệm cho lượt gọi món đó.
  *
- * Ai thấy: phục vụ của khu (khu không ai vào ca → mọi phục vụ đã vào ca). Chờ quá N phút (cấu hình) → nhắc lại cho mọi
- * phục vụ đã vào ca và hiện cho tất cả. Không tự chuyển bếp.
+ * Ai thấy: phục vụ của khu (khu không ai có ca → mọi phục vụ đang trong ca). Chờ quá N phút (cấu hình) → nhắc lại cho mọi
+ * phục vụ đang trong ca và hiện cho tất cả. Không tự chuyển bếp.
  */
 @Service
 public class ConfirmService {
@@ -176,7 +176,7 @@ public class ConfirmService {
         return core.order(orderId);
     }
 
-    /** Mỗi 30 giây: đơn chờ xác nhận quá N phút (chưa nhắc) → báo mọi phục vụ đã vào ca, đánh dấu đã nhắc. */
+    /** Mỗi 30 giây: đơn chờ xác nhận quá N phút (chưa nhắc) → báo mọi phục vụ đang trong ca (không ai có ca → mọi phục vụ), đánh dấu đã nhắc. */
     @Scheduled(fixedDelay = 30_000, initialDelay = 20_000)
     @Transactional
     public void remindOverdue() {
@@ -184,6 +184,7 @@ public class ConfirmService {
         List<Row> late = rows(" AND oi.confirm_reminded_at IS NULL AND oi.created_at < ?", now.minusMinutes(remindMinutes()));
         if (late.isEmpty()) return;
         List<Long> waiters = duty.waitersOnDuty(now).stream().map(DutyService.Duty::userId).distinct().toList();
+        if (waiters.isEmpty()) waiters = duty.allWaiters();
         Map<Long, Row> byOrder = new LinkedHashMap<>();
         late.forEach(r -> byOrder.putIfAbsent(r.orderId(), r));
         for (Row r : byOrder.values()) {

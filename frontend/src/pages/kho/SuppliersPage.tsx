@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Pencil, Plus, Power, PowerOff, Trash2, Truck } from 'lucide-react';
+import { Eye, Plus, Power, PowerOff, Tag, Trash2, Truck } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
-import { BlockError, EmptyState } from '@/components/common/EmptyState';
+import { BlockError, EmptyState, FilteredEmpty } from '@/components/common/EmptyState';
+import { FilterChips } from '@/components/common/FilterChips';
 import { SearchInput } from '@/components/common/Form';
 import { DataTable, PageHeader, Pagination, TableSkeleton, Td, Th, Toolbar } from '@/components/common/PageParts';
-import { Segmented } from '@/components/common/Segmented';
+import { RowActions } from '@/components/common/RowActions';
 import { WAREHOUSE_PAGE_SIZE } from '@/api/warehouse-ingredients';
 import { SupplierActivateDialog, SupplierDeleteDialog, SupplierStopDialog } from '@/features/warehouse/SupplierDialogs';
 import { useSuppliers } from '@/features/warehouse/queries';
@@ -20,7 +21,8 @@ import type { Supplier, SupplierStatus } from '@/types';
 export function SuppliersPage() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
-  const [status, setStatus] = useState<SupplierStatus | 'all'>('all');
+  const [filters, setFilters] = useState<Record<string, string | undefined>>({});
+  const status = (filters.status ?? 'all') as SupplierStatus | 'all';
   const [page, setPage] = useState(1);
   const debounced = useDebounced(keyword);
 
@@ -31,17 +33,21 @@ export function SuppliersPage() {
   const list = useSuppliers({ keyword: debounced, status, page });
   useEffect(() => setPage(1), [debounced, status]);
   const hasFilter = Boolean(keyword || status !== 'all');
+  const clearFilters = () => {
+    setKeyword('');
+    setFilters({});
+  };
   const addButton = (
-    <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => navigate('/kho/nha-cung-cap/them')}>
+    <Button leadingIcon={<Plus size={15} />} onClick={() => navigate('/kho/nha-cung-cap/them')}>
       Thêm nhà cung cấp
     </Button>
   );
 
   return (
-    <AppShell meta={{ label: 'Danh sách nhà cung cấp', parent: 'Quản lý nhà cung cấp' }}>
+    <AppShell meta={{ label: 'Nhà cung cấp' }}>
       <div className="min-w-0 space-y-4">
         <PageHeader
-          title="Danh sách nhà cung cấp"
+          title="Nhà cung cấp"
           description="Thông tin liên hệ và danh sách nguyên liệu mỗi nhà cung cấp đang bán cho nhà hàng."
           actions={addButton}
         />
@@ -49,14 +55,19 @@ export function SuppliersPage() {
         <Card className="overflow-hidden">
           <Toolbar>
             <SearchInput value={keyword} onChange={setKeyword} placeholder="Tìm theo mã, tên hoặc SĐT…" className="w-full sm:w-[280px]" />
-            <Segmented<SupplierStatus | 'all'>
-              ariaLabel="Lọc theo trạng thái"
-              value={status}
-              onChange={setStatus}
-              options={[
-                { value: 'all', label: 'Tất cả' },
-                { value: 'active', label: 'Đang hoạt động' },
-                { value: 'inactive', label: 'Ngừng hoạt động' },
+            <FilterChips
+              value={filters}
+              onChange={setFilters}
+              fields={[
+                {
+                  key: 'status',
+                  label: 'Trạng thái',
+                  icon: <Tag size={14} />,
+                  options: [
+                    { value: 'active', label: 'Đang hoạt động' },
+                    { value: 'inactive', label: 'Ngừng hoạt động' },
+                  ],
+                },
               ]}
             />
           </Toolbar>
@@ -66,14 +77,13 @@ export function SuppliersPage() {
           ) : list.isLoading || !list.data ? (
             <TableSkeleton cols={7} />
           ) : list.data.items.length === 0 ? (
-            <div className="p-5">
-              <EmptyState
-                icon={Truck}
-                title={hasFilter ? 'Không tìm thấy nhà cung cấp' : 'Chưa có nhà cung cấp nào.'}
-                description={hasFilter ? 'Thử từ khóa hoặc bộ lọc khác.' : 'Bắt đầu bằng nút “Thêm nhà cung cấp”.'}
-                action={hasFilter ? undefined : addButton}
-              />
-            </div>
+            hasFilter ? (
+              <FilteredEmpty title="Không có nhà cung cấp phù hợp" unit="nhà cung cấp" onClear={clearFilters} />
+            ) : (
+              <div className="p-5">
+                <EmptyState icon={Truck} title="Chưa có nhà cung cấp nào" description="Bắt đầu bằng nút “Thêm nhà cung cấp”." action={addButton} />
+              </div>
+            )
           ) : (
             <div className={list.isFetching ? 'opacity-60 transition-opacity' : ''}>
               <DataTable minWidth={960}>
@@ -85,7 +95,7 @@ export function SuppliersPage() {
                     <Th>Người liên hệ</Th>
                     <Th className="text-right">NL đang cung cấp</Th>
                     <Th>Trạng thái</Th>
-                    <Th className="text-right">Thao tác</Th>
+                    <Th className="text-right"><span className="sr-only">Thao tác</span></Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -105,18 +115,17 @@ export function SuppliersPage() {
                       <Td className="text-right font-mono font-semibold">{s.activeLinkCount}</Td>
                       <Td><ActiveBadge active={s.status === 'active'} activeLabel="Đang hoạt động" inactiveLabel="Ngừng hoạt động" /></Td>
                       <Td className="text-right">
-                        <div className="inline-flex gap-0.5">
-                          <Button size="sm" variant="ghost" aria-label={`Xem chi tiết ${s.name}`} onClick={() => navigate(`/kho/nha-cung-cap/${s.id}`)}><Eye size={14} /></Button>
-                          <Button size="sm" variant="ghost" aria-label={`Sửa ${s.name}`} onClick={() => navigate(`/kho/nha-cung-cap/${s.id}/sua`)}><Pencil size={14} /></Button>
-                          {s.status === 'active' ? (
-                            <Button size="sm" variant="ghost" aria-label={`Ngừng hoạt động ${s.name}`} onClick={() => setStopTarget(s)}><PowerOff size={14} /></Button>
-                          ) : (
-                            <Button size="sm" variant="ghost" aria-label={`Kích hoạt lại ${s.name}`} onClick={() => setActivateTarget(s)}><Power size={14} /></Button>
-                          )}
-                          {!s.hasPurchases ? (
-                            <Button size="sm" variant="ghost" aria-label={`Xóa ${s.name}`} onClick={() => setDeleteTarget(s)}><Trash2 size={14} /></Button>
-                          ) : null}
-                        </div>
+                        <RowActions
+                          name={s.name}
+                          onPrimary={() => navigate(`/kho/nha-cung-cap/${s.id}/sua`)}
+                          items={[
+                            { label: 'Xem chi tiết', icon: <Eye size={15} />, onSelect: () => navigate(`/kho/nha-cung-cap/${s.id}`) },
+                            s.status === 'active'
+                              ? { label: 'Ngừng hoạt động', icon: <PowerOff size={15} />, onSelect: () => setStopTarget(s) }
+                              : { label: 'Kích hoạt lại', icon: <Power size={15} />, onSelect: () => setActivateTarget(s) },
+                            ...(!s.hasPurchases ? [{ label: 'Xóa nhà cung cấp', icon: <Trash2 size={15} />, danger: true, onSelect: () => setDeleteTarget(s) }] : []),
+                          ]}
+                        />
                       </Td>
                     </tr>
                   ))}

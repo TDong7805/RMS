@@ -35,7 +35,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-pill px-2 py-[3px] text-[12px] font-semibold leading-none',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-pill px-2 py-[3px] text-[12px] font-semibold leading-none',
         mono && 'font-mono tabular-nums',
         VARIANTS[variant],
         className,

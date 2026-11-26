@@ -1,21 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Flame, Pencil, Plus, UtensilsCrossed } from 'lucide-react';
+import { Flame, Pencil, UtensilsCrossed } from 'lucide-react';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
-import { Field, ImageUpload, TextInput, Toggle } from '@/components/common/Form';
 import { Modal } from '@/components/common/Modal';
 import { DetailRow } from '@/components/common/PageParts';
-import { saveCategory } from '@/api/dishes';
-import { qk, useCategories } from '@/features/management/queries';
-import { useApiMutation } from '@/hooks/use-api-mutation';
-import { cn } from '@/lib/cn';
 import { formatCurrency } from '@/lib/format';
 import { DISH_STATUS, SPICY_LEVELS, formatDateTime } from '@/lib/labels';
 import type { Dish } from '@/types';
 
 export function DishThumb({ dish, size = 44 }: { dish: Pick<Dish, 'image' | 'name'>; size?: number }) {
-  return dish.image ? (
-    <img src={dish.image} alt={dish.name} className="shrink-0 rounded-[10px] object-cover" style={{ width: size, height: size }} />
+  // Ảnh lỗi (file đã mất…) thì hiện biểu tượng đĩa thay vì chữ thay thế bị cắt.
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [dish.image]);
+  return dish.image && !broken ? (
+    <img src={dish.image} alt={dish.name} onError={() => setBroken(true)} className="shrink-0 rounded-[10px] object-cover" style={{ width: size, height: size }} />
   ) : (
     <span
       className="grid shrink-0 place-items-center rounded-[10px] bg-[var(--accent-soft)] text-[var(--accent)]"
@@ -94,114 +92,4 @@ export function DishDetailModal({
 
 function Muted({ children }: { children: React.ReactNode }) {
   return <span className="text-[var(--text-muted)]">{children}</span>;
-}
-
-type CatDraft = { id?: string; name: string; active: boolean; image: string | null };
-
-/** Màn hình quản lý danh mục món (luồng 3c). */
-export function CategoryModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { data: categories = [] } = useCategories();
-  const [editing, setEditing] = useState<CatDraft | null>(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!open) setEditing(null);
-  }, [open]);
-
-  const mutation = useApiMutation(saveCategory, {
-    invalidate: [qk.categories, qk.dishes],
-    success: (c, v) => (v.id ? `Đã cập nhật danh mục ${c.name}` : `Đã thêm danh mục ${c.name}`),
-    onFieldErrors: (f) => setError(f.name ?? ''),
-    onSuccess: () => setEditing(null),
-  });
-
-  return (
-    <Modal
-      open={open}
-      onOpenChange={onOpenChange}
-      size="md"
-      title="Danh mục món"
-      description="Danh mục ngừng hoạt động sẽ không được chọn khi thêm món mới. Ảnh danh mục hiện ở dải danh mục của trang khách gọi món (nên dùng ảnh món tách nền, nền trắng hoặc trong suốt)."
-      footer={<Button variant="ghost" onClick={() => onOpenChange(false)}>Đóng</Button>}
-    >
-      <ul className="divide-y divide-[var(--border)] rounded-item border border-[var(--border)]">
-        {categories.map((c) => (
-          <li key={c.id} className="flex items-center gap-3 px-3 py-2.5">
-            {editing?.id === c.id ? (
-              <CategoryEditor editing={editing} setEditing={setEditing} error={error} setError={setError} saving={mutation.isPending} onSave={() => mutation.mutate(editing)} />
-            ) : (
-              <>
-                <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-[var(--border)] bg-white text-[15px] font-bold text-[var(--text-muted)]">
-                  {c.image ? <img src={c.image} alt="" className="h-full w-full object-contain p-0.5" /> : c.name.charAt(0)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className={cn('text-[14px] font-semibold', !c.active && 'text-[var(--text-muted)]')}>{c.name}</p>
-                  <p className="text-[12px] text-[var(--text-muted)]">{c.dishCount} món · {c.active ? 'Đang hoạt động' : 'Ngừng hoạt động'}</p>
-                </div>
-                <Toggle
-                  checked={c.active}
-                  label={`Bật/tắt danh mục ${c.name}`}
-                  disabled={mutation.isPending}
-                  onChange={(active) => mutation.mutate({ id: c.id, name: c.name, active })}
-                />
-                <Button size="sm" variant="ghost" aria-label={`Sửa ${c.name}`} onClick={() => { setError(''); setEditing({ id: c.id, name: c.name, active: c.active, image: c.image }); }}>
-                  <Pencil size={14} />
-                </Button>
-              </>
-            )}
-          </li>
-        ))}
-        {editing && !editing.id ? (
-          <li className="flex items-center gap-3 px-3 py-2.5">
-            <CategoryEditor editing={editing} setEditing={setEditing} error={error} setError={setError} saving={mutation.isPending} onSave={() => mutation.mutate(editing)} />
-          </li>
-        ) : null}
-      </ul>
-      {!editing ? (
-        <Button className="mt-3" variant="outline" size="sm" leadingIcon={<Plus size={14} />} onClick={() => { setError(''); setEditing({ name: '', active: true, image: null }); }}>
-          Thêm danh mục
-        </Button>
-      ) : null}
-    </Modal>
-  );
-}
-
-function CategoryEditor({
-  editing,
-  setEditing,
-  error,
-  setError,
-  saving,
-  onSave,
-}: {
-  editing: CatDraft;
-  setEditing: (v: CatDraft | null) => void;
-  error: string;
-  setError: (v: string) => void;
-  saving: boolean;
-  onSave: () => void;
-}) {
-  return (
-    <form
-      className="flex w-full flex-wrap items-start gap-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave();
-      }}
-    >
-      <div className="flex w-full flex-wrap items-start gap-2">
-        <Field label="Tên danh mục" htmlFor="cat-name" error={error} className="min-w-[200px] flex-1">
-          <TextInput id="cat-name" autoFocus value={editing.name} maxLength={50} invalid={Boolean(error)} onChange={(e) => { setError(''); setEditing({ ...editing, name: e.target.value }); }} />
-        </Field>
-      </div>
-      <div className="w-[140px]">
-        <p className="mb-1.5 text-[13px] font-medium">Ảnh danh mục</p>
-        <ImageUpload value={editing.image} onChange={(image) => setEditing({ ...editing, image })} label="Chọn ảnh" />
-      </div>
-      <div className="ml-auto flex gap-1.5 self-end">
-        <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>Hủy</Button>
-        <Button size="sm" type="submit" loading={saving}>Lưu</Button>
-      </div>
-    </form>
-  );
 }

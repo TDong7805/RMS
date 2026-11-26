@@ -52,7 +52,8 @@ ok('bếp có trang "Thông tin của tôi"', (await bep.get('/api/toi/profile')
 
 /* ------------------------------------------------------------------ Chuẩn bị ca đang diễn ra */
 const area = (name) => sql(`SELECT id FROM areas WHERE name='${name}'`);
-const A1 = area('Tầng 1'), A2 = area('Tầng 2'), AV = area('Sân vườn');
+// Khu mẫu: 'Sảnh chính' (Tầng 1), 'Khu gia đình' (Tầng 2) — đổi tên từ 'Tầng 1' / 'Tầng 2' khi có sơ đồ theo tầng (V26_1).
+const A1 = area('Sảnh chính'), A2 = area('Khu gia đình'), AV = area('Sân vườn');
 const uid = (u) => sql(`SELECT id FROM users WHERE username='${u}'`);
 // Dọn dữ liệu của lần chạy trước (chạy lại được mà không cần tạo lại CSDL).
 sql(`UPDATE system_settings SET setting_value='true' WHERE setting_key='order.require_confirm';
@@ -61,12 +62,13 @@ sql(`UPDATE system_settings SET setting_value='true' WHERE setting_key='order.re
      DELETE sa FROM shift_assignments sa JOIN shifts s ON s.id=sa.shift_id WHERE s.name='Ca kiểm thử';
      DELETE FROM shifts WHERE name='Ca kiểm thử'; SELECT 1`);
 {
-  // Thu ngân / bếp chưa vào ca → việc trong ca bị chặn; việc văn phòng (xem chấm công) vẫn được.
-  const freeTable = sql("SELECT id FROM dining_tables WHERE status='available' LIMIT 1");
+  // Không còn khóa "chưa vào ca" (bếp từ D13, phục vụ D15, thu ngân D16 — chấm công chỉ để tính lương, sau ở Cổng nhân viên).
+  const freeTable = sql("SELECT id FROM dining_tables WHERE status='available' AND id NOT IN (SELECT table_id FROM reservations WHERE table_id IS NOT NULL AND status IN ('pending','confirmed') AND reserved_at BETWEEN NOW() - INTERVAL 3 HOUR AND NOW() + INTERVAL 3 HOUR) LIMIT 1");
   const r0 = await tn.post(`/api/thu-ngan/tables/${freeTable}/open`, { guests: 2 });
-  ok('thu ngân chưa vào ca: mở bàn bị chặn', r0.status === 409 && /vào ca/.test(r0.body?.message), r0);
+  ok('thu ngân chưa vào ca: mở bàn được (không còn khóa)', r0.status === 200, r0);
+  if (r0.status === 200) await tn.post(`/api/thu-ngan/orders/${r0.body.order.id}/close`);
   const r1 = await bep.post('/api/bep/items/start', { ids: ['1'] });
-  ok('bếp chưa vào ca: bắt đầu món bị chặn', r1.status === 409 && /vào ca/.test(r1.body?.message), r1);
+  ok('bếp chưa vào ca: không bị chặn (màn bếp dùng chung)', !/vào ca/.test(r1.body?.message ?? ''), r1);
   ok('thu ngân chưa vào ca: vẫn xem / sửa chấm công (việc văn phòng)', (await tn.get('/api/thu-ngan/attendance')).status === 200);
 }
 fakeClockIn(); // thu ngân, bếp phải đã vào ca (V22); phục vụ được thử riêng bên dưới
@@ -77,34 +79,27 @@ sql(`INSERT INTO shifts (name, start_time, end_time) VALUES ('Ca kiểm thử', 
 const SHIFT = sql(`SELECT id FROM shifts WHERE name='Ca kiểm thử'`);
 const assign = (u, areaId) => sql(`INSERT INTO shift_assignments (shift_id, user_id, work_date, area_id) VALUES (${SHIFT}, ${uid(u)},
      DATE(NOW() - INTERVAL 1 HOUR), ${areaId ?? 'NULL'}); SELECT LAST_INSERT_ID()`);
-const asgNam = assign('nam.hoang', A1);
-const asgVy = assign('vy.ngo', A2);
-
-/* ------------------------------------------------------------------ Chưa vào ca → chỉ xem (V22) */
+/* ------------------------------------------------------------------ Ngoài ca: không bị khóa (D15 — khu theo lịch ca, không theo chấm công) */
 let fl = (await pv.get('/api/phuc-vu/floor')).body;
-ok('chưa vào ca: sơ đồ báo chưa vào ca, có ca theo lịch', fl.clockedIn === false && /Ca kiểm thử/.test(fl.scheduledLabel ?? '') && fl.myAreaIds.length === 0, fl);
+ok('chưa có ca lúc này: sơ đồ ghi ngoài ca, không khu riêng', fl.onShift === false && fl.myAreaIds.length === 0 && !('clockedIn' in fl), fl);
 const anyFree = fl.floor.tables.find((t) => t.status === 'available' && !t.order && !t.reservation);
-let r = await pv.post(`/api/phuc-vu/tables/${anyFree.id}/open`, { guests: 2 });
-ok('chưa vào ca: mở bàn bị chặn', r.status === 409 && /vào ca/.test(r.body?.message), r);
-r = await pv.post('/api/phuc-vu/serve', { ids: ['1'] });
-ok('chưa vào ca: mang món bị chặn', r.status === 409 && /vào ca/.test(r.body?.message), r);
 const tokenOf = (id) => sql(`SELECT qr_token FROM dining_tables WHERE id=${id}`);
 const notifCount = (u) => Number(sql(`SELECT COUNT(*) FROM notification_recipients WHERE user_id=${uid(u)}`));
-const n0 = notifCount('nam.hoang');
-r = await pub(tokenOf(anyFree.id) + '/requests', { type: 'support', content: 'Thử khi chưa ai vào ca' });
+const n0 = notifCount('nam.hoang'), n0b = notifCount('phuc.do');
+let r = await pub(tokenOf(anyFree.id) + '/requests', { type: 'support', content: 'Thử khi chưa ai có ca' });
 const earlyReq = r.body.support?.id;
-ok('chưa ai vào ca: khách gọi nhân viên → không gửi thông báo cho ai', notifCount('nam.hoang') === n0, notifCount('nam.hoang') - n0);
+ok('không ai có ca: khách gọi nhân viên → báo mọi phục vụ', notifCount('nam.hoang') === n0 + 1 && notifCount('phuc.do') === n0b + 1, [notifCount('nam.hoang') - n0, notifCount('phuc.do') - n0b]);
 r = await pv.post(`/api/phuc-vu/requests/${earlyReq}/accept`);
-ok('chưa vào ca: nhận yêu cầu bị chặn', r.status === 409 && /vào ca/.test(r.body?.message), r);
+ok('ngoài ca: nhận yêu cầu được (không còn khóa "chưa vào ca")', r.status === 200 && r.body.status === 'forwarded', r);
 sql(`UPDATE service_requests SET status='cancelled', cancelled_at=NOW() WHERE id=${earlyReq}; SELECT 1`);
+ok('API bưng món của phục vụ đã bỏ (bếp bấm Đã mang đi)', [404, 405].includes((await pv.post('/api/phuc-vu/serve', { ids: ['1'] })).status));
 
-// Vào ca (giả lập chấm công: lượt chấm công mở gắn với ca; phần chấm công khuôn mặt thật kiểm thử ở dưới).
-const clockInSql = (u, asg) => sql(`INSERT INTO attendances (assignment_id, user_id, work_date, check_in, source, note)
-     VALUES (${asg}, ${uid(u)}, DATE(NOW() - INTERVAL 1 HOUR), NOW() - INTERVAL 1 MINUTE, 'manual', 'Vào ca (kiểm thử)'); SELECT 1`);
-clockInSql('nam.hoang', asgNam);
-clockInSql('vy.ngo', asgVy);
+// Xếp ca (không cần chấm công): ca đang diễn ra → khu của ca.
+const asgNam = assign('nam.hoang', A1);
+const asgVy = assign('vy.ngo', A2);
 fl = (await pv.get('/api/phuc-vu/floor')).body;
-ok('đã vào ca: sơ đồ phục vụ mở sẵn khu Tầng 1, có nhãn ca', fl.clockedIn === true && fl.myAreaIds?.length === 1 && fl.myAreaIds[0] === A1 && /Ca kiểm thử/.test(fl.dutyLabel), fl?.myAreaIds);
+ok('có ca theo lịch (chưa chấm công): sơ đồ mở sẵn khu Sảnh chính, có nhãn ca', fl.onShift === true && fl.myAreaIds?.length === 1 && fl.myAreaIds[0] === A1 && /Ca kiểm thử/.test(fl.dutyLabel)
+  && sql(`SELECT COUNT(*) FROM attendances WHERE user_id=${uid('nam.hoang')} AND check_out IS NULL`) === '0', fl?.myAreaIds);
 ok('sơ đồ phục vụ không có doanh thu / hóa đơn chưa thu', fl.floor.revenueToday === 0 && fl.floor.unpaidCount === 0);
 
 /* ------------------------------------------------------------------ Yêu cầu hỗ trợ theo khu vực */
@@ -113,21 +108,21 @@ const T1 = freeIn(A1);
 const TV = fl.floor.tables.find((t) => t.areaId === AV && t.status !== 'inactive' && !t.supportRequest);
 const token = tokenOf;
 r = await pub(token(T1.id) + '/requests', { type: 'support', content: 'Cho thêm đá' });
-ok(`khách bàn ${T1.code} (Tầng 1) gọi nhân viên`, r.status === 200 && r.body.support?.status === 'new', r);
+ok(`khách bàn ${T1.code} (Sảnh chính) gọi nhân viên`, r.status === 200 && r.body.support?.status === 'new', r);
 await pub(token(TV.id) + '/requests', { type: 'consult', content: '' });
 let list = (await pv.get('/api/phuc-vu/requests')).body;
 const reqT1 = list.items.find((x) => x.tableId === T1.id);
-ok('phục vụ Tầng 1 thấy yêu cầu Tầng 1 + Sân vườn (khu không ai gán)', reqT1 && list.items.some((x) => x.tableId === TV.id), list.items.map((x) => x.tableCode));
+ok('phục vụ Sảnh chính thấy yêu cầu Sảnh chính + Sân vườn (khu không ai gán)', reqT1 && list.items.some((x) => x.tableId === TV.id), list.items.map((x) => x.tableCode));
 let list2 = (await pv2.get('/api/phuc-vu/requests')).body;
-ok('phục vụ Tầng 2 KHÔNG thấy yêu cầu Tầng 1, vẫn thấy Sân vườn', !list2.items.some((x) => x.tableId === T1.id) && list2.items.some((x) => x.tableId === TV.id), list2.items.map((x) => x.tableCode));
-ok('thông báo yêu cầu Tầng 1 chỉ gửi phục vụ Tầng 1', sql(`SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id
+ok('phục vụ Khu gia đình KHÔNG thấy yêu cầu Sảnh chính, vẫn thấy Sân vườn', !list2.items.some((x) => x.tableId === T1.id) && list2.items.some((x) => x.tableId === TV.id), list2.items.map((x) => x.tableCode));
+ok('thông báo yêu cầu Sảnh chính chỉ gửi phục vụ Sảnh chính', sql(`SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id
      WHERE n.ref_id=${reqT1.id} AND n.ref_table='service_requests' AND nr.user_id=${uid('nam.hoang')}`) === '1'
   && sql(`SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id
      WHERE n.ref_id=${reqT1.id} AND n.ref_table='service_requests' AND nr.user_id=${uid('vy.ngo')}`) === '0');
 r = await pv2.post(`/api/phuc-vu/requests/${reqT1.id}/accept`);
-ok('phục vụ khu khác nhận yêu cầu Tầng 1 → 409', r.status === 409 && /khu vực/.test(r.body?.message), r);
+ok('phục vụ khu khác nhận yêu cầu Sảnh chính → 409', r.status === 409 && /khu vực/.test(r.body?.message), r);
 r = await pv.post(`/api/phuc-vu/requests/${reqT1.id}/accept`);
-ok('phục vụ Tầng 1 bấm "Tôi đến"', r.status === 200 && r.body.status === 'forwarded' && r.body.assignedName === 'Hoàng Gia Nam', r);
+ok('phục vụ Sảnh chính bấm "Tôi đến"', r.status === 200 && r.body.status === 'forwarded' && r.body.assignedName === 'Hoàng Gia Nam', r);
 r = await pub(token(T1.id));
 ok('khách thấy "Nhân viên đang đến" kèm tên', r.body.support?.status === 'forwarded' && r.body.support?.assignedName === 'Hoàng Gia Nam', r.body.support);
 r = await pv.post(`/api/phuc-vu/requests/${reqT1.id}/done`);
@@ -161,14 +156,14 @@ ok('khách gửi món → chờ xác nhận, bếp chưa thấy', r.status === 2
 const kq = (await bep.get('/api/bep/queue')).body;
 const unconfIds = r.body.items.filter((i) => i.status === 'unconfirmed').map((i) => i.id);
 ok('bếp chưa có các món chờ xác nhận', unconfIds.every((id) => !JSON.stringify(kq).includes(`"id":"${id}"`)), unconfIds);
-ok('phục vụ khu Tầng 1 nhận thông báo đơn chờ xác nhận', sql(`SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id
+ok('phục vụ khu Sảnh chính nhận thông báo đơn chờ xác nhận', sql(`SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id
      WHERE n.ref_table='orders' AND n.ref_id=${orderA} AND nr.user_id=${uid('nam.hoang')}`) !== '0'
   && sql(`SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id
      WHERE n.ref_table='orders' AND n.ref_id=${orderA} AND nr.user_id=${uid('vy.ngo')}`) === '0');
 let conf = (await pv.get('/api/phuc-vu/confirmations')).body;
 const pend = conf.items.find((x) => x.orderId === orderA);
-ok('phục vụ Tầng 1 thấy bàn chờ xác nhận (2 món)', pend?.items.length === 2 && !pend.overdue, conf);
-ok('phục vụ Tầng 2 không thấy (chưa quá giờ)', !(await pv2.get('/api/phuc-vu/confirmations')).body.items.some((x) => x.orderId === orderA));
+ok('phục vụ Sảnh chính thấy bàn chờ xác nhận (2 món)', pend?.items.length === 2 && !pend.overdue, conf);
+ok('phục vụ Khu gia đình không thấy (chưa quá giờ)', !(await pv2.get('/api/phuc-vu/confirmations')).body.items.some((x) => x.orderId === orderA));
 ok('sơ đồ phục vụ đếm bàn chờ xác nhận', (await pv.get('/api/phuc-vu/floor')).body.confirmCount >= 1);
 r = await tn.get(`/api/thu-ngan/orders/${orderA}/invoice-preview`);
 const blockedInvoice = await tn.post(`/api/thu-ngan/orders/${orderA}/invoice`, { vatCompany: '', vatTaxCode: '' });
@@ -188,7 +183,7 @@ ok('khách thấy món bị bỏ kèm lý do, món xác nhận có tên người
 ok('nhật ký "Xác nhận đơn"', sql(`SELECT COUNT(*) FROM audit_logs WHERE action='Xác nhận đơn' AND ref_id=${orderA}`) === '1');
 r = await pv.post(`/api/phuc-vu/orders/${orderA}/confirm`, {});
 ok('xác nhận lần 2 (không còn món chờ) → 409', r.status === 409, r);
-// Khách hủy món đang chờ xác nhận; chờ quá giờ → mọi phục vụ đã vào ca đều thấy.
+// Khách hủy món đang chờ xác nhận; chờ quá giờ → mọi phục vụ đều thấy.
 r = await pub(token(T1.id) + '/orders', { items: [{ dishId: dish.id, qty: 1, note: '' }] });
 const waitingItem = r.body.items.find((i) => i.status === 'unconfirmed')?.id;
 r = await pub(`${token(T1.id)}/items/${waitingItem}/cancel`, {});
@@ -203,13 +198,12 @@ const T2 = freeIn(A1, [T1.id]);
 r = await pv.post(`/api/phuc-vu/tables/${T2.id}/items`, { items: [{ dishId: dish.id, qty: 1 }] });
 ok('gọi món bàn chưa mở → 409', r.status === 409 && /chưa được mở/.test(r.body?.message), r);
 const item = sql(`SELECT id FROM order_items WHERE order_id=${orderA} LIMIT 1`);
-r = await pv.post('/api/phuc-vu/serve', { ids: [item] });
-ok('bưng món chưa xong → 409', r.status === 409, r);
 sql(`UPDATE order_items SET status='done', completed_at=NOW() WHERE id=${item}; SELECT 1`);
 fl = (await pv.get('/api/phuc-vu/floor')).body;
-ok('món đã xong hiện ở danh sách chờ bưng', fl.floor.ready.some((x) => x.id === item));
-r = await pv.post('/api/phuc-vu/serve', { ids: [item] });
-ok('bưng món → Đã mang ra, ghi người bưng', r.status === 200 && sql(`SELECT CONCAT(status,'/',served_by) FROM order_items WHERE id=${item}`) === `served/${uid('nam.hoang')}`, r);
+ok('món đã xong hiện ở "Món xong" của phục vụ (chỉ xem)', fl.floor.ready.some((x) => x.id === item));
+r = await bep.post('/api/bep/items/serve', { ids: [item] });
+ok('bếp bấm Đã mang đi → Đã mang ra, ghi người bấm', r.status === 200 && sql(`SELECT CONCAT(status,'/',served_by) FROM order_items WHERE id=${item}`) === `served/${uid('hung.pham')}`, r);
+ok('món đã mang đi rời "Món xong" của phục vụ', !(await pv.get('/api/phuc-vu/floor')).body.floor.ready.some((x) => x.id === item));
 
 r = await pv.post(`/api/phuc-vu/tables/${T2.id}/open`, { guests: 3 });
 const orderB = r.body.order.id;
@@ -244,9 +238,13 @@ const gotLayout = (async () => {
 })().catch(() => sse);
 await new Promise((res) => setTimeout(res, 300));
 const moveT = fl.floor.tables.find((t) => t.areaId === AV);
-const usedCells = new Set(fl.floor.tables.filter((t) => t.areaId === AV).map((t) => `${t.x},${t.y}`));
+// Sơ đồ theo tầng (V26): ô trống trong vùng khu Sân vườn, tính mọi bàn trên cùng tầng.
+const avArea = fl.floor.areas.find((a) => a.id === AV);
+const sameFloor = new Set(fl.floor.areas.filter((a) => a.floorId === avArea.floorId).map((a) => a.id));
+const usedCells = new Set(fl.floor.tables.filter((t) => sameFloor.has(t.areaId)).map((t) => `${t.x},${t.y}`));
+const zone = avArea.zone ?? { x: 0, y: 0, w: 8, h: 5 };
 let cell = null;
-for (let y = 0; y < 5 && !cell; y++) for (let x = 0; x < 8 && !cell; x++) if (!usedCells.has(`${x},${y}`)) cell = { x, y };
+for (let y = zone.y; y < zone.y + zone.h && !cell; y++) for (let x = zone.x; x < zone.x + zone.w && !cell; x++) if (!usedCells.has(`${x},${y}`)) cell = { x, y };
 r = await ql.patch(`/api/tables/${moveT.id}/position`, cell);
 ok('quản lý di chuyển bàn trên sơ đồ', r.status === 200, r);
 const got = await Promise.race([gotLayout, new Promise((res) => setTimeout(() => res(sse), 3000))]);
@@ -293,8 +291,7 @@ ok('hủy ca → phục vụ nhận sự kiện cập nhật', await waiterEvent
 ok('ca đã hủy không còn trong "Ca làm của tôi"', !(await pv.get(`/api/toi/shifts?from=${tomorrow}&to=${tomorrow}`)).body.some((s) => s.id === newAsg));
 
 /* ------------------------------------------------------------------ Khuôn mặt: đăng ký & duyệt */
-// Bỏ lượt vào ca giả lập của nam.hoang để thử chấm công khuôn mặt thật cho ca này.
-sql(`DELETE FROM attendances WHERE note='Vào ca (kiểm thử)' AND user_id=${uid('nam.hoang')}; SELECT 1`);
+// Chấm công khuôn mặt (API /api/toi/** vẫn giữ — giao diện sẽ chuyển về Cổng nhân viên sau).
 ok('chưa đăng ký khuôn mặt', (await pv.get('/api/toi/face')).body.status === 'none');
 r = await pv.post('/api/toi/clock/in', { descriptor: FACE, photo: PHOTO, liveness: true });
 ok('chưa đăng ký → không chấm công được', r.status === 409 && /chưa đăng ký/.test(r.body?.message), r);
@@ -365,7 +362,7 @@ ok('thu ngân xem ảnh chấm công (trang Chấm công)', (await fetch(BASE + 
 const tnRow = (await tn.get(`/api/thu-ngan/attendance?userId=${uid('nam.hoang')}`)).body.items.find((x) => x.id === att);
 ok('trang Chấm công của thu ngân có cờ ảnh + đi trễ', tnRow?.hasInPhoto && tnRow.lateMinutes === late, tnRow);
 const shifts = (await pv.get('/api/toi/shifts')).body;
-ok('ca của tôi: có ca kiểm thử, đã chấm công, khu Tầng 1', shifts.some((s) => s.id === asgNam && s.attended && s.areaName === 'Tầng 1'), shifts.slice(0, 3));
+ok('ca của tôi: có ca kiểm thử, đã chấm công, khu Sảnh chính', shifts.some((s) => s.id === asgNam && s.attended && s.areaName === 'Sảnh chính'), shifts.slice(0, 3));
 
 r = await pv2.post('/api/toi/clock/in', { descriptor: FACE, photo: PHOTO, liveness: true });
 ok('phục vụ khác chưa đăng ký khuôn mặt → chặn', r.status === 409, r);

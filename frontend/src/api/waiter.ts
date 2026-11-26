@@ -12,15 +12,15 @@ const enc = encodeURIComponent;
 
 /**
  * floor: sơ đồ (không có doanh thu); myAreaIds: khu của ca đang làm; dutyLabel: "Ca sáng 06:00–14:00 · Tầng 1".
- * clockedIn: đã chấm công vào ca — chưa vào ca thì chỉ xem, mọi thao tác bị khóa (V22).
- * scheduledLabel: ca theo lịch đang cho vào (khi chưa vào ca). confirmCount: số bàn có món chờ mình xác nhận.
+ * onShift: giờ này có ca theo lịch phân công (D15: không còn khóa theo chấm công). dutyLabel: ca đang diễn ra;
+ * nextLabel: ca kế tiếp khi đang ngoài ca. confirmCount: số bàn có món chờ mình xác nhận.
  */
 export interface WaiterFloor {
   floor: CashierFloor;
   myAreaIds: string[];
   dutyLabel: string | null;
-  clockedIn: boolean;
-  scheduledLabel: string | null;
+  onShift: boolean;
+  nextLabel: string | null;
   confirmCount: number;
 }
 
@@ -76,8 +76,6 @@ export const waiterMerge = (orderId: string, tableId: string) => api.post<Cashie
 export const getWaiterMenu = () => api.get<QrMenu>(pv('menu'));
 /** Gọi món hộ khách (giỏ món như trang QR). Bàn phải đã mở. */
 export const waiterSendItems = (tableId: string, items: SendLine[]) => api.post<OrderView>(pv(`tables/${enc(tableId)}/items`), { items });
-/** Món Đã xong → Đã mang ra. */
-export const waiterServe = (ids: string[]) => api.post<WaiterFloor>(pv('serve'), { ids });
 
 export const getWaiterRequests = (status: 'waiting' | 'done' | 'cancelled') => api.get<RequestList>(pv('requests'), { status });
 export const acceptRequest = (id: string) => api.post<ServiceRequest>(pv(`requests/${enc(id)}/accept`));

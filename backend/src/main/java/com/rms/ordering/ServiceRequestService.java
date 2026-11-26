@@ -166,7 +166,7 @@ public class ServiceRequestService {
         long id = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
         String title = "Bàn " + t.code() + " (" + t.areaName() + ") gọi nhân viên – " + TYPE_LABEL.get(type);
         String body = content.isEmpty() ? TYPE_LABEL.get(type) : content;
-        // Chỉ phục vụ đã vào ca (V22). Chưa ai vào ca → không gửi; yêu cầu vẫn nằm trong danh sách khi có người vào ca.
+        // Phục vụ đang trong ca (theo lịch) của khu; không ai có ca → mọi phục vụ (DutyService.waitersFor).
         for (long w : duty.waitersFor(t.areaId(), Times.now())) {
             notifications.sendToUser("service_request", title, body, "service_requests", id, w);
         }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ban, Check, ChefHat, CircleCheckBig, Keyboard, LogOut, Play, Plus, RotateCcw, Search, Settings, Timer, Trash2, Volume2, Wifi, WifiOff, X } from 'lucide-react';
+import { Ban, Check, ChefHat, CircleCheckBig, HandPlatter, Keyboard, ListChecks, Play, Plus, RotateCcw, Search, Timer, Trash2, Volume2, Wifi, WifiOff, X } from 'lucide-react';
 import {
   completeItems,
   getKitchenOrder,
@@ -15,8 +15,7 @@ import {
   undoItem,
 } from '@/api/ordering';
 import { beep, beepCancel, unlockAudio, useLiveEvents } from '@/features/ordering/live';
-import { KitchenBrand, KitchenNav, kIconBtn } from '@/features/ordering/KitchenShell';
-import { DutyBanner } from '@/features/self/DutyBanner';
+import { KitchenBrand, KitchenLogoutDialog, KitchenMenu, KitchenMenuButton, kBtnGhost, kIconBtn } from '@/features/ordering/KitchenShell';
 import {
   DEFAULT_KDS_SETTINGS,
   KDS_COLORS,
@@ -31,7 +30,7 @@ import {
   type KdsThreshold,
 } from '@/features/ordering/kdsSettings';
 import '@/features/ordering/kds-theme.css';
-import { useAuth, useLogout } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/cn';
 import type { KitchenCancelReason, KitchenItem, KitchenQueue } from '@/types';
 
@@ -107,14 +106,16 @@ function groupByTable(items: KitchenItem[], changed: KitchenItem[]): TableTicket
 export default function KitchenDisplayPage() {
   const qc = useQueryClient();
   const { data: user } = useAuth();
-  const logout = useLogout();
   const now = useNow();
   const [settings, setSettings] = useKdsSettings();
   const [started, setStarted] = useState(() => sessionStorage.getItem('rms-kds-started') === '1');
   const [view, setView] = useState<View>('table');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [catTab, setCatTab] = useState('');
-  const [panel, setPanel] = useState<'soldOut' | 'done' | 'settings' | null>(null);
+  const wide = useWide();
+  const [panel, setPanel] = useState<'menu' | 'soldOut' | 'done' | 'settings' | null>(null);
+  const [summary, setSummary] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const [detailOrder, setDetailOrder] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<KitchenItem | null>(null);
   const [flash, setFlash] = useState<Set<string>>(new Set());
@@ -188,7 +189,7 @@ export default function KitchenDisplayPage() {
   // Phím tắt (bàn phím rời): số 1–9, 0 = thẻ thứ 10; ← → chuyển thẻ; Space = bắt đầu; Enter = xong; Esc = bỏ chọn.
   const keyState = useRef({ tickets, selected, startTicket, completeTicket });
   keyState.current = { tickets, selected, startTicket, completeTicket };
-  const blocked = !started || panel !== null || detailOrder !== null || cancelTarget !== null || view !== 'table';
+  const blocked = !started || panel !== null || confirmLogout || (summary && !wide) || detailOrder !== null || cancelTarget !== null || view !== 'table';
   useEffect(() => {
     if (blocked) return;
     const onKey = (e: KeyboardEvent) => {
@@ -232,6 +233,10 @@ export default function KitchenDisplayPage() {
 
   const pendingCount = stationItems.filter((i) => i.status === 'pending').length;
   const cookingCount = stationItems.length - pendingCount;
+  const readyItems = (queue.data?.recent ?? []).filter(inStation);
+  const readyCount = readyItems.length;
+  const summaryActive = stationItems.filter((i) => !catTab || i.categoryId === catTab);
+  const summaryReady = readyItems.filter((i) => !catTab || i.categoryId === catTab);
   const avg = queue.data?.avgMinutesToday;
   const zoom = TEXT_SIZES[settings.textSize].zoom;
   const gridStyle: CSSProperties = {
@@ -241,40 +246,35 @@ export default function KitchenDisplayPage() {
 
   return (
     <div className="kds flex h-dvh flex-col" data-kds-mode={settings.mode}>
-      {/* Thanh trên cùng */}
-      <header className="flex flex-wrap items-center gap-3 border-b border-[var(--k-line)] bg-[var(--k-header)] px-4 py-2">
-        <KitchenBrand>
-          <span className="font-mono text-[19px] text-[var(--k-muted)]">{clock(new Date(now))}</span>
-        </KitchenBrand>
-        <KitchenNav />
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <span className={cn('inline-flex items-center gap-1 text-[13px] font-semibold', connected ? 'text-[var(--k-brand)]' : 'text-[var(--k-danger)]')} title={connected ? 'Đang nhận món trực tiếp' : 'Mất kết nối – đang thử lại'}>
-            {connected ? <Wifi size={16} /> : <WifiOff size={16} />}{connected ? 'Trực tiếp' : 'Mất kết nối'}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--k-fill)] px-2.5 py-1.5 text-[13.5px]" title="Thời gian trung bình từ lúc khách gọi đến lúc bếp bấm xong, tính các món đã xong hôm nay">
-            <Timer size={15} className="text-[var(--k-muted)]" />TB hôm nay <b className="font-mono">{avg == null ? '—' : `${avg.toLocaleString('vi-VN', { maximumFractionDigits: 1 })} phút`}</b>
-          </span>
-          <button type="button" onClick={() => setPanel('done')} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--k-fill)] px-3 py-1.5 text-[14px] font-semibold hover:bg-[var(--k-fill-2)]">
-            <CircleCheckBig size={16} className="text-[var(--k-brand)]" />Chờ lấy <span className="font-mono">({queue.data?.recent.length ?? 0})</span>
-          </button>
-          <button type="button" onClick={() => setPanel('soldOut')} className="rounded-lg bg-[var(--k-fill)] px-3 py-1.5 text-[14px] font-semibold hover:bg-[var(--k-fill-2)]">
-            Món tạm hết{queue.data?.soldOutCount ? <span className="ml-1.5 rounded-full bg-[var(--k-danger)] px-1.5 font-mono text-[12px] text-white">{queue.data.soldOutCount}</span> : null}
-          </button>
-          <button type="button" aria-label="Cài đặt màn hình" title="Cài đặt màn hình" onClick={() => setPanel('settings')} className={kIconBtn}><Settings size={17} /></button>
-          <span className="hidden text-[13px] text-[var(--k-muted)] xl:inline">{user?.fullName}</span>
-          <button type="button" aria-label="Đăng xuất" title="Đăng xuất" onClick={() => logout.mutate()} className={kIconBtn}><LogOut size={16} /></button>
-        </div>
-      </header>
-      <DutyBanner home="/bep" />
-
-      {/* Dải lọc: trạng thái + danh mục + cách xem */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--k-line)] bg-[var(--k-header)] px-4 py-2">
-        <div className="inline-flex rounded-lg bg-[var(--k-fill)] p-0.5 text-[14px] font-semibold" role="tablist" aria-label="Lọc trạng thái">
+      {/* Thanh trên cùng: ☰ · đếm trạng thái (bấm để lọc) · đồng hồ */}
+      <header className="flex flex-wrap items-center gap-3 border-b border-[var(--k-line)] bg-[var(--k-header)] px-3 py-2">
+        <KitchenMenuButton onClick={() => setPanel('menu')} />
+        <KitchenBrand />
+        <div className="mx-auto flex flex-wrap items-center gap-1 rounded-xl bg-[var(--k-fill)] p-1 text-[15px] font-semibold" role="tablist" aria-label="Lọc trạng thái">
           <StatusTab active={status === 'all'} onClick={() => setStatus('all')} label="Tất cả" count={stationItems.length} />
           <StatusTab active={status === 'pending'} onClick={() => setStatus('pending')} label="Mới" count={pendingCount} dot="var(--k-new)" />
           <StatusTab active={status === 'cooking'} onClick={() => setStatus('cooking')} label="Đang làm" count={cookingCount} dot="var(--k-cook)" />
+          {/* Chờ lấy luôn hiện ở cột phải (màn rộng); màn hẹp thì bấm để mở */}
+          <span className="hidden items-center gap-1.5 px-3 py-1.5 text-[var(--k-muted)] lg:inline-flex" title="Món đã xong, chờ mang đi — ở cột bên phải">
+            <span className="h-2.5 w-2.5 rounded-full bg-[var(--k-brand)]" />Chờ lấy<b className="font-mono text-[var(--k-text)]">{readyCount}</b>
+          </span>
+          <button type="button" onClick={() => setPanel('done')} className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[var(--k-muted)] lg:hidden">
+            <span className="h-2.5 w-2.5 rounded-full bg-[var(--k-brand)]" />Chờ lấy<b className="font-mono text-[var(--k-text)]">{readyCount}</b>
+          </button>
         </div>
-        <span className="mx-1 hidden h-6 w-px bg-[var(--k-line)] sm:block" />
+        <div className="flex items-center gap-2">
+          <span className={cn('grid h-9 w-9 place-items-center rounded-lg', connected ? 'text-[var(--k-brand)]' : 'bg-[var(--k-danger-soft)] text-[var(--k-danger)]')} title={connected ? 'Đang nhận món trực tiếp' : 'Mất kết nối – đang thử lại'} aria-label={connected ? 'Đang nhận món trực tiếp' : 'Mất kết nối'}>
+            {connected ? <Wifi size={18} /> : <WifiOff size={18} />}
+          </span>
+          <span className="hidden items-center gap-1.5 rounded-lg bg-[var(--k-fill)] px-2.5 py-1.5 text-[13.5px] xl:inline-flex" title="Thời gian trung bình từ lúc khách gọi đến lúc bếp bấm xong, tính các món đã xong hôm nay">
+            <Timer size={15} className="text-[var(--k-muted)]" />TB hôm nay <b className="font-mono">{avg == null ? '—' : `${avg.toLocaleString('vi-VN', { maximumFractionDigits: 1 })} phút`}</b>
+          </span>
+          <span className="font-mono text-[22px] font-bold">{clock(new Date(now))}</span>
+        </div>
+      </header>
+
+      {/* Dải lọc: trạm + danh mục + cách xem + tổng hợp món */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--k-line)] bg-[var(--k-header)] px-3 py-2">
         {station.length ? (
           <button type="button" onClick={() => setPanel('settings')} className="rounded-full border border-dashed border-[var(--k-line)] px-3 py-1 text-[13px] text-[var(--k-muted)]" title="Danh mục màn hình này phụ trách (đổi trong Cài đặt)">
             Trạm: <b className="text-[var(--k-text)]">{stationNames.join(', ') || '—'}</b>
@@ -288,66 +288,114 @@ export default function KitchenDisplayPage() {
           <button type="button" onClick={() => setView('table')} className={cn('rounded-md px-3 py-1.5', view === 'table' && 'bg-[var(--k-invert-bg)] text-[var(--k-invert-text)]')}>Theo bàn</button>
           <button type="button" onClick={() => setView('dish')} className={cn('rounded-md px-3 py-1.5', view === 'dish' && 'bg-[var(--k-invert-bg)] text-[var(--k-invert-text)]')}>Theo món</button>
         </div>
+        <button
+          type="button"
+          aria-pressed={summary}
+          onClick={() => setSummary(!summary)}
+          className={cn('inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[14px] font-semibold', summary ? 'bg-[var(--k-invert-bg)] text-[var(--k-invert-text)]' : 'bg-[var(--k-fill)] hover:bg-[var(--k-fill-2)]')}
+          title="Gom số lượng từng món theo trạng thái"
+        >
+          <ListChecks size={16} />Tổng hợp món
+        </button>
       </div>
 
-      {/* Nội dung */}
-      {queue.isError ? (
-        <div className="grid flex-1 place-items-center text-[18px] text-[var(--k-muted)]">
-          <div className="text-center">Không tải được dữ liệu<br /><button type="button" onClick={() => void queue.refetch()} className="mt-3 rounded-lg bg-[var(--k-fill-2)] px-4 py-2 text-[15px] text-[var(--k-text)]">Tải lại</button></div>
+      <div className="flex min-h-0 flex-1">
+        {/* Thẻ bàn / thẻ món */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {queue.isError ? (
+            <div className="grid flex-1 place-items-center text-[18px] text-[var(--k-muted)]">
+              <div className="text-center">Không tải được dữ liệu<br /><button type="button" onClick={() => void queue.refetch()} className="mt-3 rounded-lg bg-[var(--k-fill-2)] px-4 py-2 text-[15px] text-[var(--k-text)]">Tải lại</button></div>
+            </div>
+          ) : !queue.data ? (
+            <div className="grid flex-1 place-items-center text-[var(--k-muted)]">Đang tải…</div>
+          ) : items.length === 0 ? (
+            <div className="grid flex-1 place-items-center">
+              <div className="text-center text-[var(--k-muted)]">
+                <ChefHat size={64} strokeWidth={1.2} className="mx-auto" />
+                <p className="mt-3 text-[22px] font-semibold">{all.length ? 'Không có món nào khớp bộ lọc' : 'Chưa có món cần chế biến'}</p>
+              </div>
+            </div>
+          ) : view === 'table' ? (
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <div className="grid items-start gap-3" style={gridStyle}>
+                {tickets.map((t, idx) => (
+                  <TableCard
+                    key={t.orderId}
+                    ticket={t}
+                    index={idx}
+                    now={now}
+                    thresholds={settings.thresholds}
+                    flash={flash}
+                    selected={selected === t.orderId}
+                    busy={start.isPending || complete.isPending}
+                    onSelect={() => setSelected(selected === t.orderId ? null : t.orderId)}
+                    onTable={() => setDetailOrder(t.orderId)}
+                    onStartAll={() => startTicket(t)}
+                    onCompleteAll={() => completeTicket(t)}
+                    onStart={(ids) => start.mutate(ids)}
+                    onComplete={(ids) => complete.mutate(ids)}
+                    onCancel={setCancelTarget}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <DishView items={items} now={now} thresholds={settings.thresholds} style={gridStyle} onStart={(ids) => start.mutate(ids)} onComplete={(ids) => complete.mutate(ids)} />
+          )}
         </div>
-      ) : !queue.data ? (
-        <div className="grid flex-1 place-items-center text-[var(--k-muted)]">Đang tải…</div>
-      ) : items.length === 0 ? (
-        <div className="grid flex-1 place-items-center">
-          <div className="text-center text-[var(--k-muted)]">
-            <ChefHat size={64} strokeWidth={1.2} className="mx-auto" />
-            <p className="mt-3 text-[22px] font-semibold">{all.length ? 'Không có món nào khớp bộ lọc' : 'Chưa có món cần chế biến'}</p>
-          </div>
-        </div>
-      ) : view === 'table' ? (
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="grid items-start gap-3" style={gridStyle}>
-            {tickets.map((t, idx) => (
-              <TableCard
-                key={t.orderId}
-                ticket={t}
-                index={idx}
-                now={now}
-                thresholds={settings.thresholds}
-                flash={flash}
-                selected={selected === t.orderId}
-                busy={start.isPending || complete.isPending}
-                onSelect={() => setSelected(selected === t.orderId ? null : t.orderId)}
-                onTable={() => setDetailOrder(t.orderId)}
-                onStartAll={() => startTicket(t)}
-                onCompleteAll={() => completeTicket(t)}
-                onStart={(ids) => start.mutate(ids)}
-                onComplete={(ids) => complete.mutate(ids)}
-                onCancel={setCancelTarget}
-              />
-            ))}
-          </div>
-        </div>
-      ) : (
-        <DishView items={items} now={now} thresholds={settings.thresholds} style={gridStyle} onStart={(ids) => start.mutate(ids)} onComplete={(ids) => complete.mutate(ids)} />
-      )}
+
+        {/* Cột phải cố định (màn rộng): Chờ lấy — hoặc Tổng hợp món khi bật */}
+        <aside className="hidden w-[340px] shrink-0 flex-col border-l border-[var(--k-line)] bg-[var(--k-surface)] lg:flex" aria-label={summary ? 'Tổng hợp món' : 'Chờ lấy'}>
+          {summary ? (
+            <>
+              <ColumnHead title="Tổng hợp món" onClose={() => setSummary(false)} closeLabel="Về Chờ lấy" />
+              <SummaryList active={summaryActive} ready={summaryReady} />
+            </>
+          ) : (
+            <>
+              <ColumnHead title={`Chờ lấy · ${readyCount} món`} />
+              <ReadyList recent={readyItems} now={now} onDone={setQueue} onError={onError} />
+            </>
+          )}
+        </aside>
+      </div>
 
       {!started ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[var(--k-bg)]">
           <div className="text-center">
             <span className="mx-auto grid h-20 w-20 place-items-center rounded-2xl bg-[var(--k-brand)] text-[var(--k-on-brand)]"><ChefHat size={46} strokeWidth={1.5} /></span>
             <p className="mt-4 text-[26px] font-extrabold">Màn hình bếp</p>
-            <p className="mt-1 text-[15px] text-[var(--k-muted)]">Bấm để bắt đầu ca và bật âm báo khi có món mới.</p>
-            <button type="button" onClick={begin} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[var(--k-brand-strong)] px-8 py-4 text-[20px] font-bold text-[var(--k-on-brand)]"><Volume2 size={22} />Bắt đầu ca</button>
+            <p className="mt-1 text-[15px] text-[var(--k-muted)]">Bấm để bắt đầu và bật âm báo khi có món mới.</p>
+            <button type="button" onClick={begin} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[var(--k-brand-strong)] px-8 py-4 text-[20px] font-bold text-[var(--k-on-brand)]"><Volume2 size={22} />Bắt đầu</button>
           </div>
         </div>
       ) : null}
 
+      {panel === 'menu' ? (
+        <KitchenMenu
+          userName={user?.fullName ?? ''}
+          soldOutCount={queue.data?.soldOutCount ?? 0}
+          onClose={() => setPanel(null)}
+          onSoldOut={() => setPanel('soldOut')}
+          onSettings={() => setPanel('settings')}
+          onLogout={() => { setPanel(null); setConfirmLogout(true); }}
+        />
+      ) : null}
       {panel === 'soldOut' ? <SoldOutPanel onClose={() => setPanel(null)} /> : null}
-      {panel === 'done' ? <DonePanel recent={queue.data?.recent ?? []} onDone={setQueue} onError={onError} onClose={() => setPanel(null)} /> : null}
+      {panel === 'done' ? (
+        <Panel title={`Chờ lấy · ${readyCount} món`} onClose={() => setPanel(null)}>
+          <ReadyList recent={readyItems} now={now} onDone={setQueue} onError={onError} />
+        </Panel>
+      ) : null}
+      {summary && !wide ? (
+        <Panel title="Tổng hợp món" onClose={() => setSummary(false)}>
+          <SummaryList active={summaryActive} ready={summaryReady} />
+        </Panel>
+      ) : null}
       {panel === 'settings' ? <SettingsPanel settings={settings} categories={queue.data?.categories ?? []} onChange={setSettings} onClose={() => setPanel(null)} /> : null}
       {detailOrder ? <OrderPanel orderId={detailOrder} onClose={() => setDetailOrder(null)} /> : null}
       {cancelTarget ? <CancelDialog item={cancelTarget} onClose={() => setCancelTarget(null)} onDone={setQueue} /> : null}
+      {confirmLogout ? <KitchenLogoutDialog onClose={() => setConfirmLogout(false)} /> : null}
     </div>
   );
 }
@@ -564,24 +612,32 @@ function Panel({ title, onClose, children, wide }: { title: string; onClose: () 
   );
 }
 
+function ColumnHead({ title, onClose, closeLabel }: { title: string; onClose?: () => void; closeLabel?: string }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-[var(--k-line)] px-3 py-2.5">
+      <p className="flex-1 text-[17px] font-bold">{title}</p>
+      {onClose ? <button type="button" onClick={onClose} className={kBtnGhost}><X size={15} />{closeLabel}</button> : null}
+    </div>
+  );
+}
+
 /**
- * Món đã xong đang chờ nhân viên phục vụ lấy ở quầy: bấm **Đã lấy** khi món rời bếp (khách thấy "Đã mang ra");
- * bấm xong nhầm thì **Trả lại** (trong 30 phút) — món quay lại hàng chờ với nhãn GỌI LẠI.
+ * Món đã xong đang chờ mang đi — mỗi bàn một khối (gộp các đợt), bàn chờ lâu nhất ở trên.
+ * Bếp bấm **Đã mang đi** khi món rời bếp (khách thấy "Đã mang ra"); bấm xong nhầm thì **Trả lại** (trong 30 phút) — món quay lại hàng chờ với nhãn GỌI LẠI.
  */
-function DonePanel({ recent, onDone, onError, onClose }: { recent: KitchenItem[]; onDone: (q: KitchenQueue) => void; onError: (e: unknown) => void; onClose: () => void }) {
+function ReadyList({ recent, now, onDone, onError }: { recent: KitchenItem[]; now: number; onDone: (q: KitchenQueue) => void; onError: (e: unknown) => void }) {
   const [busy, setBusy] = useState(false);
   const groups = useMemo(() => {
     const m = new Map<string, KitchenItem[]>();
-    recent.forEach((i) => m.set(`${i.orderId}-${i.batchNo}`, [...(m.get(`${i.orderId}-${i.batchNo}`) ?? []), i]));
-    return [...m.entries()];
+    recent.forEach((i) => m.set(i.orderId, [...(m.get(i.orderId) ?? []), i]));
+    const first = (l: KitchenItem[]) => l.reduce((x, i) => ((i.completedAt ?? '') < x ? i.completedAt ?? '' : x), l[0].completedAt ?? '');
+    return [...m.values()].sort((a, b) => first(a).localeCompare(first(b)));
   }, [recent]);
-  const recall = async (list: KitchenItem[]) => {
+  const recall = async (i: KitchenItem) => {
     setBusy(true);
     try {
-      let q: KitchenQueue | null = null;
-      for (const i of list) q = await undoItem(i.id);
-      if (q) onDone(q);
-      toast.success(list.length > 1 ? `Đã trả lại ${list.length} món về hàng chờ` : `Đã trả lại ${list[0].dishName} về hàng chờ`);
+      onDone(await undoItem(i.id));
+      toast.success(`Đã trả lại ${i.dishName} về hàng chờ`);
     } catch (e) {
       onError(e);
     } finally {
@@ -592,38 +648,107 @@ function DonePanel({ recent, onDone, onError, onClose }: { recent: KitchenItem[]
     setBusy(true);
     try {
       onDone(await kitchenServeItems(list.map((i) => i.id)));
-      toast.success(list.length > 1 ? `${list[0].tableCode}: đã lấy ${list.length} món` : `${list[0].tableCode}: đã lấy ${list[0].dishName}`);
+      toast.success(list.length > 1 ? `${list[0].tableCode}: đã mang đi ${list.length} món` : `${list[0].tableCode}: đã mang đi ${list[0].dishName}`);
     } catch (e) {
       onError(e);
     } finally {
       setBusy(false);
     }
   };
-  const canRecall = (i: KitchenItem) => !i.completedAt || Date.now() - new Date(i.completedAt).getTime() < 30 * 60_000;
-  return (
-    <Panel title={`Chờ lấy · ${recent.length} món`} onClose={onClose}>
-      <p className="px-4 pt-3 text-[13px] text-[var(--k-muted)]">Món đã xong, chờ nhân viên phục vụ đến quầy lấy. Bấm <b>Đã lấy</b> khi món rời bếp — khách thấy "Đã mang ra". Bấm xong nhầm thì <b>Trả lại</b> (trong 30 phút).</p>
-      <div className="flex-1 overflow-y-auto p-4">
-        {groups.length === 0 ? <p className="py-10 text-center text-[var(--k-muted)]">Không có món nào đang chờ lấy</p> : null}
-        {groups.map(([key, list]) => (
-          <div key={key} className="mb-3 overflow-hidden rounded-xl border border-[var(--k-line)]">
-            <div className="flex items-center gap-2 bg-[var(--k-surface-2)] px-3 py-2">
-              <p className="flex-1 text-[15px]"><b className="text-[17px]">{list[0].tableCode}</b> <span className="text-[var(--k-muted)]">· Đợt {list[0].batchNo} · {list[0].orderCode}</span></p>
-              {list.length > 1 ? <button type="button" disabled={busy} onClick={() => void serve(list)} className="inline-flex items-center gap-1 rounded-md bg-[var(--k-brand-strong)] px-2.5 py-1 text-[13px] font-semibold text-[var(--k-on-brand)] disabled:opacity-50"><CircleCheckBig size={14} />Đã lấy cả đợt</button> : null}
-            </div>
-            {list.map((i) => (
-              <div key={i.id} className="flex items-center gap-3 border-t border-[var(--k-line)] px-3 py-2 text-[15px]">
-                <span className="min-w-0 flex-1"><b className="font-mono">{i.qty}</b> {i.dishName}</span>
-                <span className="font-mono text-[13px] text-[var(--k-muted)]">xong {hhmm(i.completedAt)}</span>
-                {canRecall(i) ? <button type="button" disabled={busy} onClick={() => void recall([i])} className="inline-flex items-center gap-1 rounded-md bg-[var(--k-fill-2)] px-2 py-1 text-[12.5px] font-semibold disabled:opacity-50"><RotateCcw size={13} />Trả lại</button> : null}
-                <button type="button" disabled={busy} onClick={() => void serve([i])} className="inline-flex items-center gap-1 rounded-md bg-[var(--k-brand-strong)] px-2.5 py-1 text-[13px] font-semibold text-[var(--k-on-brand)] disabled:opacity-50"><CircleCheckBig size={14} />Đã lấy</button>
-              </div>
-            ))}
-          </div>
-        ))}
+  const canRecall = (i: KitchenItem) => !i.completedAt || now - new Date(i.completedAt).getTime() < 30 * 60_000;
+  if (groups.length === 0) {
+    return (
+      <div className="grid flex-1 place-items-center p-6 text-center text-[var(--k-muted)]">
+        <div><CircleCheckBig size={40} strokeWidth={1.4} className="mx-auto" /><p className="mt-2 text-[15px]">Chưa có món nào chờ mang đi</p></div>
       </div>
-    </Panel>
+    );
+  }
+  return (
+    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+      {groups.map((list) => {
+        const oldest = list.reduce((x, i) => ((i.completedAt ?? '') < x ? i.completedAt ?? '' : x), list[0].completedAt ?? '');
+        const wait = oldest ? minutesSince(oldest, now) : 0;
+        return (
+          <section key={list[0].orderId} data-ready={list[0].tableCode} className="overflow-hidden rounded-xl border-2 border-[var(--k-brand)] bg-[var(--k-surface)]">
+            <header className="flex items-center gap-2 bg-[var(--k-brand-soft)] px-3 py-2">
+              <p className="min-w-0 flex-1 truncate"><b className="text-[22px] leading-none">{list[0].tableCode}</b> <span className="text-[12.5px] text-[var(--k-muted)]">· {list[0].areaName}</span></p>
+              <span className={cn('rounded-md px-1.5 font-mono text-[14px] font-bold', wait >= 5 ? 'bg-[var(--k-danger)] text-white' : 'bg-[var(--k-fill-2)]')} title={`Đã xong ${wait} phút`}>{wait}′</span>
+            </header>
+            <ul className="divide-y divide-[var(--k-line)]">
+              {list.map((i) => (
+                <li key={i.id} className="flex items-center gap-2 px-3 py-1.5">
+                  <span className="min-w-[24px] font-mono text-[17px] font-extrabold text-[var(--k-brand)]">{i.qty}</span>
+                  <span className="min-w-0 flex-1 text-[15px] font-semibold leading-snug">
+                    {i.dishName}
+                    {i.note ? <span className="ml-1 rounded bg-[var(--k-note-bg)] px-1 text-[12.5px] font-bold text-[var(--k-note-text)]">{i.note}</span> : null}
+                  </span>
+                  {canRecall(i) ? (
+                    <button type="button" disabled={busy} aria-label={`Trả lại ${i.dishName}`} title="Bấm xong nhầm — trả lại hàng chờ" onClick={() => void recall(i)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--k-fill)] text-[var(--k-muted)] disabled:opacity-50"><RotateCcw size={15} /></button>
+                  ) : null}
+                  {list.length > 1 ? (
+                    <button type="button" disabled={busy} aria-label={`Đã mang đi ${i.dishName}`} title="Món này đã mang đi" onClick={() => void serve([i])} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--k-brand-soft)] text-[var(--k-brand)] disabled:opacity-50"><Check size={18} strokeWidth={3} /></button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            <div className="p-2">
+              <button type="button" disabled={busy} onClick={() => void serve(list)} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--k-brand-strong)] py-3 text-[17px] font-extrabold text-[var(--k-on-brand)] disabled:opacity-60">
+                <HandPlatter size={19} />Đã mang đi{list.length > 1 ? ` (${list.length})` : ''}
+              </button>
+            </div>
+          </section>
+        );
+      })}
+    </div>
   );
+}
+
+/** Tổng hợp món (cho người điều phối gọi "3 Ribeye, 2 lẩu"): gom số lượng từng món theo trạng thái. */
+function SummaryList({ active, ready }: { active: KitchenItem[]; ready: KitchenItem[] }) {
+  const rows = useMemo(() => {
+    const m = new Map<string, { name: string; pending: number; cooking: number; done: number }>();
+    [...active, ...ready].forEach((i) => {
+      const r = m.get(i.dishId) ?? { name: i.dishName, pending: 0, cooking: 0, done: 0 };
+      if (i.status === 'pending') r.pending += i.qty;
+      else if (i.status === 'cooking') r.cooking += i.qty;
+      else r.done += i.qty;
+      m.set(i.dishId, r);
+    });
+    return [...m.values()].sort((a, b) => b.pending + b.cooking - (a.pending + a.cooking) || a.name.localeCompare(b.name, 'vi'));
+  }, [active, ready]);
+  if (rows.length === 0) return <p className="p-6 text-center text-[var(--k-muted)]">Chưa có món nào</p>;
+  const cell = (n: number, color: string) => <td className="px-2 py-2 text-right last:pr-3 font-mono text-[17px] font-bold" style={n ? { color } : undefined}>{n || <span className="text-[var(--k-muted)]">·</span>}</td>;
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <table className="w-full table-fixed text-[15px]">
+        <thead className="sticky top-0 bg-[var(--k-surface-2)] text-[12px] text-[var(--k-muted)]">
+          <tr><th className="px-3 py-2 text-left">Món</th><th className="w-[48px] whitespace-nowrap px-2 py-2 text-right">Mới</th><th className="w-[74px] whitespace-nowrap px-2 py-2 text-right">Đang làm</th><th className="w-[66px] whitespace-nowrap px-2 py-2 pr-3 text-right">Chờ lấy</th></tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--k-line)]">
+          {rows.map((r) => (
+            <tr key={r.name}>
+              <td className="px-3 py-2 font-semibold leading-snug">{r.name}</td>
+              {cell(r.pending, 'var(--k-new)')}
+              {cell(r.cooking, 'var(--k-cook)')}
+              {cell(r.done, 'var(--k-brand)')}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function useWide() {
+  const query = '(min-width: 1024px)';
+  const [wide, setWide] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setWide(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return wide;
 }
 
 const COLUMN_OPTIONS: { value: KdsColumns; label: string }[] = [

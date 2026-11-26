@@ -1,18 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { BlockError } from '@/components/common/EmptyState';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/common/Form';
 import { ConfirmDialog } from '@/components/common/Modal';
-import { DataTable, PageHeader, Td, Th } from '@/components/common/PageParts';
+import { DataTable, Td, Th } from '@/components/common/PageParts';
+import { StickySaveBar } from '@/components/common/StickySaveBar';
+import { SubPageHeader } from '@/components/common/SubPageHeader';
 import { Skeleton } from '@/components/common/Skeleton';
 import { createSupplier, findSupplierByName, updateSupplier } from '@/api/warehouse-suppliers';
 import { useIngredientOptions, useSupplier, wk } from '@/features/warehouse/queries';
 import { formatQty, PAYMENT_METHOD, PURCHASE_UNITS } from '@/features/warehouse/labels';
-import { parseMoney, parseQty, useLeaveGuard } from '@/features/warehouse/parts';
+import { parseMoney, parseQty } from '@/features/warehouse/parts';
+import { useUnsavedGuard } from '@/hooks/use-unsaved-guard';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { formatCurrency } from '@/lib/format';
 import { formatDateTime } from '@/lib/labels';
@@ -91,14 +94,17 @@ export function SupplierFormPage() {
   }, [detail.data, isEdit, loaded, id]);
 
   const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(initial) || rows.length > 0, [form, initial, rows]);
-  const { guard, dialog } = useLeaveGuard(dirty);
+  const leave = useUnsavedGuard(dirty);
   const backToList = () => navigate(isEdit && id ? `/kho/nha-cung-cap/${id}` : '/kho/nha-cung-cap');
 
   const mutation = useApiMutation((input: SupplierInput) => (id ? updateSupplier(id, input) : createSupplier(input)), {
     invalidate: [wk.all],
     success: (s) => (isEdit ? `Đã cập nhật nhà cung cấp ${s.name}` : `Đã thêm nhà cung cấp ${s.name} (${s.code})`),
     onFieldErrors: setErrors,
-    onSuccess: (s) => navigate(`/kho/nha-cung-cap/${s.id}`),
+    onSuccess: (s) => {
+      leave.allowLeave();
+      navigate(`/kho/nha-cung-cap/${s.id}`);
+    },
   });
 
   const set = <K extends keyof InfoState>(key: K, value: InfoState[K]) => {
@@ -154,8 +160,8 @@ export function SupplierFormPage() {
     return { ...form, ...(isEdit ? {} : { links }) };
   };
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (isEdit && !dirty) {
       backToList();
       return;
@@ -186,19 +192,15 @@ export function SupplierFormPage() {
   const fieldError = (i: number, key: string) => errors[`links.${i}.${key}`];
 
   return (
-    <AppShell meta={{ label: title, parent: 'Quản lý nhà cung cấp' }}>
+    <AppShell meta={{ label: title, parent: 'Nhà cung cấp', parentTo: '/kho/nha-cung-cap' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader
+        <SubPageHeader
           title={title}
+          backTo={isEdit && id ? `/kho/nha-cung-cap/${id}` : '/kho/nha-cung-cap'}
           description={
             isEdit && d
               ? `Mã ${d.code} · cập nhật lần cuối ${formatDateTime(d.updatedAt)}. Giá và nguyên liệu cung cấp sửa ở trang chi tiết.`
               : 'Mã nhà cung cấp do hệ thống tự tạo sau khi lưu (NCC…).'
-          }
-          actions={
-            <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => guard(backToList)}>
-              {isEdit ? 'Về chi tiết' : 'Về danh sách'}
-            </Button>
           }
         />
 
@@ -332,17 +334,25 @@ export function SupplierFormPage() {
                 )}
               </Card>
             ) : null}
-
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => guard(backToList)} disabled={mutation.isPending}>Hủy</Button>
-              <Button type="submit" loading={mutation.isPending || checking} leadingIcon={<Save size={15} />}>
-                {isEdit ? 'Lưu thay đổi' : 'Thêm nhà cung cấp'}
-              </Button>
-            </div>
           </form>
         )}
+        {loaded ? (
+          <StickySaveBar
+            dirty={dirty}
+            saving={mutation.isPending || checking}
+            idleText={isEdit ? 'Chưa có thay đổi' : 'Chưa nhập gì'}
+            errorCount={Object.values(errors).filter(Boolean).length}
+            saveLabel={isEdit ? 'Lưu thay đổi' : 'Thêm nhà cung cấp'}
+            onDiscard={() => {
+              setForm(initial);
+              setRows([]);
+              setErrors({});
+            }}
+            onSave={() => void submit()}
+          />
+        ) : null}
       </div>
-      {dialog}
+      {leave.dialog}
       <ConfirmDialog
         open={Boolean(dupName)}
         onOpenChange={(o) => !o && setDupName(null)}

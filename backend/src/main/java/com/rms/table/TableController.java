@@ -3,10 +3,12 @@ package com.rms.table;
 import com.rms.table.TableService.Area;
 import com.rms.table.TableService.AreaInput;
 import com.rms.table.TableService.DiningTable;
+import com.rms.table.TableService.Floor;
+import com.rms.table.TableService.FloorInput;
+import com.rms.table.TableService.Layout;
 import com.rms.table.TableService.Position;
 import com.rms.table.TableService.TableInput;
 import java.util.List;
-import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,16 +25,49 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class TableController {
     private final TableService service;
+    private final com.rms.ordering.CashierService cashier;
 
-    public TableController(TableService service) {
+    public TableController(TableService service, com.rms.ordering.CashierService cashier) {
         this.service = service;
+        this.cashier = cashier;
     }
 
-    /** Kích thước lưới sơ đồ — frontend dùng để vẽ. */
-    @GetMapping("/floor-plan")
-    public Map<String, Integer> floor() {
-        return Map.of("cols", TableService.FLOOR_COLS, "rows", TableService.FLOOR_ROWS);
+    /* ---------------------------------------------------------------- Tầng + sơ đồ */
+
+    @GetMapping("/floors")
+    public List<Floor> floors() {
+        return service.floors();
     }
+
+    /** Sơ đồ trực tiếp (chỉ xem) cho Quản lý: cùng dữ liệu với sơ đồ thu ngân. */
+    @GetMapping("/floors/live")
+    public com.rms.ordering.CashierService.Floor live() {
+        return cashier.floor();
+    }
+
+    @PostMapping("/floors")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Floor createFloor(@RequestBody FloorInput in) {
+        return service.createFloor(in);
+    }
+
+    @PutMapping("/floors/{id}")
+    public Floor updateFloor(@PathVariable String id, @RequestBody FloorInput in) {
+        return service.updateFloor(id, in);
+    }
+
+    @DeleteMapping("/floors/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteFloor(@PathVariable String id) {
+        service.deleteFloor(id);
+    }
+
+    @PutMapping("/floors/{id}/layout")
+    public Floor saveLayout(@PathVariable String id, @RequestBody Layout in) {
+        return service.saveLayout(id, in);
+    }
+
+    /* ---------------------------------------------------------------- Khu vực, bàn */
 
     @GetMapping("/areas")
     public List<Area> areas() {

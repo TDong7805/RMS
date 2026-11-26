@@ -1,319 +1,835 @@
-# Kịch bản test toàn hệ thống RMS (Royal Beef)
+# Kịch bản test bằng mắt theo từng trang – RMS (Royal Beef)
 
-Test theo đường đi của một bữa ăn: **Khách (QR) → Bếp → Thu ngân**, sau đó **Quản lý nhà hàng** và **Kho**.
-Mỗi dòng: làm đúng cột *Thao tác*, so với cột *Kết quả mong đợi*, đánh dấu `[x]` nếu đạt; không đạt thì ghi vào cột *Ghi chú*
-(trang, ảnh chụp nếu có) để gửi sửa.
+**Cách dùng:** test **xong hẳn một trang rồi mới sang trang khác**. Mỗi trang liệt kê mọi thứ cần kiểm trên trang đó:
+hiển thị, từng nút / ô / bộ lọc, trường hợp nhập sai, trạng thái rỗng, giao diện điện thoại / chế độ tối.
+Dòng **"Liên quan"** cuối mỗi trang ghi những trang dùng chung dữ liệu: trang đó lỗi thì xem lại các trang này,
+xem lỗi có lan sang không.
+
+Phần API (dữ liệu trả về, kiểm tra ô nhập ở máy chủ, phân quyền, tính tiền / lương) đã có bộ kiểm thử tự động `tests/`,
+**không lặp lại ở đây**. Ở đây chỉ kiểm cái người dùng nhìn thấy và bấm.
+
+Ghi kết quả: đạt thì `[x]`, không đạt thì ghi vào cột *Ghi chú* (thiết bị, ảnh chụp). Gửi lại các dòng không đạt kèm mã dòng.
+
+**Phiếu bấm trên trình duyệt:** mở [phieu-test.html](phieu-test.html) (nhấp đúp), bấm Đạt / Lỗi và ghi chú từng dòng.
+Kết quả chỉ nằm trong trình duyệt đang dùng, nên cuối mỗi buổi bấm **Lưu kết quả** rồi cất file JSON vào [ket-qua/](ket-qua/).
+Đổi tài khoản Chrome, đổi máy hoặc chia nhau test thì bấm **Mở kết quả**, chọn file JSON (hoặc các file CSV đã xuất).
+Nội dung phiếu dựng từ file này: sửa kịch bản ở đây thì nhớ cập nhật phiếu.
 
 ---
 
 ## 0. Chuẩn bị
 
-**Test trên CSDL riêng — không đụng dữ liệu đang có** (nên dùng):
+### Chạy hệ thống trên CSDL test
 
 | Cách chạy | Lệnh |
 |---|---|
-| Có `dev.bat` (máy cá nhân) | Nhấp đúp **`dev-test.bat`** (hoặc `.\dev.ps1 -Test`) → backend dùng CSDL **`rms_test`**, ảnh tải lên vào `backend\uploads-test` |
-| Làm lại từ đầu sau khi tạo "tùm lum" | Nhấp đúp **`dev-test-reset.bat`** (hoặc `.\dev.ps1 -ResetTest`) → xóa sạch `rms_test` + ảnh test, nạp lại dữ liệu mẫu mới |
-| Không có `dev.bat` | PowerShell: `cd backend; $env:DB_NAME='rms_test'; $env:RMS_UPLOAD_DIR='uploads-test'; mvn spring-boot:run` rồi chạy frontend như thường. Làm lại từ đầu: `mysql -u root -p -e "DROP DATABASE rms_test"` và xóa thư mục `backend\uploads-test` |
+| Thường dùng | `dev-test.bat` (hoặc `.\dev.ps1 -Test`): CSDL **`rms_test`**, ảnh tải lên vào `backend\uploads-test` |
+| Làm lại từ đầu | `dev-test-reset.bat` (hoặc `.\dev.ps1 -ResetTest`): xóa sạch `rms_test` + ảnh test, nạp lại dữ liệu mẫu |
 
-- `rms_test` được tạo tự động lần đầu (dữ liệu mẫu Royal Beef, ảnh món / danh mục từ `seed-images`). CSDL thật `rms_db` và
-  thư mục `uploads` **không bị đổi gì**. Cổng vẫn 8080 / 3000 nên QR trên điện thoại dùng như bình thường — chỉ cần tắt
-  bản chạy thường trước (chế độ test tự báo nếu cổng 8080 đang bận).
-- Mã QR của bàn trong `rms_test` khác `rms_db`: lấy lại đường dẫn QR trong `rms_test` (Quản lý → Khu vực bàn).
-- **Chưa test:** đặt bàn ở **website khách** (repo riêng, đang thiết kế). Phần đặt bàn ở trang Quản lý / Thu ngân vẫn test bình thường.
+CSDL thật `rms_db` không bị đổi. Mã QR của bàn trong `rms_test` lấy ở Quản lý → Sơ đồ bàn → bấm bàn → **Mã QR**.
 
-**Tài khoản mẫu** (mật khẩu chung `Rms@2026`):
+### Tài khoản mẫu (mật khẩu chung `Rms@2026`)
 
-| Vai trò | Tên đăng nhập | Trang đầu sau khi đăng nhập |
-|---|---|---|
-| Quản lý nhà hàng | `tuan.nguyen` | `/quan-ly` |
-| Thu ngân | `linh.tran` (hoặc `khoa.le`) | `/thu-ngan` |
-| Nhân viên bếp | `hung.pham` | `/bep` |
-| Quản lý kho | `thao.bui` | `/kho` |
+| Vai trò | Tài khoản |
+|---|---|
+| Quản lý nhà hàng | `tuan.nguyen` |
+| Thu ngân | `linh.tran`, `khoa.le` |
+| Bếp | `hung.pham` |
+| Kho | `thao.bui` |
+| Phục vụ | `nam.hoang`, `vy.ngo` (Tầng 1), `phuc.do` (Tầng 2), `quynh.ly` (Sân vườn), `binh.vu` (Phòng VIP) |
 
-**Mở 3 cửa sổ cùng lúc** (mỗi vai trò một cửa sổ riêng, vì mỗi trình duyệt chỉ giữ một phiên đăng nhập):
+### Không cần cho nhân viên vào ca
 
-1. Cửa sổ thường → đăng nhập **Thu ngân**.
-2. Cửa sổ ẩn danh (Ctrl+Shift+N) → đăng nhập **Bếp**.
-3. Trình duyệt khác (Edge / Firefox) hoặc điện thoại → **trang đặt món của khách** (không cần đăng nhập).
-   Lấy đường dẫn: đăng nhập Quản lý → *Quản lý khu vực bàn* → bấm một bàn → **Mã QR** → *Sao chép đường dẫn*.
-   Trên máy tính: F12 → Ctrl+Shift+M để xem như điện thoại.
+Từ 26/11/2026 không vai trò nào bị khóa vì chưa chấm công (bếp, phục vụ, thu ngân đều thao tác được ngay). Phục vụ: khu phụ trách lấy theo **lịch ca** — muốn thử chia khu thì Quản lý xếp ca hôm nay có khu (trang 12).
 
-**Lưu ý dữ liệu mẫu**
+### Lưu ý dữ liệu mẫu
 
-- Đang có sẵn: bàn **T03, VIP01, SV01** có khách (món ở nhiều trạng thái); **T03** đang gọi nhân viên, **VIP01** đang yêu cầu thanh toán;
-  món *T-bone bò Úc 450g* tạm hết hôm nay (kho hết T-bone); ~2 tháng hóa đơn đã thanh toán; chấm công từ đầu tháng trước; kỳ lương tháng trước đã chốt.
-- Dùng bàn **trống** (vd. **T05**) cho luồng chính để dễ theo dõi.
-- Nhà hàng chỉ cho gửi món **trong giờ mở cửa** (Cấu hình hệ thống). Test ngoài giờ thì sửa giờ mở cửa trước.
-- Test xong muốn làm lại từ đầu: chạy `dev-test-reset.bat` (xem bảng trên) — **không xóa `rms_db`**.
+- Bàn **T03, VIP01, SV01** đang có khách; **VIP01** đang yêu cầu thanh toán. Bàn trống để thử: **T05** (khu Sảnh chính, Tầng 1).
+- *T-bone bò Úc 450g* tạm hết hôm nay. Có khoảng 2 tháng hóa đơn, chấm công từ đầu tháng trước, kỳ lương tháng trước đã chốt.
+- Chỉ gửi món được trong giờ mở cửa. **Bắt buộc phục vụ xác nhận món** đang bật (Cấu hình → Gọi món tại bàn).
+- Với mọi trang có bảng: kiểm thêm **phân trang** (10 dòng / trang, dòng "Hiển thị x–y trên z"), **trạng thái rỗng** khi lọc không ra gì,
+  và **thu nhỏ cửa sổ** (bảng cuộn ngang, không vỡ). Không ghi lại ở từng trang cho đỡ dài.
 
 ---
 
-## A. Luồng chính: một bữa ăn từ lúc ngồi xuống đến lúc thanh toán
+# Phần 1. Chung cho mọi vai trò
 
-| # | Vai trò | Thao tác | Kết quả mong đợi | Đạt | Ghi chú |
-|---|---|---|---|---|---|
-| A1 | Bếp | Đăng nhập → bấm **Bắt đầu ca** | Màn hình bếp kiểu KDS (nền sáng mặc định), **mỗi bàn một thẻ** (chỉ bàn còn món chờ / đang làm), thấy thẻ **T03, SV01** (VIP01 đã xong hết món nên không có thẻ); dải lọc Tất cả / Mới / Đang làm + viên danh mục | [ ] | |
-| A2 | Thu ngân | Đăng nhập → **Sơ đồ bàn** (khu POS toàn màn hình) | Bàn tô màu theo trạng thái: VIP01 **vàng** (Chờ thanh toán), T03, SV01 có khách (yêu cầu *gọi nhân viên* của T03 chỉ hiện ở khu **Phục vụ**, từ V20); tab **Yêu cầu thanh toán** có số 1; đáy màn hình có "Đã thu hôm nay" > 0 | [ ] | |
-| A2b | Khách → Thu ngân | Khách mở QR **T05** khi bàn còn Trống, thêm 1 món vào giỏ, bấm Gửi; rồi bấm Gọi nhân viên → gợi ý **"Mở bàn giúp tôi"**. Thu ngân bấm bàn T05 → chọn số khách 4 → **Mở bàn** | Bàn chưa mở: ảnh bìa có viên "Bàn chưa mở", giỏ báo "Bàn chưa được mở…", nút Gửi bị khóa; phục vụ khu Tầng 1 nhận yêu cầu (khu Phục vụ, có âm báo); mở xong: T05 xanh dương "Có khách" 4/…, bảng bàn có nút **Đóng bàn**, trang khách tự hết viên "Bàn chưa mở" (giỏ vẫn còn món) | [ ] | |
-| A3 | Khách | Mở đường dẫn QR của **T05** (đã mở bàn) | Trang tông đỏ rượu / nền kem, tiêu đề chữ có chân: "Bạn đang ngồi tại · Bàn T05", nút chuông, **Món của tôi**; ảnh bìa (hoặc nền đỏ – nâu) có "Royal Beef", ô tìm kiếm + nút lọc; **dải danh mục cong có ảnh món tròn** ("Tất cả" ghép 4 ảnh); Bán chạy (ảnh tràn thẻ); Tất cả món có ảnh | [ ] | |
-| A4 | Khách | Bấm từng vòng tròn danh mục; vuốt dải danh mục rồi thả; tự cuộn trang; mở nút lọc → Giá thấp → cao + Không cay → Áp dụng; Bỏ lọc | Dải cong: mục chọn vào giữa, hạ thấp, viền đỏ; bấm mục xa (vd. từ Tất cả sang mục thứ 5) thì dải đi thẳng tới mục đó, không giật qua các mục ở giữa; trang cuộn tới đúng mục (món khác vẫn còn); tự cuộn thì dải tự xoay theo; lọc: chỉ món khớp, giá tăng dần, nút lọc có số điều kiện | [ ] | |
-| A5 | Khách | Gõ tìm "gỏi" (thử cả không dấu "goi") | Chỉ hiện *Gỏi bò tái chanh* | [ ] | |
-| A6 | Khách | Tìm *T-bone* | Món mờ, ảnh có dấu **HẾT**, không thêm vào giỏ được | [ ] | |
-| A7 | Khách | Bấm (+) trên 2 món; bấm ảnh **Ribeye bò Úc 300g** → màn chi tiết → kéo thanh **Độ chín** tới **Medium** (hoặc bấm chữ Medium dưới thanh), Sốt **Nấm**, ghi chú "Cắt sẵn", số lượng 2 → **Thêm · …** | Màn chi tiết thu xuống rồi ảnh món bay vào giỏ; thanh nổi "[túi + số món] \| Xác nhận gọi món · tổng" đúng. Nút Quay lại của điện thoại cũng đóng màn chi tiết | [ ] | |
-| A8 | Khách | Bấm **Xác nhận gọi món** → giỏ: đổi số lượng, bấm biểu tượng ghi chú để sửa ghi chú, "Xóa hết giỏ món" (có hỏi lại) | Tổng tiền cập nhật; tải lại trang giỏ vẫn còn | [ ] | |
-| A9 | Khách | Bấm **Gửi gọi món** → xác nhận | Màn **"Đã gửi tới bếp!"** có **danh sách món vừa gửi** (số lượng, tên, ghi chú); bấm **Theo dõi món** → Món của tôi (đợt 1, Chờ chế biến) | [ ] | |
-| A10 | Bếp | (không bấm gì) | Thẻ **T05 – đợt 1** xuất hiện ngay, có âm báo; dòng Ribeye có ghi chú **"Medium, Sốt nấm, Cắt sẵn"** nổi màu vàng | [ ] | |
-| A11 | Thu ngân | (không bấm gì) | Bàn T05 trên sơ đồ chuyển **xanh dương "Có khách"**; bấm bàn → bảng bên phải có món, tạm tính | [ ] | |
-| A12 | Khách | Gọi thêm 1 món, gửi | Tab Món đã gọi có **đợt 2**; thẻ bếp T05 có thêm mục **Đợt 2** ở trên cùng với nhãn "Mới gọi thêm" (vẫn một thẻ) | [ ] | |
-| A13 | Khách | Hủy 1 món của đợt 2 (còn Chờ chế biến) | Món gạch ngang "Khách hủy"; thẻ bếp hiện món gạch ngang nhãn **ĐÃ ĐỔI**, bếp có âm báo + thông báo "Bàn T05: Khách hủy…" | [ ] | |
-| A14 | Bếp | Bấm **Bắt đầu (n)** cuối thẻ T05 | Các món mới có nhãn ĐANG LÀM, sọc thẻ đổi cam; khách thấy trạng thái + thanh tiến độ đổi ngay | [ ] | |
-| A15 | Khách | Thử hủy món đang chế biến | Không có nút hủy / báo "Bếp đã bắt đầu chế biến…" | [ ] | |
-| A16 | Bếp | Bấm Xong từng món (hoặc **Xong (n)** cuối thẻ) | Món rời thẻ, nút **Chờ lấy (n)** tăng; "TB hôm nay" có số phút; khách thấy "Đã xong" | [ ] | |
-| A17 | Bếp | Bấm **Chờ lấy (n)** → **Trả lại** 1 món, rồi xong lại | Món quay lại thẻ với nhãn ĐANG LÀM + **GỌI LẠI**, rồi xong lại | [ ] | |
-| A18 | Bếp → Thu ngân | Thu ngân xem sơ đồ: T05 **xanh lá "Món chờ mang ra"**, bảng bên phải tab **Chờ mang ra** chỉ xem (không có nút). Bếp bấm **Chờ lấy (n)** → **Đã lấy** một món, rồi **Đã lấy cả đợt** (giả như nhân viên phục vụ đến quầy lấy món) | Thu ngân không bấm được "Đã mang ra"; sau khi bếp bấm Đã lấy: món chuyển Đã mang ra, bàn về xanh dương, khách thấy "Đã mang ra" | [ ] | |
-| A19 | Khách | Bấm nút chuông (Gọi nhân viên) → bấm gợi ý "Thêm nước" → đổi sang **Tư vấn món** → đổi sang **Khác**, để trống nội dung → Gửi | Gợi ý đổi theo loại (Tư vấn: "Gợi ý đồ uống"…; Khác: không có gợi ý), đổi loại thì ô nội dung xóa gợi ý cũ; Khác để trống báo "Vui lòng nhập nội dung yêu cầu" | [ ] | |
-| A20 | Khách | Chọn gợi ý "Thêm nước" → Gửi | Báo "Đã gửi yêu cầu, nhân viên sẽ đến ngay"; nút chuông đỏ nhấp nháy; trong Món của tôi nút đổi "Đang chờ NV" | [ ] | |
-| A21 | Khách | Bấm Gọi nhân viên lần nữa | Hiện trạng thái đang chờ + nút **Hủy yêu cầu** (không tạo thêm yêu cầu) | [ ] | |
-| A22 | Phục vụ (`nam.hoang`, điện thoại) | Tab **Yêu cầu** (hoặc Sơ đồ: T05 **cam nhấp nháy**) | Có âm báo + rung khi yêu cầu tới; thẻ "T05 · Hỗ trợ tại bàn · Thêm nước" với nút **Tôi đến** / **Hoàn thành**. Thu ngân **không** thấy yêu cầu này | [ ] | |
-| A23 | Phục vụ | Bấm **Tôi đến** | Thẻ đổi "Bạn đang đến"; phục vụ khu khác không nhận được yêu cầu này | [ ] | |
-| A24 | Khách | (không bấm gì) → bấm lại nút chuông | Hiện **"Nhân viên Hoàng Gia Nam đang đến bàn bạn"** | [ ] | |
-| A25 | Phục vụ | Bấm **Hoàn thành** | Yêu cầu sang tab Hoàn thành; khách: nút trở lại "Gọi nhân viên" | [ ] | |
-| A26 | Khách | Bấm (+) 1 món (để trong giỏ, **không gửi**) → **Món của tôi** → **Thanh toán** → thử cả 3 nút; rồi vào lại Thanh toán | Hỏi "Giỏ còn món chưa gửi bếp": **Gửi bếp các món này** (mở bước gửi) · **Bỏ các món này, thanh toán luôn** (xóa giỏ, vào thanh toán) · **Quay lại**. Màn thanh toán: món đã gọi + tạm tính; còn món chưa xong có cảnh báo "Còn n món chưa xong" | [ ] | |
-| A27 | Khách | Chọn **Chuyển khoản**, tick Xuất VAT, nhập công ty + mã số thuế sai (vd. "123") → Gửi | Báo lỗi mã số thuế tại ô | [ ] | |
-| A28 | Khách | Sửa MST đúng (10 số, vd. 0312345678) → Gửi yêu cầu thanh toán | Hiện "Đã gửi yêu cầu thanh toán"; nút đổi "Đã yêu cầu" | [ ] | |
-| A29 | Thu ngân | Sơ đồ bàn (T05 **vàng**) → bấm bàn → **Xem đơn đầy đủ** | Có thẻ "Khách yêu cầu thanh toán" (hình thức, VAT) | [ ] | |
-| A30 | Thu ngân | Bấm **Lập hóa đơn** khi còn món chưa xong (nếu có) | Hộp báo "Còn n món chưa xong…", nút Lập hóa đơn bị khóa | [ ] | |
-| A31 | Bếp → Thu ngân | Bếp hoàn thành hết món → thu ngân bấm **Lập hóa đơn** | Bản xem trước: món gộp cùng giá, tổng cộng; VAT điền sẵn từ yêu cầu của khách | [ ] | |
-| A32 | Thu ngân | Bấm **Lập hóa đơn** | Báo "Đã lập hóa đơn HDyymm-xxx"; tự mở hộp **Thu tiền** có mã QR chuyển khoản | [ ] | |
-| A33 | Khách | (không bấm gì) | Hóa đơn tự bật lên: các món, tổng cộng, **mã QR** (ngân hàng, số TK, số tiền, nội dung = mã HĐ) | [ ] | |
-| A34 | Khách | Đóng hóa đơn, thử gọi thêm món | Báo "Bàn đang chờ thanh toán, không gọi thêm món được" | [ ] | |
-| A35 | (tùy chọn) | Dùng app ngân hàng quét mã QR (không cần chuyển thật) | App đọc được: tài khoản mẫu, số tiền, nội dung | [ ] | |
-| A36 | Thu ngân | Hộp Thu tiền: chọn Tiền mặt, số tiền 50.000, tiền khách đưa 100.000; bấm **Thêm hình thức** | Dòng 2 tự điền phần còn lại; hiện "Tiền thối lại 50.000"; "Còn phải thu 0" | [ ] | |
-| A37 | Thu ngân | Sửa số tiền cho lệch tổng | Nút Xác nhận bị khóa / báo "Tổng tiền thu chưa khớp" | [ ] | |
-| A38 | Thu ngân | Sửa đúng → **Xác nhận thanh toán** | "Đã thanh toán hóa đơn …"; đơn Hoàn tất; có nút In hóa đơn | [ ] | |
-| A39 | Khách | (không bấm gì) → bấm **Xem thực đơn** | Hiện "**Cảm ơn quý khách!** Hóa đơn … đã được thanh toán"; bấm Xem thực đơn về **thẳng thực đơn** (không quay lại màn Đã gửi / Món của tôi) | [ ] | |
-| A39b | Thu ngân | Bấm chuông **Thông báo** → bấm một thông báo yêu cầu của khách / hóa đơn | Mở đúng trang; dòng yêu cầu / hóa đơn liên quan **sáng nhấp nháy** vài giây | [ ] | |
-| A39c | Thu ngân | Khách **nói miệng** "tính tiền" (không bấm trên điện thoại): bấm bàn → **Lập hóa đơn** | Lập hóa đơn, thu tiền bình thường — yêu cầu thanh toán trên điện thoại không bắt buộc | [ ] | |
-| A40 | Thu ngân | Sơ đồ bàn | T05 về **Trống**; "Đã thu hôm nay" tăng đúng số tiền | [ ] | |
-| A41 | Thu ngân | **Hóa đơn** → mở hóa đơn vừa thu → **In hóa đơn** | Chi tiết có 2 khoản thu, tiền thối; bản in có tên / địa chỉ nhà hàng, thu ngân, thông tin VAT | [ ] | |
-| A42 | Quản lý | **Dashboard** → Doanh thu "Hôm nay" | Tổng doanh thu đã gồm hóa đơn vừa thu | [ ] | |
+## Trang 1. Màn hình chờ, tab trình duyệt
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 1.1 | F12 → Network → Slow 3G → mở web | Màn hình chờ: thớt gỗ, miếng steak chín dần từ trái sang, khói bốc, dao nĩa vàng; chữ "Chờ chút, món ngon sắp lên…" | [ ] | |
+| 1.2 | Như trên, ở cỡ điện thoại và chế độ tối | Hình co vừa màn hình, không tràn; bản tối nền nâu than | [ ] | |
+| 1.3 | Bỏ giả lập mạng chậm, mở lại | Tải nhanh thì không thấy màn hình chờ, không nháy trắng | [ ] | |
+| 1.4 | Nhìn tab trình duyệt (Ctrl+F5 nếu chưa đổi) | Tiêu đề "Royal Beef — Quản lý nhà hàng", biểu tượng đầu bò vàng trên nền đỏ rượu | [ ] | |
+
+## Trang 2. Đăng nhập (`/dang-nhap`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 2.1 | Mở trang | Ô Tên đăng nhập, Mật khẩu (có nút hiện / ẩn), nút Đăng nhập; giao diện gọn trên điện thoại | [ ] | |
+| 2.2 | Bấm Đăng nhập khi để trống | Báo lỗi tại ô, không gửi | [ ] | |
+| 2.3 | Sai mật khẩu vài lần | Thông báo lỗi rõ; sai nhiều lần thì báo bị khóa tạm | [ ] | |
+| 2.4 | Đăng nhập lần lượt từng vai trò | Vào đúng trang đầu: Quản lý `/quan-ly`, Thu ngân `/thu-ngan`, Bếp `/bep`, Kho `/kho`, Phục vụ `/phuc-vu` | [ ] | |
+| 2.5 | Chưa đăng nhập, mở thẳng một trang bên trong (vd. `/quan-ly/mon-an`) | Về trang đăng nhập; đăng nhập xong quay lại đúng trang đó | [ ] | |
+| 2.6 | Đã đăng nhập, gõ đường dẫn của vai trò khác (Bếp mở `/thu-ngan`) | Bị chuyển về trang của mình | [ ] | |
+| 2.7 | Bấm Enter trong ô mật khẩu | Đăng nhập luôn | [ ] | |
+
+## Trang 3. Khung chung: thanh trên, menu, đổi mật khẩu
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 3.1 | Menu trái (Quản lý, Kho) | Mục đang mở được tô; menu con mở / đóng; thu gọn menu được | [ ] | |
+| 3.2 | Ô tìm kiếm đầu trang / **Ctrl+K** | Gợi ý đúng các trang của vai trò đó; Enter mở trang; Esc đóng | [ ] | |
+| 3.3 | Menu tài khoản góc phải → **Đổi mật khẩu**: nhập mật khẩu mới không khớp; rồi đúng | Báo không khớp; đổi xong đăng nhập lại bằng mật khẩu mới được | [ ] | |
+| 3.4 | Tài khoản mới tạo đăng nhập lần đầu | Bị đưa tới trang **Đổi mật khẩu** bắt buộc, không đi trang khác được | [ ] | |
+| 3.5 | Bật / tắt chế độ tối | Chữ, bảng, hộp thoại, biểu đồ đọc rõ; mã QR vẫn nền trắng; tải lại vẫn giữ | [ ] | |
+| 3.6 | Thu nhỏ cửa sổ / máy tính bảng | Menu thu gọn thành nút, không vỡ bố cục | [ ] | |
+| 3.7 | Đăng xuất | Về trang đăng nhập; bấm Back không vào lại được | [ ] | |
+| 3.8 | Để yên quá 2 giờ rồi thao tác | Hết phiên, về trang đăng nhập | [ ] | |
+
+## Trang 4. Thông báo (chuông + trang Thông báo của mỗi vai trò)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 4.1 | Chuông khi có thông báo mới | Số chưa đọc đúng; bấm chuông mở danh sách gọn | [ ] | |
+| 4.2 | Bấm một thông báo | Mở đúng trang, dòng liên quan **sáng nhấp nháy** vài giây; thông báo thành Đã đọc | [ ] | |
+| 4.3 | Trang Thông báo: lọc Chưa đọc / Đã đọc, đánh dấu đã đọc tất cả | Lọc đúng; số trên chuông về 0 | [ ] | |
+| 4.4 | Thông báo trỏ tới dữ liệu đã bị xóa | Báo nội dung không còn tồn tại, không vỡ trang | [ ] | |
+
+**Liên quan:** mọi trang có tạo thông báo (đặt bàn, kho, kiểm kê, yêu cầu khách, bếp hủy món, khuôn mặt).
 
 ---
 
-## B. Khách – trang đặt món (trường hợp khác)
+# Phần 2. Quản lý nhà hàng (`tuan.nguyen`)
 
-| # | Thao tác | Kết quả mong đợi | Đạt | Ghi chú |
+## Trang 5. Dashboard (`/quan-ly`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
 |---|---|---|---|---|
-| B1 | Mở `/goi-mon/abc` (mã sai) | "Mã QR không hợp lệ. Vui lòng liên hệ nhân viên." | [ ] | |
-| B2 | Quản lý cho một bàn **ngừng phục vụ** → mở QR bàn đó | "Bàn đang tạm ngừng phục vụ…" | [ ] | |
-| B3 | Sửa giờ mở cửa hôm nay để đang **ngoài giờ** → mở QR | Viên "Ngoài giờ phục vụ · mở lại …" trên ảnh bìa; xem được thực đơn, không gửi món được | [ ] | |
-| B4 | Có món trong giỏ → bếp đánh dấu món đó **tạm hết** → khách bấm Gửi | Món trong giỏ bị đánh dấu, báo xóa món hết mới gửi được | [ ] | |
-| B5 | Bàn chưa gọi món → bấm Thanh toán | "Bàn chưa có món nào để thanh toán" | [ ] | |
-| B6 | Gửi yêu cầu thanh toán rồi bấm **Hủy yêu cầu** (trước khi thu ngân lập hóa đơn) | Yêu cầu hủy, nút trở lại "Thanh toán" | [ ] | |
-| B7 | Mở cùng một mã QR trên 2 thiết bị, cả hai gửi món | Cùng vào 1 đơn (đợt 1, đợt 2…), không tạo 2 đơn | [ ] | |
-| B8 | Mở trang trên điện thoại thật; đổi điện thoại sang chế độ tối; kéo **dây đèn** trên ảnh bìa xuống rồi thả (thử cả bấm vào đèn) | Hiển thị gọn, không tràn ngang; trang tự tối theo điện thoại; kéo dây: đèn tắt, nền tối lan ra từ đèn, dây nảy + đèn đung đưa; kéo lại thì sáng; được nhớ khi tải lại | [ ] | |
-| B9 | Quản lý: Cấu hình hệ thống → Thông tin nhà hàng → tải **Ảnh bìa trang đặt món** → Lưu; mở lại trang khách | Ảnh bìa hiện đầu trang khách, có dòng "Chào mừng đến với …" | [ ] | |
-| B10 | Bấm **+** trên một món (giỏ đang trống), rồi bấm + thêm lần nữa | Ảnh món bay theo đường cong xuống thanh giỏ; thanh giỏ trượt lên, túi nảy, số món + tạm tính chạy số; nút + biến thành bộ tăng / giảm | [ ] | |
-| B11 | Bấm vào ảnh một món → cuộn trong chi tiết → bấm ⤢ → bấm nút đóng (mũi tên xuống) / vuốt xuống | Màn trượt lên mượt: nền ảnh món làm mờ, ảnh món bo tròn nổi phóng nhẹ, các khối hiện lần lượt; cuộn thì ảnh thu nhỏ, đầu màn hiện tên món; ⤢ xem ảnh toàn màn hình; đóng thì màn trượt xuống | [ ] | |
-| B12 | Mở **Phở bò Úc tái nạm**: chọn "Không hành", "Ghi chú khác" nhập "ít bánh", tăng số lượng → **Thêm · …** | Nút đổi "✓ Đã thêm", màn thu xuống **rồi** ảnh bay từ thẻ món vào giỏ (không khựng, không chạy chồng); giỏ có ghi chú "Không hành, ít bánh" | [ ] | |
-| B13 | Mở Giỏ món / Món của tôi → kéo phần đầu màn xuống | Màn trượt xuống và đóng | [ ] | |
-| B14 | Gửi món → Theo dõi món; bếp bắt đầu / xong món | Màn "Đã gửi tới bếp!" có tranh động ✓ + pháo giấy; Món của tôi có tranh động đổi theo giai đoạn + thanh 4 bước (Đã gửi → Đang nấu → Sẵn sàng → Đã mang ra) chạy tới bước hiện tại | [ ] | |
-| B15 | Điện thoại bật **Giảm chuyển động** (iPhone: Trợ năng → Chuyển động; Android: Hỗ trợ tiếp cận → Xóa hiệu ứng) rồi mở lại trang | Không còn hiệu ứng bay / trượt; dải danh mục thành hàng thẳng; tranh động đứng yên; mọi chức năng vẫn dùng được | [ ] | |
-| B16 | Quản lý đặt giờ đóng cửa hôm nay sớm hơn giờ hiện tại → mở trang khách | Góc trên ảnh bìa có viên "Ngoài giờ phục vụ · mở lại [giờ] sáng mai"; không còn khung vàng trên dải danh mục; giỏ món báo không gửi được | [ ] | |
-| B17 | Mở các món bít tết (Striploin, Tomahawk, Bít tết chảo gang) | Có khối **Độ chín** dạng thanh kéo màu thịt (5 mức, chọn sẵn Medium rare; kéo hoặc bấm tên mức; màu chấm + mô tả đổi theo mức) + **Sốt kèm** (chảo gang không có Sốt kèm) | [ ] | |
-| B18 | Mở 1 món **Lẩu**, 1 **Đồ uống** (Trà đào, Vang đỏ), 1 **Tráng miệng** | Ghi chú nhanh đúng loại: lẩu *Ít cay / Nước lẩu nhạt / Thêm nước chấm / Không hành* (không có "Không đá"); trà đào *Ít đá / Không đá / Ít ngọt*; vang *Ướp lạnh / Thêm đá*; tráng miệng *Ít ngọt…*; không món nào có độ chín | [ ] | |
-| B22 | Thu ngân mở một bàn trống, không gọi món → bấm **Đóng bàn** | Bàn về Trống; QR bàn đó lại báo "Bàn chưa mở" | [ ] | |
-| B23 | Mở bàn rồi để yên (Quản lý đặt Cấu hình → Gọi món tại bàn = 1 phút để thử nhanh) | Sau ~1–2 phút bàn tự đóng; đặt lại 30 phút sau khi thử | [ ] | |
-| B24 | Bàn đặt trước (tím) có khách đến → **Khách đã đến – Mở bàn** | Mở bàn với số khách của phiếu đặt; phiếu đặt chuyển "Đã đến" | [ ] | |
-| B25 | Bàn đã có món → tìm nút Đóng bàn | Không có nút Đóng bàn (phải dùng Hủy đơn kèm lý do) | [ ] | |
-| B20 | Phần **Bán chạy**: để yên vài giây; chạm / vuốt băng chuyền; để yên tiếp | Băng chuyền nền tối tự trượt chậm qua lại (tới #10 thì chậm dần, dừng ~1,5 giây rồi chạy ngược về #1), dừng khi chạm / vuốt, để yên ~4 giây lại chạy | [ ] | |
-| B21 | Mở **Món của tôi** / Giỏ món / Thanh toán rồi vuốt mạnh lên xuống tới mép danh sách (điện thoại thật) | Không lộ thực đơn phía sau, đóng màn thì trang thực đơn ở đúng chỗ cũ | [ ] | |
-| B26 | Cuộn tới mục **Đồ uống** → bấm nút **+** của thẻ **Nước ngọt có ga** | Không có ảnh bay vào giỏ; bảng chọn hiện 6 dòng (Coca-Cola, Coca Zero, Sprite, Fanta Cam, Fanta Nho, Sá xị) có − / +; tăng 3 Sprite + 2 Coca (bảng không đóng, nút đáy ghi "Thêm vào giỏ · 5 món · 175.000đ") → bấm nút: giỏ có 5 lon, bảng đóng, thẻ hiện 5 | [ ] | |
-| B26b | Mở lại bảng **Nước ngọt có ga** → giảm Sprite còn 2 → **Cập nhật giỏ**; mở lại, tăng thêm rồi bấm X đóng bảng | Bảng mở ra đã có sẵn số đang có trong giỏ; sau Cập nhật giỏ còn 4 lon; đóng bảng không bấm nút thì giỏ không đổi | [ ] | |
-| B26c | Trong bảng chọn, chạm ảnh / tên **Sprite**; rồi gõ tìm "sprite" | Mở chi tiết món Sprite (mô tả, thành phần, đặt như món thường); kết quả tìm kiếm hiện Sprite, dưới tên ghi **"Nước ngọt có ga"** | [ ] | |
-| B27 | Thẻ **Bia** / **Vang đỏ Úc** | Giá ghi "từ 45.000đ" / "từ 145.000đ"; bảng chọn có giá từng loại (ly / chai, chai / tươi) | [ ] | |
-| B28 | Bấm **+** ngoài thẻ một món bít tết (vd. Ribeye) rồi mở giỏ | Dòng món có ghi chú **"Medium rare, Sốt tiêu đen"** (không còn trống) | [ ] | |
-| B29 | Khu **Set menu** (ngay dưới Bán chạy) | Một khung giấy kem viền đôi vàng, chỉ hiện 1 set: ruy-băng chéo góc **"-10%"** (Set Steak), tên, danh sách món dòng chấm, giá set, giá gốc gạch ngang, "Tiết kiệm 157.000đ"; đáy khung có hàng chấm (3 chấm ngoài giờ trưa, 4 chấm trong 10:30–14:00); nền tối vẫn giữ màu giấy | [ ] | |
-| B29b | Đứng yên ở khu Set menu ~10 giây; rồi vuốt ngang | Tự sang set kế (chuyển nhanh, chấm đổi theo); tới set cuối thì chạy ngược lại; vuốt thì đổi ngay, dừng đúng một set, đợi lại ~9 giây mới tự chạy; các set cao bằng nhau, trang không nhảy | [ ] | |
-| B30 | Mở **Set Steak cho 2 người** → chọn độ chín / sốt riêng cho Striploin và Ribeye → **Thêm set** | Giỏ có 1 dòng set, bên dưới liệt kê món con kèm độ chín đã chọn | [ ] | |
-| B31 | Mở **Set Lẩu nhóm 4 người** → giảm Coca còn 2, thêm 2 Sprite | Chưa đủ 4 lon thì nút báo "Chọn đủ nước ngọt" và khóa; đủ 4 thì thêm được | [ ] | |
-| B32 | Gửi set (bàn đã mở) → Món của tôi | Mỗi món con hiện tên set; nút **"Hủy cả set"** khi bếp chưa làm; hủy → cả set về Đã hủy, tạm tính trừ đúng giá set | [ ] | |
-| B33 | Bếp đánh dấu **Bánh flan** tạm hết → tải lại trang khách | **Set Lẩu nhóm 4 người** biến mất khỏi khu Set menu (món con tạm hết thì ẩn cả set); bỏ tạm hết → set hiện lại | [ ] | |
-| B34 | Mở trang ngoài 10:30–14:00 | Không có **Set Bữa trưa văn phòng** | [ ] | |
-| B35 | Mở chi tiết **Ribeye** / một món **Lẩu** | Có hàng **"Gọi thêm cho món này"** (steak: khoai nghiền, salad, bánh mì bơ tỏi, 3 sốt; lẩu: bò nhúng, rau nấm, bún); bấm + → thêm thành dòng riêng trong giỏ | [ ] | |
-| B36 | Phần **Bán chạy** | Chỉ có món ăn (không có đồ uống, món Gọi thêm, set) | [ ] | |
-| B37 | Có ảnh bìa (biển hiệu ROYAL BEEF trên cửa kính) | Chữ ROYAL BEEF và tua rua không bị thanh tìm kiếm che; không hiện dòng "Chào mừng đến với …" đè lên ảnh; bỏ ảnh bìa trong Cấu hình thì dòng chào hiện lại | [ ] | |
-| B19 | Quản lý: Món ăn → **Danh mục món** → sửa 1 danh mục → bỏ ảnh → Lưu; mở lại trang khách; rồi tải ảnh khác → Lưu | Bỏ ảnh: vòng tròn hiện **chữ cái đầu**; tải ảnh mới: trang khách hiện ảnh mới; bật / tắt danh mục **không làm mất ảnh** | [ ] | |
+| 5.1 | Mở trang | Từ trên xuống: 4 thẻ số (Doanh thu, Số đơn đã thanh toán, Trung bình mỗi đơn, Số khách) → Doanh thu theo thời gian + Cơ cấu doanh thu → Giờ đông khách + Món bán chạy → Món đang lên / đang xuống + Kho cần chú ý. Không có chỗ trống lạ | [ ] | |
+| 5.2 | Đổi khoảng thời gian ở **góc trên phải** (Hôm nay / Hôm qua / 7 ngày / 30 ngày / Tháng này / Tháng trước) | **Cả trang** đổi theo. Lúc chờ, số cũ mờ đi rồi số chạy sang số mới, không nháy trắng | [ ] | |
+| 5.3 | Xem 4 thẻ số | Mỗi thẻ có nhãn % xanh (tăng) / đỏ (giảm) và dòng "so với hôm qua / 7 ngày trước đó…" (máy tính); kỳ trước bằng 0 thì ghi "Kỳ trước chưa có". Số khách ít hơn số đơn thì có dòng "Chỉ đếm bàn có ghi số khách lúc mở bàn" | [ ] | |
+| 5.4 | Bật **So sánh kỳ trước**, rê chuột lên biểu đồ doanh thu | Có thêm đường nét đứt "Kỳ trước"; hiện số tiền của mốc đó, định dạng đúng | [ ] | |
+| 5.5 | Cơ cấu doanh thu: đổi **Theo danh mục / Theo cách trả tiền** | Vòng tròn tối đa 5 phần + "Khác", tổng ở giữa; danh sách bên dưới có số tiền và %; cộng lại bằng doanh thu | [ ] | |
+| 5.6 | Giờ đông khách: đổi **Số đơn / Số khách** | Cột giờ đông nhất tô đậm; dòng mô tả "Đông nhất 19:00–20:00 · x% đơn" | [ ] | |
+| 5.7 | Món bán chạy: tab Bán chạy / Bán chậm, lọc **Món ăn** (mặc định) / Đồ uống / Tất cả | Tối đa 5 món, có ảnh nhỏ, số phần, doanh thu, thanh tỷ lệ; Bán chậm có món "Chưa bán". Không có nút Sửa | [ ] | |
+| 5.8 | Món đang lên / đang xuống | 3 món tăng mạnh nhất, 3 món giảm mạnh nhất so với kỳ trước (số phần cũ → mới, %); món mới bán ghi "Mới bán" | [ ] | |
+| 5.9 | Kho cần chú ý | Số nguyên liệu cần nhập thêm, phiếu chờ nhận, nợ nhà cung cấp + 3 nguyên liệu sắp hết; bấm "Xem công nợ nhà cung cấp" sang trang Công nợ | [ ] | |
+| 5.10 | Chọn kỳ chưa có hóa đơn nào (vd. Hôm nay lúc sáng sớm trên dữ liệu mới) | 4 thẻ hiện 0, có ô "Kỳ này chưa có hóa đơn nào được thanh toán"; khối Kho vẫn hiện | [ ] | |
+| 5.11 | Điện thoại (rộng ~390px) | 4 thẻ số xếp 2 × 2, các khối xếp dọc, không tràn ngang | [ ] | |
 
-## C. Bếp
+**Liên quan:** Hóa đơn (40), trang Kho (20–27).
 
-| # | Thao tác | Kết quả mong đợi | Đạt | Ghi chú |
+## Trang 6. Đặt bàn → Lịch sử (`/quan-ly/dat-ban/lich-su`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
 |---|---|---|---|---|
-| C0 | Khách gửi một set (vd. Set Steak) | Món con hiện riêng từng phiếu, có nhãn **"SET · Steak cho 2 người"** | [ ] | |
-| C1 | Đổi cách xem **Theo món** | Gộp số lượng cùng món từ nhiều bàn | [ ] | |
-| C2 | Lọc **Mới / Đang làm** và bấm viên danh mục | Chỉ còn món đúng trạng thái / danh mục; số trên mỗi mục đúng | [ ] | |
-| C3 | Thẻ chờ lâu | Đồng hồ + viền thẻ đổi vàng (≥10′), cam (≥20′), đỏ (≥30′) — theo mốc mặc định | [ ] | |
-| C4 | Bấm **Hủy** 1 món còn chờ → chọn lý do "Hết nguyên liệu", tick đánh dấu tạm hết | Món hủy; khách thấy lý do; thu ngân nhận **thông báo** "Bếp hủy món…"; món thành tạm hết | [ ] | |
-| C5 | Bấm vào tên bàn trên thẻ | Mở chi tiết đơn của bàn | [ ] | |
-| C6 | **Món tạm hết** → bật / tắt một món | Khách thấy món hết / bán lại ngay | [ ] | |
-| C7 | Rút mạng / tắt backend rồi bật lại | Báo "Mất kết nối", tự nối lại và cập nhật | [ ] | |
-| C8 | **Kiểm tra nguyên liệu** → Theo món | Món ít phần nhất ở trên; nguyên liệu giới hạn; món chưa có công thức có link "Khai báo công thức" | [ ] | |
-| C9 | Món còn 0 phần → **Đánh dấu tạm hết** | Món thành tạm hết hôm nay | [ ] | |
-| C10 | **Theo nguyên liệu**, lọc "Sắp hết" | Tồn, tồn tối thiểu, tình trạng, các món dùng nguyên liệu | [ ] | |
-| C11 | **Công thức** → lọc "Chưa có" → chọn món → thêm 2 nguyên liệu, định lượng 0 → Lưu | Báo "Định lượng phải lớn hơn 0" tại dòng | [ ] | |
-| C12 | Nhập định lượng đúng (vd. 0,15) → Lưu | "Đã lưu công thức …"; giá vốn / phần và % giá bán hiện ra; Kiểm tra nguyên liệu có số phần của món | [ ] | |
-| C13 | Chọn trùng nguyên liệu | Nguyên liệu đã chọn bị mờ trong danh sách / báo trùng | [ ] | |
-| C14 | Sửa dở rồi bấm sang món khác | Hỏi "Bỏ thay đổi?" | [ ] | |
-| C15 | Xóa hết dòng → Lưu | Hỏi xác nhận; món về "Chưa có công thức" | [ ] | |
-| C16 | Kho: mở chi tiết nguyên liệu vừa dùng | Mục "Món đang dùng" có món vừa khai báo | [ ] | |
-| C17 | Bàn gọi 2–3 đợt | Chỉ **một thẻ** cho bàn; đợt mới nhất ở trên, mỗi đợt có giờ gọi + đồng hồ riêng | [ ] | |
-| C18 | ⚙ Cài đặt → Nền **Tối**, Số cột **3**, Cỡ chữ **Lớn**; tải lại trang | Áp dụng ngay; tải lại vẫn giữ; trang Kiểm tra nguyên liệu / Công thức cũng nền tối | [ ] | |
-| C19 | ⚙ → Mốc màu: sửa 10 → 5 phút, đổi màu, **Thêm mốc** đến 4; **Khôi phục mặc định** | Đồng hồ đổi màu theo mốc mới; tối đa 4 mốc; khôi phục về 10/20/30 | [ ] | |
-| C20 | ⚙ → Danh mục phụ trách: chọn **Đồ uống** (giả làm quầy pha chế); khách gọi 1 đồ uống + 1 món chính | Dải lọc hiện "Trạm: Đồ uống"; chỉ thấy + chỉ kêu cho đồ uống; máy khác (không chọn) thấy cả hai | [ ] | |
-| C21 | Bàn phím rời: bấm số ở góc thẻ → **Space** → **Enter**; **← →**; **Esc** | Thẻ được viền chọn; Space bắt đầu món mới; Enter xong; mũi tên chuyển thẻ; Esc bỏ chọn | [ ] | |
-| C22 | Thu ngân hủy 1 món còn chờ của bàn đang có món ở bếp | Thẻ bếp hiện **ĐÃ ĐỔI – Thu ngân hủy lúc …** trong 10 phút, có âm báo | [ ] | |
+| 6.1 | Mở trang | Thẻ tóm tắt: Lịch đặt hôm nay, Khách dự kiến hôm nay, Chờ xác nhận; bảng: Mã đặt, Khách hàng, Thời gian, Số khách, Khu vực / Bàn, Trạng thái | [ ] | |
+| 6.2 | Lọc theo ngày, trạng thái, khu vực; tìm; **Xóa bộ lọc** | Kết quả đúng; xóa bộ lọc về mặc định | [ ] | |
+| 6.3 | Thêm lịch tại quầy: để trống, SĐT sai → Lưu; rồi điền đúng | Lỗi dưới từng ô; lưu xong lịch xuất hiện trong bảng | [ ] | |
+| 6.4 | Xếp bàn cho lịch; chọn bàn đã có lịch trùng giờ | Xếp được; trùng giờ thì báo, không cho lưu | [ ] | |
+| 6.5 | Đổi trạng thái: Xác nhận → Khách đến; một lịch khác → Hủy | Trạng thái đổi màu đúng; số ở thẻ tóm tắt cập nhật | [ ] | |
+| 6.6 | Mở chi tiết một lịch | Đủ thông tin, ghi chú, "Cập nhật lần cuối" | [ ] | |
+| 6.7 | Lịch đặt từ website (trang 49) | Có trong bảng, phân biệt được là lịch online | [ ] | |
 
-## D. Thu ngân (trường hợp khác)
+**Liên quan:** Sơ đồ bàn thu ngân (36, bàn tím), Đặt bàn website (46.13, 49), Thông báo (4).
 
-| # | Thao tác | Kết quả mong đợi | Đạt | Ghi chú |
+## Trang 7. Đặt bàn → Cập nhật form (`/quan-ly/dat-ban/cap-nhat`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
 |---|---|---|---|---|
-| D-POS1 | Thu ngân đăng nhập | Mở khu POS toàn màn hình (không có menu trái), tab Sơ đồ bàn / Đơn hàng / Yêu cầu thanh toán / Hóa đơn có số đếm | [ ] | |
-| D-POS2 | Xem sơ đồ từng khu vực, phóng to / thu nhỏ | Bàn đúng hình + ghế theo số ghế, đúng vị trí như trang Khu vực bàn; màu đúng trạng thái; dải chú thích đếm đúng | [ ] | |
-| D-POS3 | Khách quét QR gọi nhân viên ở một bàn | Sơ đồ **thu ngân không đổi** (yêu cầu hỗ trợ do phục vụ xử lý, xem H); khách bấm *Yêu cầu thanh toán* thì bàn chuyển vàng, tab Yêu cầu thanh toán tăng số | [ ] | |
-| D-POS4 | Để một món chờ bếp quá 25 phút | Bàn chuyển đỏ "Quá giờ"; bảng bên phải ghi "n món chờ quá 25′" | [ ] | |
-| D-POS5 | Quản lý tạo đặt bàn cho một bàn trống, giờ đến trong 2 giờ tới | Bàn tím, dưới bàn có tên + giờ đến; tab "Đặt bàn hôm nay" có phiếu (tô nổi) | [ ] | |
-| D-POS6 | Bấm bàn có khách → bấm số khách 3 | Bàn hiện 3/[số ghế]; "Khách đang ngồi" ở đáy tăng | [ ] | |
-| D-POS7 | Bảng bên phải → **In tạm tính** | Cửa sổ in "PHIẾU TẠM TÍNH"; bàn không bị khóa, khách vẫn gọi thêm được | [ ] | |
-| D-POS8 | Bảng bên phải → Chuyển bàn / Lập hóa đơn → Thu tiền | Hoạt động như trước; sau thu tiền bàn về Trống | [ ] | |
-| D-POS9 | Bấm **Văn phòng** → Chấm công → **Về quầy thu ngân** | Sang khung quản lý (Chấm công, Bảng lương, Thông báo), quay lại sơ đồ bàn | [ ] | |
-| D-POS10 | Máy tính bảng dọc (≈800px) bấm một bàn | Bảng bàn hiện dạng lớp phủ bên phải; tab trên cùng chỉ còn biểu tượng | [ ] | |
-| D1 | Chi tiết đơn có món Chờ chế biến → **Hủy** món, không chọn lý do | Nút Hủy món bị khóa | [ ] | |
-| D2 | Chọn lý do → Hủy món | Món hủy (Thu ngân hủy + tên), bếp mất món, tạm tính giảm | [ ] | |
-| D3 | Đơn chỉ có món chờ / đã hủy → **Hủy đơn** (lý do Khách bỏ về) | Đơn Đã hủy, bàn Trống, yêu cầu đang chờ của bàn hủy theo | [ ] | |
-| D4 | Đơn có món đang / đã làm | Không có nút Hủy đơn | [ ] | |
-| D5 | **Chuyển bàn** sang bàn Trống | "Đã chuyển đơn … sang bàn …"; bàn cũ Trống; bếp hiện tên bàn mới; QR bàn cũ không còn thấy đơn | [ ] | |
-| D6 | Chuyển sang bàn **Đặt trước** | Hỏi lại "Bàn đang được giữ cho lịch đặt…" | [ ] | |
-| D7 | **In tạm tính** | Bản in ghi rõ "không phải hóa đơn" | [ ] | |
-| D8 | Lập hóa đơn rồi chọn **Để sau** | Đơn "Chờ thanh toán", có nút **Thu tiền HD…** | [ ] | |
-| D9 | **Hóa đơn** → mở hóa đơn chưa thanh toán → **Hủy hóa đơn**, lý do 3 ký tự | Báo "ít nhất 5 ký tự" | [ ] | |
-| D10 | Lý do đúng → Hủy | Hóa đơn Đã hủy; đơn mở khóa; khách gọi thêm món được | [ ] | |
-| D11 | Hóa đơn đã thanh toán | Không có nút Hủy / Thu tiền, chỉ In | [ ] | |
-| D12 | Danh sách Hóa đơn: lọc trạng thái, hình thức, tìm theo mã | Đúng kết quả; dưới bảng có tổng đã thu theo từng hình thức | [ ] | |
-| D13 | Chọn khoảng ngày > 31 ngày | Báo "Khoảng ngày tối đa 31 ngày" | [ ] | |
-| D14 | **Đơn hàng**: lọc Đang mở / Chờ thanh toán / Hoàn tất / Đã hủy, tìm mã bàn | Đúng kết quả; bấm mã đơn mở chi tiết | [ ] | |
-| D15 | Xử lý yêu cầu thanh toán sẵn có của **VIP01** từ trang Yêu cầu → **Lập hóa đơn** | Mở đúng chi tiết đơn VIP01 | [ ] | |
-| D16 | **Thông báo** (chuông) | Có thông báo yêu cầu khách / bếp hủy món; bấm vào mở đúng trang, dòng liên quan sáng nhấp nháy | [ ] | |
-| D17 | **Chấm công**: xem tháng này | Danh sách + tổng giờ theo nhân viên; 2 dòng "Thiếu giờ ra" | [ ] | |
-| D18 | **Nhập từ Excel** → Tải file mẫu → mở bằng Excel, sửa 3–4 dòng (có 1 dòng sai tên đăng nhập, 1 dòng ngày 31/02) → chọn file | Xem trước: dòng Hợp lệ / Lỗi kèm lý do | [ ] | |
-| D19 | **Tải các dòng lỗi** | File Excel có cột "Lỗi" | [ ] | |
-| D20 | **Nhập n dòng hợp lệ** | Báo số dòng đã nhập; dòng mới hiện nguồn "Excel" | [ ] | |
-| D21 | Nhập lại cùng file | Các dòng thành **Trùng**; chọn Bỏ qua / Ghi đè hoạt động đúng | [ ] | |
-| D22 | **Thêm chấm công** tay, bỏ trống ghi chú | Báo "Vui lòng nhập ghi chú" | [ ] | |
-| D23 | Thêm dòng chồng giờ với dòng có sẵn | Báo "Chồng giờ…" | [ ] | |
-| D24 | Giờ vào 22:00, giờ ra 06:00 | Lưu được, ghi "(+1 ngày)", 8 giờ | [ ] | |
-| D25 | Sửa / xóa dòng của tháng trước (kỳ đã chốt) | Hiện "Đã chốt", không có nút sửa / xóa | [ ] | |
-| D26 | **Bảng lương** → kỳ tháng trước | Đã chốt; mở xem được, không sửa được; In phiếu lương | [ ] | |
-| D27 | **Tạo kỳ lương** trùng khoảng ngày tháng trước | Báo "Khoảng ngày trùng với kỳ …" | [ ] | |
-| D28 | Tạo kỳ tháng này | Bảng lương từng nhân viên, cảnh báo dòng thiếu giờ ra | [ ] | |
-| D29 | Bút chì 1 nhân viên → phụ cấp 200.000 không ghi chú | Báo cần ghi chú | [ ] | |
-| D30 | Nhập ghi chú → Lưu | Thực lĩnh tăng đúng 200.000 | [ ] | |
-| D31 | **Chốt bảng lương** | Bị chặn: còn thiếu giờ ra / kỳ chưa kết thúc | [ ] | |
-| D32 | Sửa 2 dòng thiếu giờ ra ở Chấm công → quay lại → **Tính lại** | Giờ công cập nhật, phụ cấp vẫn giữ | [ ] | |
-| D33 | **In bảng lương**, **In phiếu lương** | Bản in đúng số liệu, phiếu lương có chi tiết ngày công | [ ] | |
+| 7.1 | Mở trang | Nhóm "Khung giờ & thời lượng", "Trường thông tin & xử lý", "Lưu ý hiển thị cho khách", khung **Xem trước form của khách** | [ ] | |
+| 7.2 | Đổi Bước chọn giờ, thời lượng; bật / tắt Bắt buộc email, Cho phép ghi chú, Cho phép chọn khu vực, Tự động xác nhận | Khung xem trước đổi ngay | [ ] | |
+| 7.3 | Lưu → mở trang Đặt bàn website (49) | Form của khách đúng cấu hình vừa lưu | [ ] | |
 
-## E. Quản lý nhà hàng
+**Liên quan:** Đặt bàn website (49).
 
-| # | Trang | Thao tác | Kết quả mong đợi | Đạt | Ghi chú |
-|---|---|---|---|---|---|
-| E1 | Dashboard | Đổi mốc: Hôm nay / Hôm qua / 7 ngày / 30 ngày / Tháng này / Tháng trước; bật **So sánh kỳ trước** | Biểu đồ + tổng, số đơn, trung bình đổi theo; đường kỳ trước hiện khi bật so sánh | [ ] | |
-| E2 | Dashboard | Thẻ **Món ăn**: tab Bán chạy / Bán chậm | 5 món mỗi tab, thanh tỷ lệ | [ ] | |
-| E3 | Dashboard | Thẻ **Kho trong kỳ** | Chi phí nhập, phiếu chờ nhận, công nợ, nguyên liệu sắp hết | [ ] | |
-| E4 | Đặt bàn → Lịch sử | Lọc, tìm; đổi trạng thái lịch (xác nhận, khách đến, hủy…); thêm lịch tại quầy | Đúng trạng thái, không trùng bàn trùng giờ | [ ] | |
-| E5 | Đặt bàn → Cập nhật form | Sửa cấu hình form đặt bàn → Lưu | Lưu thành công | [ ] | |
-| E6 | Khu vực bàn | Thêm khu vực, thêm bàn, kéo bàn trên sơ đồ, sửa số ghế, ngừng phục vụ | Lưu đúng; bàn ngừng hiện mờ ở sơ đồ thu ngân | [ ] | |
-| E7 | Khu vực bàn | **Mã QR** → In | Bản in mã QR kèm tên bàn | [ ] | |
-| E8 | Món ăn | Thêm món (ảnh, giá, danh mục, dị ứng, độ cay) → Lưu | Món hiện ở trang khách | [ ] | |
-| E8b | Món ăn → Danh mục món | Thêm danh mục "Món chay" kèm ảnh → Lưu; thêm 1 món vào danh mục | Danh mục có ảnh tròn trong danh sách; trang khách có vòng tròn "Món chay" với ảnh vừa tải, ghi chú nhanh kiểu món chay | [ ] | |
-| E8c | Món ăn → **Nhóm món** | Thêm nhóm "Trà các loại" (Đồ uống, có ảnh); sửa món Trà đào → Nhóm hiển thị = Trà các loại, Tên loại = "Trà đào" → Lưu; xem trang khách; xóa nhóm | Trang khách có thẻ nhóm mới; xóa nhóm → món trở lại đứng riêng (không mất món) | [ ] | |
-| E8d | Món ăn → **Set menu** | Thêm set: chọn 2–3 món, số lượng, cho đổi loại món nước ngọt, giá, giờ bán, ảnh → Lưu; tắt "Bán trên thực đơn" | Thẻ hiện giá set / giá gốc / khách tiết kiệm; set có trên trang khách, tắt thì ẩn; Chatbot → Quản lý thực đơn hiện tóm tắt set | [ ] | |
-| E9 | Món ăn | Ngừng bán một món | Món biến mất khỏi trang khách | [ ] | |
-| E10 | Nhân viên → Ca làm | Tạo ca, xếp ca theo tuần; xếp trùng giờ | Báo trùng ca | [ ] | |
-| E11 | Kho → Duyệt kiểm kê | Duyệt / từ chối phiếu kiểm kê chờ duyệt (xem mục F) | Phiếu đổi trạng thái; kho nhận thông báo | [ ] | |
-| E12 | Kho → Công nợ NCC | Xem công nợ theo nhà cung cấp | Số khớp bên Kho | [ ] | |
-| E13 | Bài viết | Thêm / sửa / ẩn bài viết | Lưu đúng | [ ] | |
-| E14 | Tài khoản | Thêm tài khoản Thu ngân → đăng nhập tài khoản mới | Bị bắt **đổi mật khẩu** lần đầu | [ ] | |
-| E15 | Tài khoản | Khóa tài khoản đang đăng nhập ở cửa sổ khác | Cửa sổ kia bị đăng xuất ở thao tác kế tiếp | [ ] | |
-| E16 | Chatbot AI | Sửa cấu hình, FAQ | Lưu được (lịch sử hội thoại / thống kê còn **dữ liệu giả** — chờ làm AI) | [ ] | |
-| E17 | Nhật ký | Lọc module **Thu ngân**, **Bếp**, **Chấm công – lương** | Thấy thao tác vừa test (lập / hủy hóa đơn, hủy món, chuyển bàn, nhập chấm công…) | [ ] | |
-| E18 | Cấu hình → Thông tin | Sửa tên / địa chỉ / SĐT nhà hàng | Hóa đơn in ra dùng thông tin mới | [ ] | |
-| E19 | Cấu hình → Giờ mở cửa | Sửa giờ | Trang khách chặn / cho gửi món theo giờ mới | [ ] | |
-| E20 | Cấu hình → **Thanh toán** | Nhập số TK 2 ký tự → Lưu; sửa đúng → Lưu | Báo lỗi tại ô; lưu được; mã QR trên hóa đơn mới dùng TK mới | [ ] | |
-| E21 | Cấu hình → Sao lưu | Tạo bản sao lưu, tải về | Có file .zip (phục hồi chỉ thử trên CSDL dev) | [ ] | |
+## Trang 8. Sơ đồ bàn (`/quan-ly/khu-vuc-ban`)
 
-## F. Quản lý kho
-
-| # | Trang | Thao tác | Kết quả mong đợi | Đạt | Ghi chú |
-|---|---|---|---|---|---|
-| F1 | Dashboard kho | Xem số liệu | Giá trị tồn, sắp hết / hết, phiếu chờ nhận, biểu đồ nhập – xuất | [ ] | |
-| F2 | Nguyên liệu | Thêm nguyên liệu (trùng tên → lỗi), sửa định mức tối thiểu | Lưu đúng; tình trạng Sắp hết / Hết đổi theo | [ ] | |
-| F3 | Nguyên liệu | Chi tiết: lịch sử biến động, nhà cung cấp, món đang dùng | Hiện đủ | [ ] | |
-| F4 | Nhà cung cấp | Thêm NCC, gắn nguyên liệu + giá theo đơn vị mua | Lưu đúng, có lịch sử đổi giá | [ ] | |
-| F5 | Phiếu mua | Tạo phiếu (nháp) → sửa → gửi | Trạng thái Đang chờ nhận | [ ] | |
-| F6 | Phiếu mua | **Nhận hàng** một phần, rồi nhận nốt | Nhận một phần → Đã nhận đủ; tồn kho tăng; giá vốn bình quân đổi | [ ] | |
-| F7 | Nhập kho | Nhập **không theo phiếu** | Tồn tăng, có phiếu nhập | [ ] | |
-| F8 | Xuất kho | Xuất cho bếp / xuất hủy; xuất quá tồn | Tồn giảm; quá tồn bị chặn; tồn dưới tối thiểu → thông báo cho Kho + Quản lý | [ ] | |
-| F9 | Kiểm kê | Tạo phiếu, nhập số thực tế lệch → gửi duyệt | Chờ duyệt; Quản lý nhận thông báo | [ ] | |
-| F10 | Kiểm kê | Quản lý **duyệt** (mục E11) | Tồn điều chỉnh theo số thực tế; kho nhận thông báo | [ ] | |
-| F11 | Kiểm kê | Phiếu bị **từ chối** | Kho thấy lý do từ chối | [ ] | |
-| F12 | Công nợ NCC | Ghi nhận thanh toán cho NCC (tiền mặt / chuyển khoản) | Công nợ giảm; phiếu mua đổi trạng thái thanh toán | [ ] | |
-
-## G. Chung cho mọi vai trò
-
-| # | Thao tác | Kết quả mong đợi | Đạt | Ghi chú |
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
 |---|---|---|---|---|
-| G1 | Đăng nhập sai mật khẩu | Báo lỗi, không vào được | [ ] | |
-| G2 | Mỗi vai trò gõ đường dẫn của vai trò khác (vd. Bếp mở `/thu-ngan`) | Bị chuyển về trang của mình / không xem được dữ liệu | [ ] | |
-| G3 | Đổi mật khẩu (menu tài khoản góc phải) | Đổi được, đăng nhập lại bằng mật khẩu mới | [ ] | |
-| G4 | Ô tìm kiếm đầu trang (Ctrl+K) | Gợi ý đúng các trang của vai trò đó | [ ] | |
-| G5 | Bật chế độ tối (Quản lý / Kho / Thu ngân) | Chữ, bảng, hộp thoại đọc rõ; mã QR vẫn nền trắng | [ ] | |
-| G6 | Thu nhỏ cửa sổ / mở trên máy tính bảng | Menu thu gọn, bảng cuộn ngang, không vỡ bố cục | [ ] | |
-| G7 | Để yên quá 2 giờ rồi thao tác | Hết phiên, đưa về trang đăng nhập | [ ] | |
+| 8.1 | Mở trang (menu trái **Sơ đồ bàn**, một mục) | Chọn tầng ở đầu trang (Tầng 1 · Tầng 2, kèm số bàn); 3 kiểu xem: Xem trực tiếp · Sửa sơ đồ · Danh sách bàn | [ ] | |
+| 8.2 | **Xem trực tiếp** Tầng 1, Tầng 2 | Vẽ cả tầng: tường ngoài, vách trong, hàng rào, vùng khu tô gạch chéo có tên; bàn cùng màu / cùng kiểu với thu ngân (đã ngồi bao lâu, giờ đặt, tạm tính); chú thích màu có số đếm. Bấm bàn → khung phải: khu, khách / ghế, đơn, đặt trước, nút Sửa thông tin, Mã QR | [ ] | |
+| 8.3 | **Thêm tầng** (để trống tên, kích thước 3 ô; đúng); ⋯ → Đổi tên, kích thước; thu nhỏ làm mất bàn; Xóa tầng còn khu | Lỗi tại ô; tầng mới có sẵn tường ngoài; thu nhỏ quá bị chặn; tầng còn khu không xóa được | [ ] | |
+| 8.4 | **Thêm khu vực** (chọn tầng; trùng tên); sửa khu đang có bàn sang tầng khác | Thêm được; khu còn bàn không chuyển tầng được | [ ] | |
+| 8.5 | **Sửa sơ đồ** → Chọn & kéo: kéo bàn sang ô trống; kéo vào ô đã có bàn; kéo bàn vào vùng khu khác | Ô đích tô xanh / đỏ; trùng ô báo "Ô này đã có bàn …"; bàn kéo vào vùng khu khác thì đổi khu (khung "Đang chọn" ghi "sẽ đổi khi lưu") | [ ] | |
+| 8.6 | **Vẽ tường** (Tường ngoài / Vách trong / Hàng rào): kéo ngang, dọc; bấm đoạn tường → đổi loại, Xóa (hoặc phím Delete) | Tường luôn thẳng; đổi loại / xóa được | [ ] | |
+| 8.7 | **Vẽ vùng khu**: chọn khu → kéo khoanh vùng; vẽ chồng lên khu khác; Xóa vùng | Vùng hiện tên khu; chồng vùng bị báo; bàn trong vùng mới thuộc khu đó | [ ] | |
+| 8.8 | Hoàn tác / Làm lại (nút hoặc Ctrl+Z / Ctrl+Y); thanh dưới đáy **Hủy thay đổi** / **Lưu**; đổi tầng / kiểu xem / trang khi chưa lưu | Thanh ghi "Chưa có thay đổi trên sơ đồ" / "Có thay đổi chưa lưu"; rời đi khi chưa lưu thì hỏi; Lưu xong tải lại vẫn giữ; thu ngân / phục vụ thấy sơ đồ mới | [ ] | |
+| 8.9 | **Thêm bàn** (đầu trang hoặc khung trái): mã, số ghế, hình dạng | Bàn vào ô trống trong vùng của khu, đúng hình, số ghế | [ ] | |
+| 8.10 | **Danh sách bàn**: bảng khu vực (số bàn, vùng trên sơ đồ, trạng thái, Sửa · ⋯ Xóa) và bảng bàn (Sửa · ⋯ Mã QR, Xóa); sửa bàn → Tạm ngưng | Bàn tạm ngưng sọc xám trên sơ đồ thu ngân / phục vụ; QR bàn đó báo tạm ngừng | [ ] | |
+| 8.11 | **Mã QR gọi món** → Sao chép đường dẫn, In | Bản in có mã QR + tên bàn; quét bằng điện thoại mở đúng bàn | [ ] | |
+| 8.12 | Xóa bàn / khu đang có khách hoặc có lịch đặt | Bị chặn, có giải thích, không mất đơn đang mở | [ ] | |
 
-## H. Nhân viên phục vụ & chấm công khuôn mặt (từ V20)
+**Liên quan:** Sơ đồ thu ngân (36, xem từng khu — khung cắt quanh vùng khu, có tường), Sơ đồ phục vụ (31, có thông báo "sơ đồ thay đổi"), Trang QR (44).
 
-Đăng nhập bằng điện thoại (hoặc thu nhỏ trình duyệt). Tài khoản mẫu: `nam.hoang` (Tầng 1), `vy.ngo` (Tầng 1),
-`phuc.do` (Tầng 2), `quynh.ly` (Sân vườn), `binh.vu` (Phòng VIP) — khu được gán theo ca trong dữ liệu mẫu.
-**Camera trên điện thoại chỉ mở được qua HTTPS** (laptop mở `http://localhost` thì được) — xem
-[TRIEN_KHAI.md](../trien-khai/TRIEN_KHAI.md) mục "Chấm công khuôn mặt".
+## Trang 9. Thực đơn – tab Món ăn, Danh mục, Nhóm món (`/quan-ly/mon-an`, `/danh-muc`, `/nhom-mon`)
 
-| # | Thao tác | Kết quả mong đợi | Đạt | Ghi chú |
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
 |---|---|---|---|---|
-| H1 | Phục vụ đăng nhập | Vào `/phuc-vu`; thanh trên ghi ca hiện tại + khu (vd. "Ca gãy 10:00–14:00 · Tầng 1"); thanh dưới 5 tab: Sơ đồ · Yêu cầu · Mang món · Thực đơn · Tôi | [ ] | |
-| H2 | Sơ đồ bàn | Mở sẵn khu "Của tôi"; chuyển tab xem được khu khác; bàn vẽ đúng vị trí như trang Quản lý → Khu vực bàn; không có doanh thu | [ ] | |
-| H3 | Quản lý (máy khác) di chuyển một bàn ở Tầng 1 | Phục vụ thấy thông báo "Quản lý vừa thay đổi sơ đồ Tầng 1" và sơ đồ đổi ngay, không cần tải lại | [ ] | |
-| H4 | Bấm bàn trống → chọn số khách → **Mở bàn** | Bảng bàn trượt lên; bàn chuyển Có khách; mã QR của bàn gọi món được | [ ] | |
-| H5 | **Gọi món cho khách** → thêm 2 món, ghi chú "ít cay" → Xem giỏ → **Gửi bếp** | Về sơ đồ, báo đã gửi; bếp thấy món; món ghi là nhân viên gọi | [ ] | |
-| H6 | Bếp bấm xong món → phục vụ tab **Mang món** → **Đã mang hết** | Món chuyển "Đã mang"; khách thấy món đã mang ra | [ ] | |
-| H7 | Bàn có khách → **Chuyển bàn** sang bàn trống; bàn khác → **Ghép bàn** vào bàn đang có khách | Chuyển: bàn cũ Trống. Ghép: món + số khách gộp sang bàn đích, bàn cũ Trống | [ ] | |
-| H8 | Khách ở Tầng 2 gọi nhân viên | Chỉ phục vụ Tầng 2 (`phuc.do`) thấy; khu không ai được gán trong ca thì mọi phục vụ trong ca thấy | [ ] | |
-| H9 | Tab **Thực đơn** → bấm một món | Thấy thành phần, dị nguyên, độ cay, món đã hết | [ ] | |
-| H10 | Tab **Tôi** → Chấm công → tick đồng ý → **Mở camera đăng ký** → làm theo hướng dẫn (nhìn thẳng → quay đầu → nhìn thẳng) | Gửi khuôn mặt, trạng thái "Đang chờ quản lý duyệt" kèm ảnh; quản lý nhận thông báo | [ ] | |
-| H11 | Quản lý → Quản lý nhân viên → **Khuôn mặt chấm công** → **Duyệt** (thử thêm Từ chối có lý do) | Phục vụ nhận thông báo; từ chối thì phục vụ thấy lý do và đăng ký lại được | [ ] | |
-| H12 | Quản lý → Cấu hình hệ thống → **Chấm công** → nhập một IP khác IP máy → Lưu; phục vụ thử Vào ca | Báo "Bạn cần kết nối WiFi của quán"; bấm **Thêm IP hiện tại** rồi Lưu thì chấm được | [ ] | |
-| H13 | Phục vụ (đang có ca) → **Vào ca bằng khuôn mặt** | Lưu giờ vào; vào sau giờ bắt đầu ca thì ghi "Đi trễ n phút"; người khác đứng trước camera → "Khuôn mặt không khớp" | [ ] | |
-| H14 | **Tan ca bằng khuôn mặt** | Lưu giờ ra; về trước giờ kết thúc ca ghi "Về sớm n phút" | [ ] | |
-| H15 | Thu ngân → Văn phòng → **Chấm công** | Dòng nguồn "Khuôn mặt", có Trễ / Về sớm; bấm biểu tượng camera xem ảnh vào / tan ca kèm độ lệch | [ ] | |
-| H16 | Tab **Tôi** → Ca làm / Lịch sử / Phiếu lương / Hồ sơ | Ca theo tuần có khu; lịch sử theo tháng xem được ảnh; phiếu lương kỳ đã chốt in được; sửa email / SĐT được | [ ] | |
-| H17 | Thu ngân bấm **Chấm công** trên thanh trên; Bếp bấm tab **Chấm công** | Cùng trang "Thông tin của tôi" như phục vụ | [ ] | |
-| H18 | Quản lý → Quản lý ca làm (mặc định **Theo ca**) → bấm tên phục vụ trong ô ca hôm nay → đổi khu | Ô ca hiện khu mới; phục vụ thấy khu mặc định đổi trên sơ đồ; nút "Theo nhân viên" đổi về kiểu cũ | [ ] | |
-| H19 | Phục vụ **chưa vào ca** mở `/phuc-vu`, bấm một bàn | Thanh vàng "Bạn chưa vào ca — chỉ xem"; mọi nút trong bảng bàn bị khóa; khách gọi nhân viên → không có âm báo / thông báo | [ ] | |
-| H20 | Phục vụ đã vào ca; khách ở khu đó gửi 2 món qua QR | Bàn hiện thẻ hồng **Chờ xác nhận** ở đầu danh sách, có âm báo; bếp chưa thấy món; khách thấy "đang chờ nhân viên xác nhận" | [ ] | |
-| H21 | Tab **Yêu cầu** → Đơn chờ xác nhận → bấm **Bỏ món** ở 1 món, nhập lý do → **Xác nhận 1 món, chuyển bếp** | Bếp thấy món còn lại; khách thấy món bị bỏ kèm lý do; thu ngân xem đơn thấy "Xác nhận: <tên phục vụ>" | [ ] | |
-| H22 | Khách gửi món, không ai xác nhận trong 3 phút | Thẻ tô đỏ, nhắc lại, phục vụ khu khác cũng thấy và xác nhận được; thu ngân không lập hóa đơn được khi bàn còn món chờ xác nhận | [ ] | |
-| H23 | Sơ đồ bàn: đổi giữa **Danh sách** và **Sơ đồ** | Danh sách: thẻ chữ to, bàn cần xử lý lên đầu. Sơ đồ: vị trí thật, vừa màn hình (khu rộng vuốt ngang) | [ ] | |
+| 9.1 | Mở menu trái **Thực đơn** | Một mục duy nhất (không còn "Danh sách / Thêm món ăn"). Trang "Thực đơn" có 4 tab Món ăn · Set menu · Danh mục · Nhóm món; nút chính "Thêm …" luôn ở góc phải, đổi chữ theo tab. Đường dẫn trên cùng: Trang chủ › Thực đơn › tên tab | [ ] | |
+| 9.2 | Tab Món ăn: tìm theo tên / mã (có / không dấu); bấm **+ Lọc** → Danh mục / Trạng thái | Kết quả đúng; mỗi điều kiện là một chip "Trạng thái là Ngừng bán ×", có "Xóa lọc". Lọc không ra món nào: ô "Không có món phù hợp · n món đang bị ẩn bởi bộ lọc · Xóa lọc" | [ ] | |
+| 9.3 | Mỗi dòng: nút **Sửa** + nút **⋯** | ⋯ mở menu có chữ: Xem chi tiết · Ngừng bán (hoặc Mở bán lại) · Xóa món (đỏ, nằm cuối). Bấm tên / ảnh món cũng mở chi tiết | [ ] | |
+| 9.4 | ⋯ → Xóa món (món đã bán / món chưa bán) | Món đã có trong hóa đơn: "Không xóa được …" + nút Ngừng bán; món chưa bán: "Xóa rồi sẽ mất hẳn" | [ ] | |
+| 9.5 | Tab **Danh mục**: Thêm danh mục có ảnh; Sửa; bật / tắt trên dòng; bỏ ảnh | Hộp nhỏ: tên + ảnh, dòng gợi ý chữ nhỏ dưới ô ảnh. Trang khách có vòng tròn mới; bỏ ảnh thì hiện chữ cái đầu; tắt danh mục không mất ảnh | [ ] | |
+| 9.6 | Tab **Nhóm món**: Thêm nhóm "Trà các loại" (Đồ uống, ảnh); Sửa; ⋯ → Xóa nhóm | Danh sách cập nhật; xóa nhóm thì các món trở lại đứng riêng, không mất món | [ ] | |
+| 9.7 | Ctrl+K gõ "set" / "danh mục" | Có Set menu, Danh mục món, Nhóm món, "Thêm set menu" (mở thẳng trang thêm set) | [ ] | |
+
+**Liên quan:** Thêm / sửa món (10), Trang QR (44), Website thực đơn (48), Chatbot thực đơn (16).
+
+## Trang 10. Thêm / sửa món (`/quan-ly/mon-an/them`, `/:id/sua`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 10.1 | Mở form (Thêm món / Sửa ở một dòng) | Đường dẫn Thực đơn › Món ăn › Sửa (bấm được); tiêu đề là tên món; nút **Quay lại** có viền ở góc phải. **Chỉ một nút Lưu**, ở thanh dính đáy, hiện ngay khi mở trang ("Chưa có thay đổi", nút Lưu mờ). Nhóm Thông tin cơ bản, Ảnh món ăn, Trạng thái bán, Dữ liệu cho AI tư vấn | [ ] | |
+| 10.2 | Bấm Lưu khi để trống tên / giá / danh mục | Lỗi tại từng ô; thanh dưới đáy ghi "Còn n chỗ chưa đúng" | [ ] | |
+| 10.3 | Tải ảnh (đúng / sai định dạng, ảnh quá lớn) | Xem trước ảnh; sai thì báo | [ ] | |
+| 10.4 | Chọn **Nhóm hiển thị** khác danh mục với món | Báo nhóm phải cùng danh mục | [ ] | |
+| 10.5 | Gắn món vào nhóm, **Tên loại trong nhóm** = "Trà đào" → Lưu | Trang khách: món nằm trong thẻ nhóm, bảng chọn ghi "Trà đào" | [ ] | |
+| 10.6 | Chọn Mức cay, dị nguyên, thành phần chính | Trang khách hiện đúng nhãn cay / dị nguyên trong chi tiết món | [ ] | |
+| 10.7 | Chuyển **Ngừng bán** → Lưu | Món biến mất khỏi trang khách và website; vẫn còn trong lịch sử đơn | [ ] | |
+| 10.8 | Sửa một ô | Thanh dưới đáy đổi thành "Có thay đổi chưa lưu · Hủy thay đổi · Lưu"; Hủy thay đổi trả lại như cũ; Lưu được, về danh sách, không bị hỏi | [ ] | |
+| 10.9 | Sửa dở rồi rời trang bằng **Quay lại**, **menu trái**, **Ctrl+K**, đường dẫn trên cùng, nút Back trình duyệt; tải lại / đóng tab | Lần nào cũng hỏi "Bỏ các thay đổi chưa lưu?" (Ở lại / Bỏ thay đổi); tải lại / đóng tab thì trình duyệt tự hỏi. Chưa sửa gì thì đi luôn | [ ] | |
+
+**Liên quan:** Trang QR (44), Website (48), Công thức (30), Set menu (11).
+
+## Trang 11. Thực đơn – tab Set menu, thêm / sửa set (`/quan-ly/mon-an/set-menu`, `/set-menu/them`, `/set-menu/:id/sua`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 11.1 | Mở tab Set menu | Danh sách (không còn thẻ to): ảnh nhỏ · tên · "n món" (bấm mở xem món × số lượng, món ngừng bán tô đỏ) · giá set, giá gốc gạch, -x% · giờ bán · trạng thái (Trên thực đơn / Chỉ AI gợi ý / Đang tắt) · Sửa / ⋯ | [ ] | |
+| 11.2 | **Thêm set** | Mở trang riêng (Thực đơn › Set menu › Thêm mới), nút Quay lại góc phải, một nút Lưu ở thanh dưới đáy. Nhập tên, mô tả, giá, giờ bán (Cả ngày / Giới hạn giờ), ảnh, chọn món + số lượng; thanh dưới đáy luôn ghi "n món · giá gốc … · khách tiết kiệm … (x%)" | [ ] | |
+| 11.3 | Sửa một set | Món đang có trong set nằm đầu danh sách chọn món | [ ] | |
+| 11.4 | Lưu khi ít hơn 2 món, thiếu giá mà bật Bán trên thực đơn, giờ kết thúc trước giờ bắt đầu, tên trùng | Báo lỗi tại ô tương ứng (lỗi chọn món hiện ngay trên khung danh sách) | [ ] | |
+| 11.5 | Bật **Đổi loại** cho món nước ngọt | Trang khách: set cho chọn loại nước | [ ] | |
+| 11.6 | ⋯ → **Tắt set** rồi **Bật lại set**; tắt "Bán trên thực đơn" trong trang sửa | Trạng thái đổi ngay; set biến mất / hiện lại ở khung Set menu trang khách | [ ] | |
+| 11.7 | ⋯ → **Xóa set** | Hỏi lại; đơn cũ có set vẫn hiện đúng ở hóa đơn | [ ] | |
+| 11.8 | Sửa dở rồi rời trang (Quay lại, menu trái, Ctrl+K…) | Hỏi "Bỏ các thay đổi chưa lưu?" | [ ] | |
+
+**Liên quan:** Trang QR khung Set (44), Hóa đơn (40), Chatbot (16), Website thực đơn (48).
+
+## Trang 12. Quản lý ca làm (`/quan-ly/nhan-vien/ca-lam`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 12.1 | Tab danh sách ca: thêm ca (tên, giờ, màu, ngày trong tuần); ca qua đêm | Lưu được; ca qua đêm hiện đúng số giờ | [ ] | |
+| 12.2 | Xóa ca đang có phân công | Hỏi lại / báo ảnh hưởng | [ ] | |
+| 12.3 | Lịch phân công **Theo ca** (mặc định): Tuần trước / Tuần này / Tuần sau | Hàng = ca, cột = ngày, có đường kẻ dọc giữa các ngày; cột hôm nay ghi "Hôm nay", tô nền nhạt. Người chia theo bộ phận trong khung nhỏ có vạch màu (Phục vụ xanh lá, Bếp đỏ, Thu ngân xanh dương, Kho nâu); phục vụ kèm khu ("chưa gán khu" nếu chưa) | [ ] | |
+| 12.4 | Phân công: chọn nhân viên + ca + ngày; phân trùng giờ | Lưu được; trùng thì báo | [ ] | |
+| 12.5 | Bấm tên phục vụ trong ô → **Đổi khu vực phụ trách** (hoặc "Không gán khu") | Ô cập nhật; phục vụ thấy khu mặc định đổi | [ ] | |
+| 12.6 | Lọc theo bộ phận; chuyển kiểu xem **Theo nhân viên** | Lọc đúng. Chú thích ca nằm trên thanh công cụ (chip màu: tên + giờ); trong ô ghi luôn tên ca + giờ ngắn (vd. "Ca sáng 6–14") | [ ] | |
+| 12.7 | Xem đầu mỗi ô (Theo ca) | Chip tóm tắt "PV 3 · Bếp 2 · TN 1" (có Kho / QL nếu có người). Ca hôm nay / sau này chưa có ai ở Phục vụ, Bếp hoặc Thu ngân thì chip bộ phận đó **đỏ** (vd. "Bếp 0"); ngày đã qua không tô đỏ | [ ] | |
+| 12.8 | Ô có hơn 4 người | Hiện 3 người + "+n người"; bấm mở bảng đủ danh sách (đổi khu / hủy phân công ngay trong bảng được) | [ ] | |
+| 12.9 | Cuộn lịch xuống / sang phải (cả hai kiểu xem) | Dòng ngày dính trên cùng, cột tên ca / tên nhân viên dính bên trái; trang không bị cuộn hai lớp | [ ] | |
+
+**Liên quan:** Phục vụ (31, 33), Thông tin của tôi (43), Chấm công (41, trễ / sớm theo ca).
+
+## Trang 13. Khuôn mặt chấm công (`/quan-ly/nhan-vien/khuon-mat`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 13.1 | Mở trang | Danh sách đăng ký: ảnh, người, trạng thái, dòng "Đã đồng ý thu thập dữ liệu khuôn mặt" | [ ] | |
+| 13.2 | **Xem ảnh lớn** | Mở ảnh to, đóng được | [ ] | |
+| 13.3 | **Duyệt** | Trạng thái đổi; nhân viên nhận thông báo, chấm công được | [ ] | |
+| 13.4 | **Từ chối** không nhập lý do; có lý do | Bắt nhập lý do; nhân viên thấy lý do | [ ] | |
+| 13.5 | **Yêu cầu đăng ký lại** | Hỏi lại, nói rõ dữ liệu cũ bị xóa; nhân viên phải đăng ký lại | [ ] | |
+
+**Liên quan:** Thông tin của tôi (43), Cấu hình → Chấm công (18).
+
+## Trang 14. Bài viết (`/quan-ly/bai-viet`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 14.1 | Danh sách: tìm, lọc chuyên mục | Đúng kết quả | [ ] | |
+| 14.2 | Thêm bài: tiêu đề, chuyên mục, tóm tắt, ảnh bìa, nội dung; Lưu nháp / Xuất bản | Lưu được, trạng thái đúng | [ ] | |
+| 14.3 | Sửa, xóa bài | Hỏi lại khi xóa | [ ] | |
+
+## Trang 15. Tài khoản (`/quan-ly/tai-khoan`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 15.1 | Danh sách: tìm theo tên / email / SĐT, lọc vai trò, trạng thái | Đúng; dòng của mình ghi "(bạn)" | [ ] | |
+| 15.2 | Thêm tài khoản (có vai trò Phục vụ) | Hiện mật khẩu tạm để đưa nhân viên; tài khoản mới phải đổi mật khẩu lần đầu | [ ] | |
+| 15.3 | Sửa tài khoản của chính mình | Không đổi được vai trò của mình (có ghi chú) | [ ] | |
+| 15.4 | **Đặt lại mật khẩu** | Hiện mật khẩu tạm mới | [ ] | |
+| 15.5 | **Khóa** tài khoản đang đăng nhập ở cửa sổ khác | Cửa sổ kia bị đăng xuất ở thao tác kế tiếp; **Mở khóa** dùng lại được | [ ] | |
+| 15.6 | **Xóa tài khoản** | Hỏi lại; không xóa được chính mình | [ ] | |
+
+**Liên quan:** Đăng nhập (2), Ca làm (12), Nhật ký (17).
+
+## Trang 16. Chatbot AI (`/quan-ly/chatbot`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 16.1 | Tab **Cấu hình**: bật / tắt Chatbot, tên trợ lý, avatar, câu chào, gợi ý nhanh, cảnh báo dị ứng, tone giọng | Khung **Xem trước khung chat** đổi ngay; Hoàn tác về như cũ; Lưu xong trợ lý trang QR (45) đổi theo | [ ] | |
+| 16.2 | Tab **Thực đơn**: bật / tắt "AI gợi ý" từng món, gắn **Thẻ AI**; Đồng bộ thực đơn | Món tắt không được trợ lý gợi ý; tóm tắt **Set menu (AI gợi ý)** + link Quản lý set | [ ] | |
+| 16.3 | Tab **FAQ**: thêm, sửa, tắt, xóa; tìm; lọc danh mục | Trợ lý trả lời theo FAQ đang áp dụng; FAQ tắt không dùng | [ ] | |
+| 16.4 | **Câu hỏi chưa giải đáp**: bấm một câu → tạo FAQ; Bỏ qua | Câu chuyển thành FAQ / biến mất khỏi danh sách | [ ] | |
+| 16.5 | Tab Hội thoại / thống kê | Hiện được, không lỗi (số liệu có phần là dữ liệu mẫu) | [ ] | |
+
+**Liên quan:** Trợ lý trang QR (45), Món ăn (10).
+
+## Trang 17. Nhật ký (`/quan-ly/nhat-ky`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 17.1 | Lọc phân hệ, tài khoản, khoảng ngày; tìm; Xóa lọc | Đúng kết quả | [ ] | |
+| 17.2 | Sau một buổi test, tìm các thao tác vừa làm | Có dòng cho hủy món, chuyển / ghép bàn, lập / hủy hóa đơn, xác nhận / bỏ món, duyệt khuôn mặt, nhập chấm công… đúng người, đúng giờ | [ ] | |
+| 17.3 | **Xuất CSV** | Tải file mở được bằng Excel, tiếng Việt không lỗi font | [ ] | |
+
+## Trang 18. Cấu hình hệ thống (`/quan-ly/cai-dat`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 18.1 | Mở trang | Cột trái "Cấu hình" chia nhóm: Nhà hàng (Thông tin, Giờ hoạt động, Thanh toán) · Vận hành (Gọi món tại bàn, Chấm công) · Khách hàng (Website) · Hệ thống (Sao lưu & phục hồi, Nhật ký hoạt động ↗). Mỗi cài đặt một dòng: tên + mô tả bên trái, ô nhập / công tắc bên phải. Đường dẫn: Trang chủ › Cấu hình hệ thống › tên mục | [ ] | |
+| 18.2 | Gõ vào ô **Tìm cài đặt** (vd. "wifi", "ngân hàng", "ảnh bìa") | Cột trái chỉ còn mục chứa cài đặt đó; không có thì ghi "Không có cài đặt phù hợp" | [ ] | |
+| 18.3 | **Thông tin**: sửa tên, địa chỉ, SĐT; tải logo, ảnh bìa trang gọi món → Lưu | Hóa đơn in, website, trang QR dùng thông tin mới | [ ] | |
+| 18.4 | **Giờ hoạt động**: đổi giờ, tắt công tắc một ngày (Nghỉ cả ngày) → Lưu | Trang QR chặn gửi món ngoài giờ; website đặt bàn bỏ ngày nghỉ | [ ] | |
+| 18.5 | **Thanh toán**: chọn ngân hàng, số tài khoản sai → Lưu; đúng → Lưu; "Bỏ tài khoản" | Lỗi tại dòng; khung "Đang dùng trên hóa đơn" đổi theo; Bỏ tài khoản có hỏi lại; hóa đơn mới dùng tài khoản mới | [ ] | |
+| 18.6 | **Gọi món tại bàn**: tự đóng bàn (phút), phục vụ xác nhận món (công tắc), nhắc lại (phút) | Tắt xác nhận thì món khách gửi xuống bếp thẳng (dòng "Nhắc lại" ẩn); bàn mở không gọi món tự đóng đúng thời gian | [ ] | |
+| 18.7 | **Chấm công**: mạng của quán + **Thêm IP hiện tại**, vào ca sớm tối đa, độ chặt so khuôn mặt, giữ ảnh | Lưu được; dòng "Máy bạn đang dùng IP …" đúng; link "Duyệt khuôn mặt nhân viên" mở đúng trang | [ ] | |
+| 18.8 | **Website** (mỗi cài đặt một dòng, theo thứ tự các mục trang chủ): Đầu trang (khẩu hiệu, danh hiệu, ảnh — nhận ảnh lớn tới 15 MB) · **Món đặc trưng** và **Trải nghiệm** (Thêm / sửa / ẩn hiện / đổi thứ tự / xóa, tối đa 8, để trống tên thì lỗi tại ô) · Không gian – album · Câu chuyện · **Lời từ bếp trưởng** (tên, chức danh, lá thư, ảnh) · Đặt bàn (ảnh cạnh form) · Mạng xã hội & bản đồ · Thực đơn trên website; thanh **Lưu** dính đáy | Website (46–49) đổi theo ngay; lá thư trống thì ẩn mục bếp trưởng; có lá thư mà thiếu tên thì lỗi tại ô tên; món tắt trên website vẫn còn ở trang QR | [ ] | |
+| 18.9 | **Sao lưu & phục hồi**: Sao lưu ngay; mỗi bản: nút **Tải xuống** + ⋯ (Phục hồi từ bản này · Xóa bản sao lưu); lịch tự động (bao lâu một lần, giờ, giữ lại) → Lưu | Có file .zip; lịch lưu được; tắt "Tự động sao lưu" thì các dòng lịch mờ đi (phục hồi chỉ thử trên CSDL test) | [ ] | |
+| 18.10 | Mọi mục có thanh dưới đáy | Mở mục: "Chưa có thay đổi", nút Lưu mờ; sửa: "Có thay đổi chưa lưu · Hủy thay đổi · Lưu"; Hủy thay đổi trả lại như cũ | [ ] | |
+| 18.11 | Sửa dở rồi bấm mục khác ở cột trái / menu trái / Ctrl+K | Hỏi "Bỏ các thay đổi chưa lưu?"; Lưu xong thì đổi mục không hỏi | [ ] | |
+
+## Trang 19. Duyệt kiểm kê, Công nợ (phía Quản lý)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 19.1 | **Kiểm kê** → mở phiếu chờ duyệt | Thấy dòng chênh lệch, giá trị tăng / giảm | [ ] | |
+| 19.2 | **Duyệt** / **Từ chối** (phải nhập lý do) | Kho nhận thông báo; duyệt thì tồn điều chỉnh | [ ] | |
+| 19.3 | **Công nợ** | Số khớp trang Công nợ bên Kho (27) | [ ] | |
+
+**Liên quan:** Kiểm kê (26), Công nợ (27), Nguyên liệu (21).
 
 ---
 
-**Gửi kết quả:** chỉ cần gửi các dòng **không đạt** (mã dòng + ghi chú / ảnh), hoặc yêu cầu đổi chức năng / giao diện —
-mỗi yêu cầu sẽ được đánh giá lợi / hại / ảnh hưởng trước khi sửa.
+# Phần 3. Quản lý kho (`thao.bui`)
+
+## Trang 20. Dashboard kho (`/kho`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 20.1 | Mở trang (thử cả menu ghim và thu gọn) | Giá trị tồn kho, công nợ phải trả, giá trị hao hụt, biểu đồ nhập / xuất theo ngày. Menu trái gọn: Nguyên liệu · Nhà cung cấp · Phiếu mua · Nhập kho · Xuất kho · Kiểm kê · Công nợ (không còn menu con) | [ ] | |
+| 20.2 | Bảng **Nguyên liệu cần nhập**: tick 2–3 nguyên liệu (hoặc ô tick đầu bảng = chọn hết) → nút **Tạo phiếu mua (n)** ở đầu bảng | Chưa tick thì nút mờ; dòng đã tick tô nền; mở form phiếu mua có sẵn các nguyên liệu đó (xem 23.7) | [ ] | |
+| 20.3 | **Phiếu mua chờ nhận** (trạng thái nằm dưới mã; Sắp đến hạn / Trễ hạn), **Phiếu kiểm kê cần chú ý**, **Hao hụt nhiều nhất** | Đúng dữ liệu; bấm dòng mở chi tiết; hai cột trên cao bằng nhau, khung bên phải không thừa khoảng trắng lớn | [ ] | |
+
+## Trang 21. Nguyên liệu (`/kho/nguyen-lieu`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 21.1 | Danh sách: tìm mã / tên; **+ Lọc** → Nhóm / Tình trạng tồn / Trạng thái; bấm × trên chip, **Xóa lọc** | Mỗi điều kiện là một chip; tình trạng Sắp hết / Hết tô màu; lọc không ra thì "Không có nguyên liệu phù hợp · Xóa lọc" | [ ] | |
+| 21.2 | Mỗi dòng: nút **Sửa** + menu **⋯** (Xem chi tiết, Tạo phiếu mua, Ngừng / Sử dụng lại, Xóa nguyên liệu – chữ đỏ, nằm cuối) | Đúng việc; Xóa chỉ có khi nguyên liệu chưa có giao dịch | [ ] | |
+| 21.3 | **Thêm nguyên liệu**: để trống; tên trùng; đúng (nhóm, đơn vị kho, tồn tối thiểu, tồn ban đầu) | Thanh dưới đáy luôn hiện ("Chưa nhập gì" → "Có thay đổi chưa lưu" / "Còn n chỗ chưa đúng"); lỗi tại ô; thêm được | [ ] | |
+| 21.4 | Sửa nguyên liệu đã có giao dịch | Đơn vị kho bị khóa, có giải thích; khung "Tồn kho hiện tại" bên phải | [ ] | |
+| 21.5 | Đang nhập dở → bấm **Quay lại** / menu trái / Ctrl+K / nút Back | Hỏi "Bỏ các thay đổi chưa lưu?" (Ở lại · Bỏ thay đổi); Lưu xong thì về danh sách không hỏi | [ ] | |
+| 21.6 | Chi tiết: nhãn trạng thái cạnh tên; nút Quay lại · Sửa · **Tạo phiếu mua** · ⋯ (Ngừng / Sử dụng lại, Xóa); Thông tin chung, **Thẻ kho** (lọc ngày), Nhà cung cấp, **Món sử dụng** | Lịch sử biến động đúng thứ tự; món sử dụng khớp công thức bếp; Tạo phiếu mua mở form có sẵn nguyên liệu này | [ ] | |
+| 21.7 | Xóa nguyên liệu đã có giao dịch | Không có mục Xóa / bị chặn có giải thích | [ ] | |
+
+**Liên quan:** Công thức (30), Kiểm tra nguyên liệu (29), Phiếu mua (23).
+
+## Trang 22. Nhà cung cấp (`/kho/nha-cung-cap`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 22.1 | Danh sách: tìm mã / tên / SĐT; **+ Lọc** → Trạng thái; mỗi dòng **Sửa** + ⋯ (Xem chi tiết, Ngừng hoạt động / Kích hoạt lại, Xóa) | Đúng | [ ] | |
+| 22.2 | Thêm NCC: tên trùng (hỏi lại), SĐT sai, thêm dòng nguyên liệu cung cấp (đơn vị mua, hệ số, giá, SL tối thiểu); rời trang khi chưa lưu | Lỗi tại ô; nút Lưu ở thanh dưới đáy; rời trang thì hỏi; lưu được | [ ] | |
+| 22.3 | Chi tiết: bảng Nguyên liệu cung cấp mỗi dòng **Sửa giá** + ⋯ (Lịch sử giá nhập, Ngừng cung cấp / Kích hoạt lại); sửa giá một nguyên liệu (đổi lớn) | Hỏi "Giá nhập thay đổi lớn?"; có **Lịch sử giá nhập** | [ ] | |
+| 22.4 | Đầu trang chi tiết: nhãn trạng thái cạnh tên; **Ngừng hoạt động** (⋯, chọn lý do); **Kích hoạt lại** (nút xanh) | Trạng thái đổi, lý do ngừng ghi ở dòng mô tả; lịch sử trạng thái ghi lại; NCC ngừng không chọn được khi tạo phiếu mua | [ ] | |
+| 22.5 | Xóa NCC đã có phiếu mua | Không có mục Xóa / bị chặn | [ ] | |
+
+## Trang 23. Phiếu mua (`/kho/phieu-mua`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 23.1 | Danh sách: tìm; chọn ngày đặt; **+ Lọc** → Trạng thái / Thanh toán / Nhà cung cấp | Đúng; cột Phiếu mua = mã + tên phiếu; phiếu trễ hạn có nhãn **Trễ hạn** dưới ngày; bảng không cuộn ngang ở màn 1440 khi ghim menu | [ ] | |
+| 23.2 | Nút chính mỗi dòng đổi theo trạng thái: Nháp → **Sửa**, chờ nhận → **Nhận hàng**, còn lại → **Xem**; ⋯ chứa Thanh toán, Kết thúc nhận hàng, Hủy phiếu, Xóa phiếu nháp | Đúng việc từng trạng thái | [ ] | |
+| 23.3 | Tạo phiếu: thêm nguyên liệu khi chưa chọn NCC | Nhắc chọn NCC trước | [ ] | |
+| 23.4 | Chọn NCC, thêm nguyên liệu, số lượng; giảm giá, thuế %, chi phí khác | Tạm tính, Tổng cộng tính đúng ngay; thanh dưới đáy hiện "Tổng cộng …" | [ ] | |
+| 23.5 | Thanh dưới đáy: **Lưu nháp** (nút phụ) · **Đặt hàng** (nút chính) · Hủy thay đổi; sửa nháp (đầu trang có **Xóa phiếu nháp**, hỏi lại); rời trang khi chưa lưu | Lưu nháp / xóa nháp được; phiếu nháp chưa sửa gì vẫn bấm Đặt hàng được; rời trang thì hỏi | [ ] | |
+| 23.6 | Đặt hàng | Trạng thái chờ nhận; không sửa được như nháp | [ ] | |
+| 23.7 | Mở từ Dashboard với 2–3 nguyên liệu đã tick | Ô NCC chỉ gợi ý NCC bán các nguyên liệu này, ghi "bán x/y nguyên liệu đã chọn"; NCC bán nhiều nhất được chọn sẵn, các dòng có sẵn; nguyên liệu NCC không bán được ghi dưới ô NCC | [ ] | |
+| 23.8 | Chi tiết: nhãn trạng thái (+ Trễ hạn) cạnh tiêu đề; nút việc chính (Sửa phiếu nháp / Nhận hàng / Thanh toán) + ⋯; Lịch sử nhận hàng, Lịch sử thanh toán (xếp dọc, đủ cột), Lịch sử trạng thái; **Kết thúc nhận hàng**; **Hủy phiếu** (lý do) | Đúng từng bước | [ ] | |
+
+**Liên quan:** Nhập kho (24), Công nợ (27), Dashboard kho (20).
+
+## Trang 24. Nhập kho (`/kho/nhap-kho`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 24.1 | Danh sách: chọn ngày, tìm; **+ Lọc** → Loại. Hai nút ở góc phải: **Nhập không phiếu** · **Nhận hàng theo phiếu mua** | Dòng tổng giá trị không tính phiếu đã hủy | [ ] | |
+| 24.2 | **Nhận hàng theo phiếu mua**: chọn phiếu, nhập SL nhận một phần, ghi chú dòng; "Nhận đủ tất cả"; "Đặt tất cả về 0" | Thanh dưới đáy: "Đã điền sẵn số lượng còn lại" · n nguyên liệu · giá trị lần này · **Nhập kho**; còn lại tính đúng; xác nhận xong phiếu mua thành nhận một phần | [ ] | |
+| 24.3 | Nhận nốt phần còn lại | Phiếu mua đủ; tồn tăng; giá vốn bình quân đổi | [ ] | |
+| 24.4 | **Nhập kho không phiếu**: chưa chọn nơi mua; đơn giá lệch nhiều; rời trang khi đang nhập dở | Nhắc chọn nơi mua; hỏi "Kiểm tra lại đơn giá?"; rời trang thì hỏi | [ ] | |
+| 24.5 | Chi tiết phiếu nhập (nhãn trạng thái cạnh tiêu đề) → **Hủy phiếu nhập** (lý do) | Tồn giảm lại; phiếu ghi Đã hủy | [ ] | |
+
+**Liên quan:** Nguyên liệu (21), Phiếu mua (23), Kiểm tra nguyên liệu (29).
+
+## Trang 25. Xuất kho (`/kho/xuat-kho`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 25.1 | Danh sách: chọn ngày, tìm; **+ Lọc** → Lý do | Đúng; tổng giá trị xuất | [ ] | |
+| 25.2 | Tạo phiếu xuất: lý do, người nhận, thêm nguyên liệu; SL vượt tồn; bấm **Xuất kho** ở thanh dưới đáy | Hiện tồn hiện tại cạnh dòng; vượt tồn bị chặn ("Còn n chỗ chưa đúng"); thanh đáy có tổng giá trị xuất; rời trang khi nhập dở thì hỏi | [ ] | |
+| 25.3 | Xuất làm tồn xuống dưới tối thiểu | Kho và Quản lý nhận thông báo sắp hết | [ ] | |
+
+## Trang 26. Kiểm kê (`/kho/kiem-ke`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 26.1 | Danh sách: **+ Lọc** → Trạng thái; Lập phiếu: phạm vi theo nhóm hoặc chọn nguyên liệu | Phiếu có đủ dòng, cột Sổ sách / SL thực tế / Chênh lệch; nhãn trạng thái cạnh tiêu đề phiếu | [ ] | |
+| 26.2 | Nhập SL thực tế, lọc nhóm, tìm; bấm **Khớp sổ sách** | Chênh lệch, giá trị tăng / giảm tính ngay (mỗi dòng tự lưu) | [ ] | |
+| 26.3 | Thanh dưới đáy "Đã đếm x/y · n dòng chênh lệch": **Gửi duyệt**; **Xóa phiếu** (nháp) / **Hủy phiếu** (lý do) | Chờ duyệt, Quản lý nhận thông báo | [ ] | |
+| 26.4 | Phiếu bị từ chối | Thấy dòng "Bị từ chối: lý do"; thanh đáy có Hủy phiếu · Sửa và gửi lại | [ ] | |
+
+**Liên quan:** Duyệt kiểm kê (19), Nguyên liệu (21).
+
+## Trang 27. Công nợ (`/kho/cong-no`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 27.1 | Danh sách theo NCC: tổng phải trả, đã trả, còn nợ, nợ cũ nhất từ; **+ Lọc** → Tình trạng (Còn nợ / Đã trả hết) | Đúng | [ ] | |
+| 27.2 | Chi tiết (nhãn Còn nợ / Đã trả hết cạnh tên) → **Thanh toán** (số tiền vượt còn nợ; đúng) | Vượt bị chặn; đúng thì còn nợ giảm, phiếu mua đổi trạng thái thanh toán | [ ] | |
+| 27.3 | Lịch sử thanh toán: ⋯ → **Hủy thanh toán** (lý do) | Còn nợ tăng lại | [ ] | |
+
+---
+
+# Phần 4. Bếp (`hung.pham`)
+
+## Trang 28. Màn hình bếp (`/bep`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 28.1 | Đăng nhập → **Bắt đầu** | Thanh trên: ☰ · BẾP · ô đếm **Tất cả · Mới · Đang làm · Chờ lấy** ở giữa · kết nối, TB hôm nay, đồng hồ bên phải. Không còn nút Chấm công, Đăng xuất, Món tạm hết, ⚙ nằm ngoài; không còn dải "chưa vào ca" | [ ] | |
+| 28.2 | Tài khoản bếp **chưa chấm công**, bấm Bắt đầu / Xong một món | Làm được bình thường (màn bếp dùng chung, không đòi vào ca) | [ ] | |
+| 28.3 | Món mới tới (sau khi phục vụ xác nhận) | Thẻ xuất hiện ngay, có âm báo; ghi chú nổi màu vàng | [ ] | |
+| 28.4 | Bàn gọi nhiều đợt | Vẫn một thẻ; đợt mới ở trên, nhãn "Mới gọi thêm", mỗi đợt có giờ + đồng hồ riêng | [ ] | |
+| 28.5 | Món thuộc set | Nhãn **"SET · tên set"** | [ ] | |
+| 28.6 | **Bắt đầu (n)**, **Xong** từng món, **Xong (n)** | Nhãn ĐANG LÀM, sọc cam; xong thì rời thẻ, hiện ngay ở **cột Chờ lấy** bên phải (khối của bàn đó), ô đếm Chờ lấy tăng, "TB hôm nay" có số phút | [ ] | |
+| 28.7 | Cột **Chờ lấy**: bấm **Đã mang đi (n)** của một bàn; bàn khác bấm ✓ một món | Cả khối / món đó biến mất; khách thấy "Đã mang ra"; thu ngân, phục vụ thấy món đã mang. Bàn chờ lâu nhất ở trên, số phút chờ đỏ khi từ 5 phút | [ ] | |
+| 28.8 | Cột Chờ lấy → **Trả lại** (nút ↺) một món vừa xong | Món quay lại thẻ, nhãn ĐANG LÀM + **GỌI LẠI**; quá 30 phút thì không còn nút ↺ | [ ] | |
+| 28.9 | **Hủy** một món chờ: lý do "Hết nguyên liệu" + tick tạm hết | Khách thấy lý do; thu ngân nhận thông báo; món tạm hết | [ ] | |
+| 28.10 | Khách / thu ngân hủy món | Món gạch ngang nhãn **ĐÃ ĐỔI** (ghi ai hủy, lúc nào), có âm báo | [ ] | |
+| 28.11 | Bấm ô đếm Mới / Đang làm / Tất cả; đổi **Theo món**; bấm viên danh mục | Lọc đúng, số đếm đúng; Theo món gộp đúng số lượng | [ ] | |
+| 28.12 | Bấm **Tổng hợp món** | Cột phải đổi thành bảng Món · Mới · Đang làm · Chờ lấy (cộng số phần), theo danh mục đang lọc; **Về Chờ lấy** để trở lại | [ ] | |
+| 28.13 | Thẻ chờ lâu | Đồng hồ + viền vàng (≥10′), cam (≥20′), đỏ (≥30′) | [ ] | |
+| 28.14 | Bấm tên bàn trên thẻ | Mở chi tiết đơn bàn đó | [ ] | |
+| 28.15 | Bấm **☰** | Menu trái: Kiểm tra nguyên liệu · Công thức · Món tạm hết (số đỏ) · Cài đặt màn hình; cuối menu tên người đăng nhập + Đăng xuất. Không có Chấm công | [ ] | |
+| 28.16 | ☰ → **Đăng xuất** → Ở lại; làm lại → Đăng xuất | Hỏi "Đăng xuất khỏi màn hình bếp?"; Ở lại thì vẫn ở màn bếp; Đăng xuất về trang đăng nhập | [ ] | |
+| 28.17 | ☰ → **Món tạm hết** → bật / tắt | Trang khách, website, trợ lý đổi theo | [ ] | |
+| 28.18 | ☰ → **Cài đặt màn hình**: nền, số cột, cỡ chữ; mốc màu (thêm tối đa 4, khôi phục mặc định); danh mục phụ trách | Áp dụng ngay, tải lại vẫn giữ; trạm Đồ uống chỉ thấy + chỉ kêu cho đồ uống (cột Chờ lấy cũng chỉ món của trạm) | [ ] | |
+| 28.19 | Bàn phím rời: số ở góc thẻ, Space, Enter, ← →, Esc | Chọn / bắt đầu / xong / chuyển thẻ / bỏ chọn đúng | [ ] | |
+| 28.20 | Thu nhỏ cửa sổ dưới 1024 px | Cột phải ẩn; bấm ô **Chờ lấy** mở khung bên; Tổng hợp món mở thành khung | [ ] | |
+| 28.21 | Tắt máy chủ rồi bật lại | Biểu tượng WiFi đỏ "Mất kết nối", tự nối lại | [ ] | |
+| 28.22 | Gõ thẳng `/bep/toi` | Về màn bếp (trang chấm công của bếp đã gỡ) | [ ] | |
+
+**Liên quan:** Trang QR (44), Phục vụ Yêu cầu / Mang món (33, 34), Sơ đồ thu ngân (36), Kiểm tra nguyên liệu / Công thức (29, 30 — thanh trên không còn tab Chấm công; Đăng xuất có hỏi).
+
+## Trang 29. Kiểm tra nguyên liệu (`/bep/nguyen-lieu`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 29.1 | Mở từ ☰ trên màn bếp | Thanh trên: ☰ · BẾP · tiêu đề "Kiểm tra nguyên liệu" · Làm mới · **Về màn bếp**. ☰ ở đây có Màn hình bếp / Kiểm tra nguyên liệu / Công thức / Đăng xuất (có hỏi lại) | [ ] | |
+| 29.2 | Xem **Theo món** | Món ít phần nhất ở trên; nguyên liệu giới hạn; món chưa có công thức có link "Khai báo công thức" | [ ] | |
+| 29.3 | Món còn 0 phần → **Đánh dấu tạm hết** | Món thành tạm hết hôm nay | [ ] | |
+| 29.4 | Bấm chip **Tất cả · Hết hàng · Sắp hết · Đủ hàng**; đổi **Theo nguyên liệu**, tìm | Số trên chip đúng theo cách xem / từ khóa / danh mục; bảng nguyên liệu: tồn, tồn tối thiểu, tình trạng, các món dùng | [ ] | |
+
+## Trang 30. Công thức (`/bep/cong-thuc`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 30.1 | Mở từ ☰; lọc **Tất cả / Chưa có / Đã có** (kèm số), tìm món, chọn danh mục | Đúng; mỗi món có nhãn **% giá vốn / giá bán** (xanh ≤ 35%, vàng ≤ 45%, đỏ cao hơn) hoặc "Chưa có" | [ ] | |
+| 30.2 | Chọn món | Phải: tên, danh mục, giá bán; bảng nguyên liệu (đơn vị nằm ngay trong ô định lượng); **thanh dính đáy**: giá vốn / phần · % giá bán · Hủy thay đổi · Lưu công thức | [ ] | |
+| 30.3 | **Thêm nguyên liệu** → gõ tên / mã vào ô (vd. "hanh") | Danh sách lọc theo chữ gõ, hiện tồn kho; ↑ ↓ Enter chọn được; dòng cuối thì danh sách mở lên trên | [ ] | |
+| 30.4 | Nguyên liệu đã có ở dòng khác | Mờ, ghi "đã có ở dòng khác", không chọn được | [ ] | |
+| 30.5 | Để trống / định lượng 0 ở vài dòng → **Lưu** | Dòng lỗi tô đỏ, lỗi dưới ô; tự cuộn tới dòng lỗi đầu tiên, con trỏ vào ô đó; thanh đáy ghi "Còn n chỗ chưa đúng" | [ ] | |
+| 30.6 | Định lượng đúng (vd. 0,08) → Lưu | Báo đã lưu; giá vốn / phần, % giá bán và nhãn % ở danh sách bên trái đổi theo | [ ] | |
+| 30.7 | Sửa dở rồi chọn món khác / bấm Về màn bếp / ☰ → trang khác / nút Back | Hỏi "Bỏ các thay đổi chưa lưu?" [Ở lại] [Bỏ thay đổi]; đóng tab thì trình duyệt hỏi | [ ] | |
+| 30.8 | Xóa hết dòng → Lưu | Hỏi lại; món về "Chưa có" | [ ] | |
+| 30.9 | ☰ (màn bếp) → Cài đặt màn hình → nền Tối, mở lại Công thức | Trang Công thức cùng nền tối, chữ đọc rõ | [ ] | |
+
+**Liên quan:** Nguyên liệu – Món sử dụng (21), Kiểm tra nguyên liệu (29).
+
+---
+
+# Phần 5. Phục vụ (điện thoại, `nam.hoang`)
+
+## Trang 31. Sơ đồ bàn (`/phuc-vu`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 31.1 | Mở trang (chưa chấm công, không cần) | Thanh trên: ca theo lịch ("Ca … · khu") hoặc "Ngoài ca · ca tới …"; thanh dưới **4 tab** Sơ đồ · Yêu cầu · Món xong · Thực đơn (không còn tab Tôi); không có dải "chưa vào ca" | [ ] | |
+| 31.2 | Không có ca lúc này | Vẫn mở bàn, gọi món, xác nhận đơn được; khách gọi nhân viên thì mọi phục vụ nhận | [ ] | |
+| 31.3 | Kiểu xem **Danh sách** | Thẻ bo tròn chữ to; bàn cần xử lý lên đầu (chờ xác nhận → khách gọi → món chờ lâu → món xong) | [ ] | |
+| 31.4 | Kiểu xem **Sơ đồ** | Vị trí thật (bàn có ghế, vùng khu, tường), vừa màn hình; khu rộng thì vuốt ngang | [ ] | |
+| 31.5 | **Nút gạt khu** (Sảnh chính / Sân vườn…): khu **Của tôi** và khu khác | Mở sẵn khu của ca theo lịch; khu khác xem và thao tác được; chấm đỏ khi khu có bàn cần xử lý | [ ] | |
+| 31.6 | Chạm bàn trống → số khách (không bắt buộc) → **Mở bàn** (nút lớn) | Bảng dưới trượt lên có giải thích; mở xong QR bàn gọi món được | [ ] | |
+| 31.7 | Bàn có khách chưa gọi món → **Đóng bàn** | Bàn về Trống | [ ] | |
+| 31.8 | Bàn có món: **Gọi món cho khách** (nút lớn), **Chuyển bàn**, **Ghép bàn** | Chuyển: bàn cũ Trống. Ghép: món + số khách gộp sang bàn đích | [ ] | |
+| 31.9 | Bàn có món bếp đã xong | Khung xanh "n món bếp đã xong — ra bếp lấy món"; món ghi **Xong – lấy ở bếp**; **không có** nút Mang ra / Đã mang hết | [ ] | |
+| 31.10 | Bàn khách đã yêu cầu thanh toán / bàn ngừng phục vụ | Ghi "thu ngân đang xử lý hóa đơn", không gọi thêm / "Bàn đang ngừng phục vụ" | [ ] | |
+| 31.11 | Quản lý sửa sơ đồ (máy khác) | Thông báo "Sơ đồ … vừa thay đổi", sơ đồ đổi ngay | [ ] | |
+| 31.12 | Gõ thẳng `/phuc-vu/toi` | Về Sơ đồ (trang cá nhân đã gỡ, sau gom về Cổng nhân viên) | [ ] | |
+
+**Liên quan:** Sơ đồ bàn (8), Sơ đồ thu ngân (36), Trang QR (44).
+
+## Trang 32. Thực đơn / Gọi món hộ (`/phuc-vu/thuc-don`, `/phuc-vu/goi-mon/:bàn`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 32.1 | Tab Thực đơn: lưới món ảnh tròn; tìm món / thành phần; bấm một món | Bảng dưới: ảnh, giá, thành phần, dị nguyên, độ cay; món hết ghi "Hết món"; không có nút + | [ ] | |
+| 32.2 | Từ bảng bàn → **Gọi món**: chip danh mục, bấm **+** trên thẻ, − / + | Thẻ đã chọn hiện bộ đếm; thanh lớn **Xem giỏ · n món · tổng tiền** | [ ] | |
+| 32.3 | Chip **Set menu** → chọn một set | Mở màn chi tiết set như trang QR: chọn độ chín / sốt cho bít tết, chia loại nước; Thêm set | [ ] | |
+| 32.4 | **Xem giỏ** | Mỗi dòng: ảnh tròn, tên, giá, ô **Thêm ghi chú** (set thì ghi các món đã chọn), − n +; Tổng | [ ] | |
+| 32.5 | **Gửi bếp · tổng tiền** | Về sơ đồ, báo đã gửi; bếp thấy món ngay (đúng độ chín / ghi chú); không cần chấm công | [ ] | |
+| 32.6 | Ngoài giờ mở cửa bấm Gửi bếp | Báo "Nhà hàng hiện ngoài giờ phục vụ", giỏ giữ nguyên | [ ] | |
+
+## Trang 33. Yêu cầu: đơn chờ xác nhận + khách gọi nhân viên (`/phuc-vu/yeu-cau`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 33.1 | Khách khu mình (theo lịch ca) gửi món | Âm báo + rung; thẻ hồng **Chờ xác nhận** liệt kê món + ghi chú | [ ] | |
+| 33.2 | **Bỏ món**: bỏ 1 món, nhập lý do → **Xác nhận n món, chuyển bếp** (nút lớn) | Bếp thấy món còn lại; khách thấy lý do món bị bỏ | [ ] | |
+| 33.3 | Bỏ món không nhập lý do | Bắt nhập lý do | [ ] | |
+| 33.4 | Khách tự hủy món đang chờ xác nhận | Thẻ cập nhật, món biến mất | [ ] | |
+| 33.5 | Quá 3 phút không xác nhận | Thẻ tô đỏ, nhắc lại; phục vụ khu khác thấy và xác nhận được | [ ] | |
+| 33.6 | Khách gọi nhân viên → **Tôi đến** → **Hoàn thành** | Khách thấy "Nhân viên … đang đến"; xong thì chuông khách bình thường | [ ] | |
+| 33.7 | Yêu cầu từ khu không ai có ca; giờ không ai có ca | Khu không ai có ca: mọi phục vụ đang trong ca thấy. Không ai có ca: mọi phục vụ thấy + nhận thông báo | [ ] | |
+
+**Liên quan:** Trang QR (44), Bếp (28), Chi tiết đơn thu ngân (37, ghi người xác nhận).
+
+## Trang 34. Món xong (`/phuc-vu/mon-xong`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 34.1 | Bếp bấm Xong một món của bàn khu mình | Âm báo + rung; số đỏ trên tab **Món xong**; món hiện theo bàn, bàn chờ lâu nhất trên, phút chờ đỏ khi ≥ 5 | [ ] | |
+| 34.2 | Xem trang | **Chỉ xem** — không có nút Đã mang; dòng nhắc "Bếp sẽ bấm Đã mang đi khi bạn lấy món"; nút gạt Khu của tôi / Tất cả khu | [ ] | |
+| 34.3 | Bếp bấm **Đã mang đi** | Món biến khỏi danh sách; khách thấy "Đã mang ra"; không còn món thì "Chưa có món nào xong" | [ ] | |
+| 34.4 | Gõ đường dẫn cũ `/phuc-vu/mang-mon` | Về trang Món xong | [ ] | |
+
+## Trang 35. Thông báo phục vụ (`/phuc-vu/thong-bao`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 35.1 | Xem danh sách, bấm một thông báo | Mở đúng màn; trống thì "Chưa có thông báo" | [ ] | |
+
+---
+
+# Phần 6. Thu ngân (`linh.tran`)
+
+## Trang 36. Quầy thu ngân – màn POS (`/thu-ngan`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 36.1 | Mở trang (chưa chấm công, không cần) | Thanh trên chỉ còn ☰ (số đỏ = yêu cầu + hóa đơn chưa thu) · THU NGÂN + thứ / ngày · kết nối · giờ lớn · chuông. Không còn dải tab, nút Chấm công / Văn phòng, dải "chưa vào ca" | [ ] | |
+| 36.2 | Bố cục | Trái: **Yêu cầu thanh toán · Đặt bàn hôm nay · Bàn đang có khách** (bấm tiêu đề để gập / mở, nhớ lần sau); giữa: sơ đồ; phải: trống cho tới khi chạm bàn; đáy: chú thích màu có số, Khách đang ngồi, Đã thu hôm nay | [ ] | |
+| 36.3 | Sơ đồ | Vẽ cả tầng như trang Sơ đồ bàn của Quản lý (tường, vùng khu có tên, bàn có ghế, màu trạng thái, đã ngồi bao lâu, tạm tính); **Vừa khung** tự co vừa màn, − / + để chỉnh | [ ] | |
+| 36.4 | Tab tầng: **Tất cả tầng** · Tầng 1 · Tầng 2 (mỗi tab ghi "n/m có khách", số vàng = chờ thanh toán, số cam = khách gọi) | Màn rộng (~1920) tự hiện cả 2 tầng; màn 1440 tự hiện một tầng (tầng có việc cần xử lý) cho bàn to rõ; bấm tab đổi được, nhớ lần sau | [ ] | |
+| 36.5 | Chạm bàn → khung chi tiết bên phải: số khách, món, tạm tính, **In tạm tính**, **Chuyển bàn**, **Xem đơn đầy đủ**, **Lập hóa đơn / Thu tiền** | Đúng; bản in "PHIẾU TẠM TÍNH" ghi không phải hóa đơn; bấm ra ngoài sơ đồ hoặc ✕ thì đóng khung | [ ] | |
+| 36.6 | Bàn trống → **Mở bàn**; bàn mở không món → **Đóng bàn**; bàn có món | Mở / đóng được (không cần chấm công); bàn có món không có Đóng bàn | [ ] | |
+| 36.7 | Cột trái: bấm một dòng **Yêu cầu thanh toán** / **Bàn đang có khách** | Chọn đúng bàn trên sơ đồ (đổi tầng nếu cần), mở khung chi tiết | [ ] | |
+| 36.8 | **Đặt bàn hôm nay → Thêm**: để trống tên / SĐT sai / giờ ngoài giờ mở cửa / bàn ít ghế hơn số khách / bàn trùng giờ | Lỗi đúng tại ô; chọn được "Khách gọi điện" / "Khách đến quầy" | [ ] | |
+| 36.9 | Thêm lịch đúng (có / không xếp bàn) | Báo "Đã thêm lịch đặt DB-…"; hiện trong danh sách theo giờ (≤ 2 giờ nữa tô tím, quá giờ chữ đỏ "Trễ …"); Quản lý thấy trong lịch sử đặt bàn | [ ] | |
+| 36.10 | Bấm một lịch → sửa giờ / số khách / bàn → Lưu; **Hủy lịch** (hỏi lại); quá giờ → **Khách không đến**; lịch website → **Xác nhận lịch** | Lưu đúng; lịch hủy / không đến chuyển xuống "lịch đã xử lý" | [ ] | |
+| 36.11 | Lịch hôm nay đã xếp bàn → **Khách đã đến – Mở bàn**; hoặc bấm mã bàn tím trên dòng lịch → bàn → **Khách đã đến – Mở bàn** | Bàn mở với số khách của phiếu đặt, lịch thành Đã đến | [ ] | |
+| 36.12 | Khách đặt qua website | Thu ngân nhận thông báo (chuông); lịch hiện trong Đặt bàn hôm nay (nếu đặt hôm nay) | [ ] | |
+| 36.13 | Khách gọi nhân viên | Sơ đồ thu ngân **không đổi** (do phục vụ xử lý) | [ ] | |
+| 36.14 | **☰**: Quầy thu ngân · Yêu cầu thanh toán · Hóa đơn · Đơn hàng · Văn phòng (Chấm công, Bảng lương, Thông báo, Đổi mật khẩu) · Đăng xuất | Số đỏ đúng; trang phụ có nút lớn **Về quầy thu ngân**; Đăng xuất hỏi "Đăng xuất khỏi quầy thu ngân?" [Ở lại] | [ ] | |
+| 36.15 | Gõ thẳng `/thu-ngan/toi` | Báo "Không tìm thấy trang" (trang cá nhân đã gỡ, sau gom về Cổng nhân viên) | [ ] | |
+
+## Trang 37. Chi tiết đơn (`/thu-ngan/don/:id`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 37.1 | Mở đơn | Món theo đợt, trạng thái từng món, người xác nhận ("Xác nhận: …"), món set ghi "Thuộc [set] · giá đã chia từ giá set" | [ ] | |
+| 37.2 | Hủy món chưa chọn lý do; có lý do | Nút khóa; hủy xong tạm tính giảm, bếp mất món | [ ] | |
+| 37.3 | **Hủy đơn** (đơn chỉ có món chờ); đơn có món đang làm | Hủy được → bàn Trống; đơn có món đang làm không có nút | [ ] | |
+| 37.4 | **Chuyển bàn** sang bàn trống / bàn đặt trước | Chuyển được; bàn đặt trước thì hỏi lại | [ ] | |
+| 37.5 | Thẻ "Khách yêu cầu thanh toán" | Hiện hình thức, VAT khách nhập | [ ] | |
+| 37.6 | **Lập hóa đơn** khi còn món chưa xong / còn món chờ xác nhận | Bị chặn, có giải thích | [ ] | |
+| 37.7 | Lập hóa đơn: xem trước | Món gộp cùng giá, set một dòng kèm chi tiết, VAT điền sẵn | [ ] | |
+| 37.8 | Hộp **Thu tiền**: nhiều hình thức, tiền khách đưa, tiền thối; tổng lệch | Tự điền phần còn lại; lệch thì nút Xác nhận khóa | [ ] | |
+| 37.9 | Lập hóa đơn → **Để sau** | Đơn "Chờ thanh toán", có nút **Thu tiền HD…** | [ ] | |
+| 37.10 | Thanh toán xong → **In hóa đơn** | Bản in có tên / địa chỉ, thu ngân, khoản thu, tiền thối, VAT, mã QR | [ ] | |
+
+**Liên quan:** Trang QR (44, hóa đơn bật lên, cảm ơn), Hóa đơn (40), Dashboard (5).
+
+## Trang 38. Đơn hàng (`/thu-ngan/don-hang`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 38.1 | Lọc Đang mở / Chờ thanh toán / Hoàn tất / Đã hủy; tìm mã bàn; khoảng ngày | Đúng; "Đang mở" không gồm đơn chờ thanh toán | [ ] | |
+| 38.2 | Bấm mã đơn | Mở chi tiết đơn (37) | [ ] | |
+
+## Trang 39. Yêu cầu thanh toán (`/thu-ngan/yeu-cau`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 39.1 | Mở trang | Chỉ có yêu cầu thanh toán (yêu cầu hỗ trợ không còn ở đây) | [ ] | |
+| 39.2 | Yêu cầu của VIP01 → **Lập hóa đơn** | Mở đúng chi tiết đơn VIP01 | [ ] | |
+| 39.3 | Khách hủy yêu cầu | Dòng biến mất, số đếm giảm | [ ] | |
+
+## Trang 40. Hóa đơn (`/thu-ngan/hoa-don`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 40.1 | Lọc trạng thái, hình thức, khoảng ngày (> 31 ngày); tìm mã | Đúng; quá 31 ngày thì báo | [ ] | |
+| 40.2 | Dưới bảng | Tổng đã thu theo từng hình thức | [ ] | |
+| 40.3 | Mở hóa đơn chưa thanh toán → **Thu tiền** / **Hủy hóa đơn** (lý do) | Thu được; hủy xong đơn mở khóa, khách gọi thêm được | [ ] | |
+| 40.4 | Mở hóa đơn đã thanh toán | Chỉ có nút In | [ ] | |
+
+## Trang 41. Chấm công – văn phòng (☰ → Chấm công, `/thu-ngan/cham-cong`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 41.1 | Xem khoảng ngày, lọc nhân viên | Bảng + **Tổng giờ theo nhân viên**; dòng "Thiếu giờ ra" nổi bật | [ ] | |
+| 41.2 | Cột Nguồn | Phân biệt Khuôn mặt / Excel / tay; có Trễ / Về sớm | [ ] | |
+| 41.3 | **Xem ảnh chấm công** (dòng khuôn mặt) | Ảnh vào / tan ca; dòng không có ảnh ghi "Không có ảnh" | [ ] | |
+| 41.4 | **Thêm chấm công**: thiếu ghi chú; chồng giờ; 22:00 → 06:00 | Bắt ghi chú; báo chồng giờ; ca qua đêm ghi "(+1 ngày)" | [ ] | |
+| 41.5 | Dòng thuộc kỳ lương đã chốt | Ghi "Đã chốt", không sửa / xóa được | [ ] | |
+| 41.6 | **Nhập từ Excel**: tải file mẫu, sửa vài dòng có lỗi, chọn file; nhập lại cùng file | Xem trước Hợp lệ / Lỗi / Trùng kèm lý do; tải file dòng lỗi; chọn Bỏ qua / Ghi đè | [ ] | |
+
+## Trang 42. Bảng lương (☰ → Bảng lương, `/thu-ngan/bang-luong`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 42.1 | Kỳ tháng trước | Đã chốt, chỉ xem, in được | [ ] | |
+| 42.2 | Tạo kỳ trùng khoảng ngày | Báo trùng | [ ] | |
+| 42.3 | Tạo kỳ tháng này → chi tiết | Mỗi nhân viên một dòng, cảnh báo dòng thiếu giờ ra, trễ / sớm | [ ] | |
+| 42.4 | Phụ cấp không ghi chú; có ghi chú | Bắt ghi chú; thực lĩnh tăng đúng | [ ] | |
+| 42.5 | **Chốt** khi còn thiếu giờ ra / kỳ chưa kết thúc | Bị chặn, có lý do | [ ] | |
+| 42.6 | Sửa chấm công rồi **Tính lại** | Giờ công cập nhật, phụ cấp giữ nguyên | [ ] | |
+| 42.7 | **In bảng lương**, **In phiếu lương** | Đúng số, phiếu có chi tiết ngày công | [ ] | |
+
+**Liên quan:** Chấm công (41). Phiếu lương của nhân viên sẽ xem ở Cổng nhân viên (làm sau).
+
+---
+
+# Phần 7. Thông tin của tôi (đã gỡ 26/11/2026 — sau gom về Cổng nhân viên `/nhan-vien`)
+
+## Trang 43. Thông tin của tôi + chấm công khuôn mặt — **tạm gỡ (26/11/2026)**
+
+Trang cá nhân (chấm công khuôn mặt, ca làm, lịch sử, phiếu lương, hồ sơ) đã gỡ khỏi màn làm việc của bếp, phục vụ, thu ngân; sẽ gom về **Cổng nhân viên `/nhan-vien`** cho mọi vai trò (làm cuối cùng, nhóm mô tả sau). Các dòng test cũ của trang này viết lại khi làm Cổng. Duyệt khuôn mặt (13), Cấu hình chấm công (18), Chấm công văn phòng (41), Bảng lương (42) vẫn test bình thường.
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 43.1 | Gõ `/thu-ngan/toi`, `/phuc-vu/toi`, `/bep/toi` | Không còn trang (thu ngân: "Không tìm thấy trang"; phục vụ, bếp: về màn chính) | [ ] | |
+
+**Liên quan:** Khuôn mặt chấm công (13), Cấu hình → Chấm công (18), Chấm công văn phòng (41), Bảng lương (42).
+
+---
+
+# Phần 8. Khách – trang gọi món QR (`/goi-mon/<mã>`, điện thoại)
+
+## Trang 44. Trang gọi món
+
+Trang lớn, chia nhóm. Làm hết các nhóm trên cùng một bàn (vd. T05).
+
+**44A. Mở trang, đầu trang, ảnh bìa**
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 44.1 | Mở QR bàn trống | Viên "Bàn chưa mở"; thêm giỏ được nhưng Gửi bị khóa; bấm chuông có gợi ý "Mở bàn giúp tôi" | [ ] | |
+| 44.2 | Bàn đã mở | Đầu trang "Bạn đang ngồi tại · Bàn …", nút chuông, **Món của tôi**; không tràn ngang | [ ] | |
+| 44.3 | Ảnh bìa | Biển hiệu ROYAL BEEF trên cửa kính; chữ + tua rua không bị thanh tìm kiếm che | [ ] | |
+| 44.4 | Kéo / bấm **dây đèn** | Đổi sáng / tối, màu lan từ đèn, dây nảy; tải lại vẫn nhớ | [ ] | |
+| 44.5 | Điện thoại chế độ tối (lần đầu mở) | Trang tự tối | [ ] | |
+| 44.6 | Bật Giảm chuyển động | Không còn bay / trượt / tự chạy; vẫn dùng được hết | [ ] | |
+
+**44B. Danh mục, tìm, lọc, Bán chạy**
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 44.7 | Bấm / vuốt dải danh mục cong; tự cuộn trang | Mục chọn vào giữa, viền đỏ; trang cuộn đúng mục; tự cuộn thì dải xoay theo | [ ] | |
+| 44.8 | Tìm "gỏi" / "goi" / "sprite" / "T-bone" | Đúng món; Sprite ghi "Nước ngọt có ga"; T-bone mờ, dấu HẾT | [ ] | |
+| 44.9 | Nút lọc: sắp xếp + nhãn → Áp dụng → Bỏ lọc | Đúng món, đúng thứ tự; nút có số điều kiện; không có kết quả thì "Không có món phù hợp" + Xem tất cả món | [ ] | |
+| 44.10 | Bán chạy | Chỉ món ăn; băng chuyền tự trượt qua lại, dừng khi chạm | [ ] | |
+
+**44C. Set menu**
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 44.11 | Khung Set menu (sáng và tối) | Viền đôi vàng đậm rõ trên nền sáng; ruy-băng "-x%"; giá set, giá gốc gạch, "Tiết kiệm …đ"; chấm ở đáy | [ ] | |
+| 44.12 | Đứng yên ~10 giây; vuốt ngang | Tự sang set kế, tới cuối chạy ngược; vuốt dừng đúng set; set cao bằng nhau | [ ] | |
+| 44.13 | Trong / ngoài 10:30–14:00 | Set Bữa trưa văn phòng chỉ có trong giờ | [ ] | |
+| 44.14 | Set Steak: độ chín / sốt từng phần → Thêm set | Giỏ một dòng set + món con kèm lựa chọn | [ ] | |
+| 44.15 | Set Lẩu: chia 4 lon nước chưa đủ / đủ | Chưa đủ thì nút khóa "Chọn đủ nước ngọt" | [ ] | |
+| 44.16 | Món con của set tạm hết | Set biến mất khỏi khung | [ ] | |
+
+**44D. Chi tiết món, nhóm món, gọi thêm**
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 44.17 | Mở chi tiết, cuộn, ⤢, đóng (mũi tên / vuốt / Back) | Trượt mượt; ảnh thu nhỏ khi cuộn; ⤢ toàn màn hình; mọi cách đóng đều được | [ ] | |
+| 44.18 | Bít tết: thanh Độ chín, Sốt kèm; món khác: ghi chú nhanh theo loại | Đúng như mô tả (chảo gang không có sốt; lẩu / trà / vang có ghi chú riêng) | [ ] | |
+| 44.19 | Bấm **+** ngoài thẻ Ribeye | Giỏ ghi "Medium rare, Sốt tiêu đen" | [ ] | |
+| 44.20 | Hàng **Gọi thêm cho món này** (Ribeye, Lẩu) | Đúng món gợi ý; bấm + thêm dòng riêng | [ ] | |
+| 44.21 | Nút + thẻ **Nước ngọt có ga** | Không bay vào giỏ; mở bảng 6 dòng − / + | [ ] | |
+| 44.22 | Bảng chọn: tăng nhiều loại → nút đáy; mở lại → giảm → Cập nhật; đóng bằng X | Nút đổi "Thêm vào giỏ · n món · tổng" / "Cập nhật giỏ" / "Bỏ khỏi giỏ"; nút dính đáy; X không đổi giỏ | [ ] | |
+| 44.23 | Bảng chọn: chạm ảnh / tên một loại | Mở chi tiết món đó | [ ] | |
+| 44.24 | Thẻ Bia, Vang | Giá "từ …"; bảng có giá từng loại | [ ] | |
+
+**44E. Giỏ, gửi, theo dõi**
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 44.25 | Thêm món đầu tiên | Ảnh bay vào thanh giỏ; thanh giỏ trượt lên, số chạy; nút + thành bộ tăng / giảm | [ ] | |
+| 44.26 | Giỏ: đổi số lượng, sửa ghi chú, Xóa hết (hỏi lại); tải lại trang | Tổng đúng; giỏ còn sau khi tải lại | [ ] | |
+| 44.27 | Gửi gọi món | Màn "Đã gửi" có danh sách món, ghi **chờ nhân viên xác nhận** | [ ] | |
+| 44.28 | Món của tôi khi phục vụ xác nhận / bỏ món, bếp làm, mang ra | Trạng thái đổi ngay; món bị bỏ có lý do; thanh 4 bước + tranh động đổi theo | [ ] | |
+| 44.29 | Hủy món chờ xác nhận / chờ chế biến; món đang nấu | Hủy được; đang nấu thì không có nút hủy | [ ] | |
+| 44.30 | Hủy cả set | Cả set Đã hủy, tạm tính trừ đúng giá set | [ ] | |
+| 44.31 | Mở cùng QR trên 2 điện thoại, cả hai gửi | Cùng một đơn, điện thoại kia tự thấy món mới | [ ] | |
+
+**44F. Chuông gọi nhân viên**
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 44.32 | Đổi loại Hỗ trợ / Tư vấn món / Khác; Khác để trống | Gợi ý đổi theo loại; để trống báo nhập nội dung | [ ] | |
+| 44.33 | Gửi → bấm chuông lần nữa | Chuông đỏ nhấp nháy; lần 2 hiện đang chờ + **Hủy yêu cầu** | [ ] | |
+| 44.34 | Phục vụ bấm Tôi đến | Khách thấy "Nhân viên … đang đến bàn bạn" | [ ] | |
+
+**44G. Thanh toán, hóa đơn, cảm ơn**
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 44.35 | Thanh toán khi giỏ còn món chưa gửi | Hỏi 3 lựa chọn: gửi bếp / bỏ / quay lại | [ ] | |
+| 44.36 | Bàn chưa gọi món bấm Thanh toán | Báo chưa có món | [ ] | |
+| 44.37 | Chọn hình thức, VAT (MST sai rồi đúng) → Gửi; **Hủy yêu cầu** | Lỗi tại ô MST; gửi xong "Đã yêu cầu"; hủy thì trở lại "Thanh toán" | [ ] | |
+| 44.38 | Thu ngân lập hóa đơn | Hóa đơn tự bật lên, có mã QR chuyển khoản; gọi thêm món bị chặn | [ ] | |
+| 44.39 | Thu ngân thu tiền xong | "Cảm ơn quý khách!"; Xem thực đơn về thẳng thực đơn; bàn lại "chưa mở" | [ ] | |
+
+**44H. Trường hợp đặc biệt**
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 44.40 | Mã QR sai (`/goi-mon/abc`) | Trang báo mã không hợp lệ, có tranh | [ ] | |
+| 44.41 | Bàn tạm ngừng | "Bàn đang tạm ngừng phục vụ…" | [ ] | |
+| 44.42 | Ngoài giờ mở cửa | Viên "Ngoài giờ phục vụ · mở lại …"; xem được, không gửi được | [ ] | |
+| 44.43 | Món trong giỏ vừa bị đánh dấu tạm hết | Món bị đánh dấu, phải xóa mới gửi được | [ ] | |
+| 44.44 | Không phục vụ nào vào ca | Món nằm chờ; khách tự hủy được | [ ] | |
+| 44.45 | Bỏ ảnh bìa trong Cấu hình | Đầu trang nền đỏ – nâu có "Chào mừng đến với Royal Beef" | [ ] | |
+| 44.46 | Vuốt mạnh trong Món của tôi / Giỏ / Thanh toán | Không lộ trang phía sau | [ ] | |
+
+**Liên quan:** Phục vụ (31–34), Bếp (28), Thu ngân (36, 37), Món ăn / Set (9–11), Cấu hình (18).
+
+## Trang 45. Trợ lý tư vấn món (trên trang QR)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 45.1 | Nút **Tư vấn món**; thêm món cho thanh giỏ hiện | Nút tự đẩy lên, không che thanh giỏ | [ ] | |
+| 45.2 | Mở khung chat | Tên bot, avatar, lời chào, câu gợi ý nhanh đúng cấu hình | [ ] | |
+| 45.3 | "4 người, khoảng 1,5 triệu, không cay" | Thực đơn cả bàn trong ngân sách; thẻ món có ảnh, giá, lý do; nút **Thêm tất cả vào giỏ** | [ ] | |
+| 45.4 | Hỏi tiếp "rẻ hơn", "món khác" | Giữ chủ đề, không lặp món | [ ] | |
+| 45.5 | "di ung sua" (không dấu) | Không gợi ý món có sữa, có lời nhắc dị ứng | [ ] | |
+| 45.6 | Hỏi một món cụ thể ("lẩu sa tế có cay không") | Giá, mô tả, độ cay, còn / hết | [ ] | |
+| 45.7 | Có Ribeye trong giỏ → "ăn kèm gì" | Gợi ý theo giỏ | [ ] | |
+| 45.8 | Bấm Thêm / ảnh món / Xem set | Thêm vào giỏ (không tự gửi); mở chi tiết; mở màn set | [ ] | |
+| 45.9 | "mấy giờ mở cửa" | Trả lời theo FAQ | [ ] | |
+| 45.10 | Câu lạ | Lời xin lỗi đã cấu hình; câu vào "Câu hỏi chưa giải đáp" | [ ] | |
+| 45.11 | Đóng / mở lại khung; đóng tab rồi mở lại | Cùng tab còn hội thoại; đóng tab thì mất | [ ] | |
+| 45.12 | Món tạm hết; món tắt "AI gợi ý"; tắt Chatbot | Không gợi ý món đó; tắt Chatbot thì nút biến mất | [ ] | |
+
+**Liên quan:** Chatbot (16), Món ăn (10).
+
+---
+
+# Phần 9. Website khách hàng (`http://<máy>:3000/`, không đăng nhập)
+
+Mỗi trang kiểm trên **máy tính và điện thoại**.
+
+## Trang 46. Trang chủ dài một trang (`/`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 46.1 | Mở trang trên máy tính | Ảnh đầu trang phủ kín màn hình, tên **Royal Beef** chữ có chân rất lớn hiện dần từng chữ; góc trái: danh hiệu + "Cuộn xuống"; góc phải: khẩu hiệu, đoạn giới thiệu ngắn, nút **Đặt bàn ngay** (đỏ) + **Xem thực đơn** | [ ] | |
+| 46.2 | Thanh trên | Trong suốt khi ở đầu trang, cuộn xuống thì có nền tối; menu: Món đặc trưng · Trải nghiệm · Không gian · Câu chuyện · Thực đơn · Liên hệ + nút đỏ **Đặt bàn ngay**; mục đang xem có gạch chân | [ ] | |
+| 46.3 | Bấm từng mục trên menu | Cuộn mượt tới đúng mục (Thực đơn mở trang sách lật); địa chỉ đổi thành `/#mục` | [ ] | |
+| 46.4 | Cuộn qua ảnh đầu trang | Hiện nút nổi **Đặt bàn ngay** góc dưới phải (điện thoại: ngang đáy màn); tới form đặt bàn hoặc chân trang thì nút ẩn | [ ] | |
+| 46.5 | Mục **Lưu ý** (3 thẻ) | Giờ phục vụ (gộp các ngày cùng giờ, ghi ngày nghỉ), Quy định đặt bàn (đặt trước tối thiểu, tối đa bao nhiêu ngày, số khách, thời lượng, ghi chú của quán), Khu vực & phòng riêng (số tầng / bàn / chỗ, tên khu) — đúng cấu hình | [ ] | |
+| 46.6 | Mục **Món đặc trưng** | Ảnh toàn màn tự chuyển ~6 giây, tên món chữ to ở giữa; mũi tên ← →, chấm chọn ảnh; rê chuột vào thì dừng tự chuyển; chưa nhập món đặc trưng thì dùng món bán chạy | [ ] | |
+| 46.7 | Mục **Trải nghiệm** | Dòng đầu **Set menu** (tự lấy các set đang bán, giá từ …, nút Xem các set); các dòng sau do Quản lý nhập; rê / bấm một dòng thì mở mô tả và ảnh bên phải đổi theo | [ ] | |
+| 46.8 | Trải nghiệm → **Đặt bàn cho dịp này** | Cuộn tới form đặt bàn, ô Ghi chú điền sẵn tên dịp (vd. "Tiệc sinh nhật") | [ ] | |
+| 46.9 | Mục **Không gian** | Ảnh album tự chuyển, chữ "Không gian" lớn, dòng số liệu **"x tầng \| y bàn \| z chỗ ngồi"** khớp Sơ đồ bàn (bàn ngừng dùng không tính), chú thích ảnh, địa chỉ; album trống thì nền tối vẫn có số liệu | [ ] | |
+| 46.10 | Không gian → **Xem tất cả n ảnh** | Hộp xem ảnh lớn; ← → đổi ảnh, dải ảnh nhỏ bên dưới, Esc / ✕ đóng | [ ] | |
+| 46.11 | Mục **Câu chuyện** | Nửa chữ (tiêu đề, các đoạn giới thiệu, điểm nhấn chữ in hoa nhỏ, nút Giữ chỗ cho bạn) — nửa ảnh | [ ] | |
+| 46.12 | Mục **Lá thư từ bếp trưởng** | Lá thư chữ viết tay hiện dần từ trái sang, ảnh chân dung, "Thân mến," + tên + chức danh; Quản lý xóa lá thư thì mục này ẩn | [ ] | |
+| 46.13 | Mục **Đặt bàn** | Nửa ảnh (kèm số gọi) — nửa form, form giống trang 49; gửi được ngay tại trang chủ (xem 49.2–49.4) | [ ] | |
+| 46.14 | Chân trang (= Liên hệ) | Địa chỉ + Chỉ đường trên Google Maps (bản đồ nhỏ nếu dán link nhúng), điện thoại, email, giờ mở cửa (tô hôm nay), mạng xã hội, liên kết, tên quán chữ cực lớn; "Đăng nhập nhân viên" | [ ] | |
+| 46.15 | Máy tính bật **tắt hiệu ứng** của Windows (hoặc F12 → Rendering → prefers-reduced-motion: reduce) | Website vẫn chạy đủ hiệu ứng (chữ hiện dần, ảnh trượt, mục hiện dần khi cuộn) | [ ] | |
+| 46.16 | Điện thoại | Các khối xếp một cột, không kéo ngang được; thanh trên chỉ có tên + ☰; ☰ mở menu phủ kín màn hình chữ lớn, bấm mục thì đóng menu và cuộn tới | [ ] | |
+| 46.17 | Xem thử phông tiêu đề: thêm `?phong=1`, `?phong=2`, `?phong=3` sau địa chỉ | Lần lượt Playfair Display · Cormorant Garamond · Noto Serif Display, đủ dấu tiếng Việt (để nhóm chọn một phông) | [ ] | |
+
+## Trang 47. Link cũ Giới thiệu / Album / Liên hệ (`/gioi-thieu`, `/album`, `/lien-he`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 47.1 | Mở `/gioi-thieu` | Về trang chủ, cuộn tới mục **Câu chuyện** | [ ] | |
+| 47.2 | Mở `/album` | Về trang chủ, cuộn tới mục **Không gian** | [ ] | |
+| 47.3 | Mở `/lien-he` | Về trang chủ, cuộn tới chân trang (Liên hệ) | [ ] | |
+
+## Trang 48. Thực đơn (`/thuc-don`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 48.1 | Lọc danh mục; tìm "bit tet" (không dấu); Xóa từ khóa | Đúng; không có thì "Thực đơn đang được cập nhật" / không có kết quả | [ ] | |
+| 48.2 | Khối Set menu | Hiện set đang bán | [ ] | |
+| 48.3 | Món tạm hết | Nhãn "Tạm hết hôm nay" | [ ] | |
+| 48.4 | Món / danh mục Quản lý tắt trên website | Không hiện ở đây, vẫn còn ở trang QR | [ ] | |
+| 48.5 | Mở `/thuc-don` lần đầu trong phiên | Bàn tay nhỏ làm động tác kéo góc trang sang trái + dòng "Kéo góc trang sang trái, hoặc bấm phím → để lật sách" (điện thoại: "Vuốt sang trái…"); chạm / bấm / cuộn bất kỳ hoặc sau ~7 giây thì tắt; mở lại trong phiên không hiện nữa | [ ] | |
+| 48.6 | Máy tắt hiệu ứng (như 46.15) | Sách vẫn lật trang có hiệu ứng (không đổi sang sách tĩnh) | [ ] | |
+
+## Trang 49. Đặt bàn (`/dat-ban`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 49.1 | Mở form | Họ tên, SĐT, số khách, ngày, giờ, khu vực (nếu cho chọn, có "Để nhà hàng sắp xếp"), email, ghi chú — đúng cấu hình trang 7 | [ ] | |
+| 49.2 | Gửi khi để trống / SĐT sai | Lỗi dưới từng ô, không mất dữ liệu đã nhập | [ ] | |
+| 49.3 | Mở ô giờ hôm nay và ngày mai; chọn ngày nghỉ | Giờ trong giờ mở cửa, đúng bước giờ, bỏ giờ quá sát; ngày nghỉ không chọn được | [ ] | |
+| 49.4 | Gửi đúng | Hiện mã `DB-…`, thông tin lịch; nút "Đặt thêm lịch khác" | [ ] | |
+| 49.5 | Khối "Đoàn đông hoặc đặt tiệc?" | Số điện thoại bấm gọi được trên điện thoại | [ ] | |
+| 49.6 | Sau khi đặt | Quản lý nhận thông báo, lịch có ở trang 6 | [ ] | |
+| 49.7 | Trang `/dat-ban` vẫn mở riêng được (gửi link cho khách) | Cùng form với mục Đặt bàn ở trang chủ | [ ] | |
+
+## Trang 50. Album — đã gộp vào trang chủ (`/album`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 50.1 | Xem mục **Không gian** ở trang chủ (46.9, 46.10) | Trang Album riêng đã gộp vào trang chủ (27/11/2026) | [ ] | |
+
+## Trang 51. Liên hệ — đã gộp vào trang chủ (`/lien-he`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 51.1 | Xem chân trang ở trang chủ (46.14) | Trang Liên hệ riêng đã gộp vào trang chủ (27/11/2026) | [ ] | |
+
+## Trang 52. Không tìm thấy (đường dẫn lạ, vd. `/abc`)
+
+| # | Thao tác | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| 52.1 | Mở `/abc` | Trang "Không tìm thấy trang" theo giao diện website, nút Về trang chủ / Xem thực đơn | [ ] | |
+
+---
+
+# Phần 10. Kiểm tra xuyên suốt (làm sau khi xong các trang)
+
+Những điểm này cần **nhiều trang cùng khớp**. Làm một bữa ăn trọn vẹn trên bàn T05 rồi đối chiếu.
+
+| # | Kiểm tra | Mong đợi | Đạt | Ghi chú |
+|---|---|---|---|---|
+| X1 | Một bữa ăn: khách nhờ mở bàn → phục vụ mở → khách gửi → phục vụ xác nhận (bỏ 1 món) → bếp làm → phục vụ mang → khách yêu cầu thanh toán → thu ngân lập hóa đơn, thu tiền | Mỗi bước, các màn hình liên quan đổi ngay không cần tải lại | [ ] | |
+| X2 | Bàn gọi set + món lẻ, thanh toán | Tổng tiền giống nhau ở trang khách, hóa đơn in, Dashboard; hóa đơn có một dòng set | [ ] | |
+| X3 | Món phục vụ bỏ khi xác nhận | Không xuống bếp, không tính tiền, khách thấy lý do | [ ] | |
+| X4 | Khách gửi món → Quản lý đổi giá món đó → lập hóa đơn | Hóa đơn giữ giá lúc gọi | [ ] | |
+| X5 | Một món tạm hết | Hết ở trang QR, website, trợ lý không gợi ý, set chứa món bị ẩn | [ ] | |
+| X6 | Nhân viên vào ca trễ 10 phút bằng khuôn mặt → tạo kỳ lương | Chấm công và phiếu lương cùng ghi trễ 10 phút | [ ] | |
+| X7 | Đặt bàn website cho giờ sắp tới → khách đến | Lịch ở Quản lý; bàn tím ở thu ngân; "Khách đã đến – Mở bàn" xong thì QR gọi món được | [ ] | |
+| X8 | Bếp khai báo công thức món mới | Kho → nguyên liệu → Món sử dụng có món đó; Kiểm tra nguyên liệu có số phần | [ ] | |
+| X9 | Sau buổi test, mở Nhật ký | Mỗi thao tác quan trọng có dòng ghi đúng người, đúng giờ | [ ] | |
+
+---
+
+**Gửi kết quả:** gửi các dòng **không đạt** (mã dòng, ví dụ `44.22`, kèm ghi chú / ảnh). Mình sẽ xem lỗi có lan sang các trang ở dòng
+"Liên quan" không, rồi đánh giá cách sửa trước khi sửa.

@@ -25,9 +25,9 @@
         font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       }
       [data-theme='dark'] .rl { background: #17110e; color: #efe6dc; }
-      /* Chỉ hiện khi phải chờ quá 0,3 giây (tải nhanh thì không thấy, tránh nháy màn hình), rồi mờ dần lên.
-         .rl-now: hiện ngay, không mờ dần — React dùng khi người dùng đã chờ quá 0,3 giây (nối tiếp màn hình chờ của HTML). */
-      .rl > * { opacity: 0; animation: rl-in 0.25s ease-out 0.3s forwards; }
+      /* Chỉ hiện khi phải chờ quá 0,6 giây (tải nhanh thì không thấy, tránh nháy màn hình), rồi mờ dần lên.
+         .rl-now: hiện ngay, không mờ dần — React dùng khi người dùng đã chờ quá 0,6 giây (nối tiếp màn hình chờ của HTML). */
+      .rl > * { opacity: 0; animation: rl-in 0.25s ease-out 0.6s forwards; }
       .rl.rl-now > * { opacity: 1; animation: none; }
       @keyframes rl-in { to { opacity: 1; } }
       .rl-art { display: block; width: min(340px, 84vw); height: auto; overflow: visible; }

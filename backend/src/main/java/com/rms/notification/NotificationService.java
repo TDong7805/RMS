@@ -121,15 +121,10 @@ public class NotificationService {
         boolean manager = "manager".equals(role);
         boolean cashier = "cashier".equals(role);
         boolean waiter = "waiter".equals(role);
-        String selfHome = switch (role == null ? "" : role) {
-            case "waiter" -> "/phuc-vu";
-            case "cashier" -> "/thu-ngan";
-            case "kitchen" -> "/bep";
-            default -> null;
-        };
         return switch (refTable) {
-            // Chấm công khuôn mặt: quản lý → trang duyệt khuôn mặt; nhân viên → trang "Thông tin của tôi".
-            case "users" -> manager ? "/quan-ly/nhan-vien/khuon-mat" : selfHome == null ? null : selfHome + "/toi";
+            // Chấm công khuôn mặt: quản lý → trang duyệt khuôn mặt; nhân viên: chỉ xem (trang "Thông tin của tôi" đã gỡ khỏi
+            // màn làm việc 26/11/2026 — sẽ trỏ về Cổng nhân viên khi làm).
+            case "users" -> manager ? "/quan-ly/nhan-vien/khuon-mat" : null;
             case "ingredients" -> warehouse ? "/kho/nguyen-lieu/" + refId : null;
             case "purchase_orders" -> warehouse ? "/kho/phieu-mua/" + refId : null;
             case "stocktakes" -> warehouse ? "/kho/kiem-ke/" + refId : manager ? "/quan-ly/kiem-ke/" + refId : null;

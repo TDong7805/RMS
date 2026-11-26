@@ -279,8 +279,3 @@
   animation: site-fade-up 0.5s ease both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .site-root .site-fade-up {
-    animation: none;
-  }
-}

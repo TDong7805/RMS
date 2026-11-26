@@ -25,13 +25,22 @@ public class ImageStore {
 
     /** Trả về khóa ảnh sẽ lưu vào CSDL (có thể null). */
     public String apply(String folder, String input, String currentKey, String field) {
+        return apply(folder, input, currentKey, field, ImageProcessor.MAX_SIDE);
+    }
+
+    /** Ảnh toàn khổ của website (banner, ảnh trượt): giữ cạnh dài tới {@link ImageProcessor#WIDE_SIDE}px. */
+    public String applyWide(String folder, String input, String currentKey, String field) {
+        return apply(folder, input, currentKey, field, ImageProcessor.WIDE_SIDE);
+    }
+
+    private String apply(String folder, String input, String currentKey, String field, int maxSide) {
         String newKey;
         if (input == null || input.isBlank()) {
             newKey = null;
         } else if (currentKey != null && input.equals(storage.url(currentKey))) {
             return currentKey;
         } else if (input.startsWith("data:")) {
-            ImageProcessor.Image image = ImageProcessor.fromDataUrl(input, field);
+            ImageProcessor.Image image = ImageProcessor.fromDataUrl(input, field, maxSide);
             newKey = storage.save(folder, image.content(), image.extension());
             String saved = newKey;
             afterCompletion(false, () -> storage.delete(saved));

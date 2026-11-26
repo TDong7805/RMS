@@ -203,10 +203,11 @@
   );
 }
 
+/* Website khách (.site-root) luôn bật đủ hiệu ứng, không theo cài đặt này (QUY_TAC_GIAO_DIEN K3). */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  :not(.site-root, .site-root *),
+  :not(.site-root *)::before,
+  :not(.site-root *)::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;

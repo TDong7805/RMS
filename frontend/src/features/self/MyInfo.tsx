@@ -49,7 +49,7 @@ import { cn } from '@/lib/cn';
 
 /*
  * "Thông tin của tôi" — Nhân viên phục vụ, Thu ngân, Nhân viên bếp: chấm công bằng khuôn mặt, ca làm, lịch sử chấm công
- * (kèm ảnh), phiếu lương (kỳ đã chốt), hồ sơ. Trang chứa (WaiterShell / SelfShell) quyết định khung.
+ * (kèm ảnh), phiếu lương (kỳ đã chốt), hồ sơ. Hiện chưa trang nào dùng (26/11/2026 gỡ khỏi thu ngân / bếp / phục vụ) — giữ lại để dựng Cổng nhân viên /nhan-vien.
  */
 
 type Tab = 'clock' | 'shifts' | 'history' | 'payslips' | 'profile';

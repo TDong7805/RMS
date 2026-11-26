@@ -63,10 +63,11 @@ public class SeedImageLoader implements ApplicationRunner {
             int groups = applyNamed(dir.get(), applied, "nhom", "dish_groups", "groups", "grp");
             int sets = applyNamed(dir.get(), applied, "set", "combos", "sets", "set");
             int cover = applyCover(dir.get(), applied);
+            int web = applyWebsite(dir.get(), applied);
             saveApplied(applied);
-            if (dishes + cats + groups + sets + cover > 0)
-                log.info("Đã gắn {} ảnh món, {} ảnh danh mục, {} ảnh nhóm món, {} ảnh set và {} ảnh bìa từ {}",
-                    dishes, cats, groups, sets, cover, dir.get());
+            if (dishes + cats + groups + sets + cover + web > 0)
+                log.info("Đã gắn {} ảnh món, {} ảnh danh mục, {} ảnh nhóm món, {} ảnh set, {} ảnh bìa và {} ảnh website từ {}",
+                    dishes, cats, groups, sets, cover, web, dir.get());
         } catch (RuntimeException | IOException e) {
             // Ảnh mẫu chỉ để demo: lỗi không được làm backend dừng.
             log.warn("Không gắn được ảnh mẫu: {}", e.toString(), e);
@@ -176,6 +177,78 @@ public class SeedImageLoader implements ApplicationRunner {
         jdbc.sql("UPDATE restaurant_info SET cover_image_url = ? WHERE id = 1").param(save("restaurant", file.get())).update();
         applied.add("cover");
         return 1;
+    }
+
+    /**
+     * Ảnh trang chủ website: {@code website/danh-sach.csv} gồm "tên file ảnh,mục,chú thích". Mục:
+     * hero | about | reserve | chef (cột ảnh của website_content), signature:N / experience:N (mục thứ N của
+     * website_features theo thứ tự), gallery (thêm vào album, chú thích = cột 3). Ảnh toàn khổ giữ tới 2400px.
+     */
+    private int applyWebsite(Path dir, Set<String> applied) throws IOException {
+        Path folder = dir.resolve("website");
+        Path list = folder.resolve("danh-sach.csv");
+        if (!Files.exists(list)) return 0;
+        int count = 0;
+        for (String line : Files.readAllLines(list, StandardCharsets.UTF_8)) {
+            String[] cols = line.replace("﻿", "").split(",", 3);
+            if (cols.length < 2 || cols[0].isBlank() || cols[0].trim().startsWith("ten_file")) continue;
+            Optional<Path> file = imageFile(folder, cols[0].trim());
+            if (file.isEmpty()) continue;
+            String slot = cols[1].trim();
+            String caption = cols.length > 2 ? cols[2].trim() : "";
+            String column = switch (slot) {
+                case "hero" -> "hero_image_url";
+                case "about" -> "about_image_url";
+                case "reserve" -> "reserve_image_url";
+                case "chef" -> "chef_image_url";
+                default -> null;
+            };
+            if (column != null) {
+                String key = jdbc.sql("SELECT " + column + " FROM website_content WHERE id = 1").query((rs, n) -> rs.getString(1))
+                    .list().stream().filter(x -> x != null).findFirst().orElse(null);
+                if (!needs(key, "web-" + slot, applied)) continue;
+                jdbc.sql("UPDATE website_content SET " + column + " = ? WHERE id = 1").param(saveWide("website", file.get())).update();
+                applied.add("web-" + slot);
+                count++;
+            } else if (slot.matches("(signature|experience):\\d+")) {
+                String[] p = slot.split(":");
+                var rows = jdbc.sql("SELECT id, image_url FROM website_features WHERE kind = ? ORDER BY sort_order, id LIMIT 1 OFFSET ?")
+                    .params(p[0], Integer.parseInt(p[1]) - 1)
+                    .query((rs, n) -> new String[] {rs.getString(1), rs.getString(2)}).list();
+                if (rows.isEmpty()) continue;
+                String mark = "wf" + rows.get(0)[0];
+                if (!needs(rows.get(0)[1], mark, applied)) continue;
+                jdbc.sql("UPDATE website_features SET image_url = ? WHERE id = ?").params(saveWide("website", file.get()), rows.get(0)[0]).update();
+                applied.add(mark);
+                count++;
+            } else if ("gallery".equals(slot)) {
+                String mark = "wg-" + cols[0].trim();
+                var rows = jdbc.sql("SELECT id, image_url FROM gallery_photos WHERE caption = ?").param(caption)
+                    .query((rs, n) -> new String[] {rs.getString(1), rs.getString(2)}).list();
+                if (rows.isEmpty()) {
+                    if (applied.contains(mark)) continue; // Quản lý đã xóa ảnh này khỏi album: không thêm lại
+                    int next = jdbc.sql("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM gallery_photos").query(Integer.class).single();
+                    jdbc.sql("INSERT INTO gallery_photos (image_url, caption, sort_order, is_visible) VALUES (?, ?, ?, 1)")
+                        .params(saveWide("gallery", file.get()), caption.isEmpty() ? null : caption, next).update();
+                } else {
+                    if (storage.read(rows.get(0)[1]) != null) continue;
+                    jdbc.sql("UPDATE gallery_photos SET image_url = ? WHERE id = ?").params(saveWide("gallery", file.get()), rows.get(0)[0]).update();
+                }
+                applied.add(mark);
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Chưa có ảnh và chưa từng gắn, hoặc đã gắn mà file trong uploads bị mất. */
+    private boolean needs(String key, String mark, Set<String> applied) {
+        return key == null ? !applied.contains(mark) : storage.read(key) == null;
+    }
+
+    private String saveWide(String folder, Path file) throws IOException {
+        ImageProcessor.Image image = ImageProcessor.processSeed(Files.readAllBytes(file), file.getFileName().toString(), ImageProcessor.WIDE_SIDE);
+        return storage.save(folder, image.content(), image.extension());
     }
 
     private Optional<Path> imageFile(Path folder, String baseName) {

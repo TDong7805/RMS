@@ -63,6 +63,38 @@ export interface PublicSite {
   today: string;
   /** Giờ máy chủ (ISO UTC) — tính giờ đặt sớm nhất không phụ thuộc đồng hồ máy khách. */
   serverTime: string;
+  /** Lời từ bếp trưởng; null = chưa nhập lá thư (ẩn mục). */
+  chef: SiteChef | null;
+  /** Ảnh cạnh form đặt bàn ở trang chủ. */
+  reserveImage: string | null;
+  /** Món đặc trưng (ảnh lớn tự trượt); rỗng = dùng món bán chạy. */
+  signatures: SiteHighlight[];
+  /** Trải nghiệm (tiệc, hẹn hò…); set menu do website tự lấy từ thực đơn. */
+  experiences: SiteHighlight[];
+  /** Số liệu khối Không gian, lấy từ sơ đồ bàn. */
+  space: SiteSpace;
+}
+
+export interface SiteChef {
+  name: string;
+  title: string;
+  paragraphs: string[];
+  image: string | null;
+}
+
+export interface SiteHighlight {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  image: string | null;
+}
+
+export interface SiteSpace {
+  floors: number;
+  areas: number;
+  tables: number;
+  seats: number;
 }
 
 export interface PublicCategory {
@@ -159,7 +191,35 @@ export interface WebsiteContent {
   youtubeUrl: string;
   zaloPhone: string;
   mapUrl: string;
+  chefName: string;
+  chefTitle: string;
+  /** Xuống dòng = sang đoạn mới. Để trống thì website ẩn mục Lời từ bếp trưởng. */
+  chefLetter: string;
+  chefImage: string | null;
+  reserveImage: string | null;
   updatedAt: string;
+}
+
+export type WebsiteFeatureKind = 'signature' | 'experience';
+
+export interface WebsiteFeature {
+  id: string;
+  kind: WebsiteFeatureKind;
+  title: string;
+  subtitle: string;
+  description: string;
+  image: string | null;
+  visible: boolean;
+  sortOrder: number;
+}
+
+export interface WebsiteFeatureInput {
+  kind: WebsiteFeatureKind;
+  title: string;
+  subtitle: string;
+  description: string;
+  image: string | null;
+  visible: boolean;
 }
 
 export type WebsiteContentInput = Omit<WebsiteContent, 'updatedAt'>;

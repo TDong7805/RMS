@@ -1,10 +1,11 @@
 :root,
 [data-theme='light'] {
   /* ---------- Surfaces ---------- */
-  --bg-page: #f6f8f7;
+  /* Quy tắc giao diện (docs/thiet-ke/QUY_TAC_GIAO_DIEN.md): trang nhân viên xanh dịu mát, nền ánh xanh rất nhạt. */
+  --bg-page: #f3f7f5;
   --bg-surface: #ffffff;
-  --bg-subtle: #f1f5f3;
-  --bg-hover: #eef4f1;
+  --bg-subtle: #eef4f1;
+  --bg-hover: #e9f1ed;
 
   /* ---------- Text ---------- */
   --text-primary: #0f1a14;
@@ -12,18 +13,22 @@
   --text-muted: #8a978f;
 
   /* ---------- Lines ---------- */
-  --border: #e4ebe7;
-  --border-strong: #d3ded8;
+  --border: #e2eae6;
+  --border-strong: #cfdcd5;
 
-  /* ---------- Accent ---------- */
+  /* ---------- Thương hiệu (chỉ logo / điểm nhấn nhỏ) ---------- */
+  --brand: #8e1b22;
+  --brand-contrast: #ffffff;
+
+  /* ---------- Accent: màu chính (nút chính, mục đang chọn, liên kết, viền ô đang nhập) ---------- */
   --accent: #0f7b5a;
   --accent-hover: #0b6249;
   --accent-soft: #e4f3ec;
   --accent-contrast: #ffffff;
 
   /* ---------- Status ---------- */
-  --warning: #d97706;
-  --warning-soft: #fef3e2;
+  --warning: #c26a05;
+  --warning-soft: #fdf1df;
   --danger: #dc2626;
   --danger-soft: #fde8e8;
   --info: #2563eb;
@@ -36,6 +41,12 @@
   --chart-line-previous: #b3c0b9;
   --chart-grid: #e9efeb;
   --chart-bar: #cfe6dc;
+  /* Màu từng phần của biểu đồ vành khuyên (Cơ cấu doanh thu); phần "Khác" dùng --chart-line-previous */
+  --chart-1: #0f7b5a;
+  --chart-2: #d99a2b;
+  --chart-3: #3b7fc4;
+  --chart-4: #c2566b;
+  --chart-5: #7c6fc4;
 
   /* ---------- Geometry ---------- */
   --sidebar-w: 280px;
@@ -49,6 +60,8 @@
   /* ---------- Elevation ---------- */
   --shadow-overlay: 0 12px 32px rgba(15, 26, 20, 0.12);
   --shadow-soft: 0 1px 2px rgba(15, 26, 20, 0.04);
+  /* Bóng thẻ nhẹ: thẻ nổi khỏi nền mà không nặng (quy tắc "không thô") */
+  --shadow-card: 0 1px 2px rgba(15, 26, 20, 0.04), 0 6px 18px -10px rgba(15, 26, 20, 0.10);
 
   /* ---------- Fonts ---------- */
   /* Font nạp trong main.tsx (@fontsource-variable), không phụ thuộc Google Fonts. */
@@ -111,9 +124,18 @@
   --chart-line-previous: #55705f;
   --chart-grid: #1f2d27;
   --chart-bar: #1d4034;
+  --chart-1: #34d399;
+  --chart-2: #f2b84f;
+  --chart-3: #60a5fa;
+  --chart-4: #f07a8f;
+  --chart-5: #a594f9;
 
   --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.5);
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 20px -12px rgba(0, 0, 0, 0.55);
+
+  --brand: #c4414b;
+  --brand-contrast: #ffffff;
 
   --background: 156 24% 6%;
   --foreground: 150 20% 93%;

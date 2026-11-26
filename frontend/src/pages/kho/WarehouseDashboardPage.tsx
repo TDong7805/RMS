@@ -52,10 +52,10 @@ export function WarehouseDashboardPage() {
           description="Tình hình kho hiện tại và nhập – xuất – hao hụt trong kỳ."
           actions={
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" leadingIcon={<ClipboardList size={15} />} onClick={() => navigate('/kho/phieu-mua/them')}>Tạo phiếu mua</Button>
-              <Button size="sm" variant="outline" leadingIcon={<PackagePlus size={15} />} onClick={() => navigate('/kho/nhap-kho')}>Nhập kho</Button>
-              <Button size="sm" variant="outline" leadingIcon={<PackageMinus size={15} />} onClick={() => navigate('/kho/xuat-kho/them')}>Xuất kho</Button>
-              <Button size="sm" variant="outline" leadingIcon={<ClipboardCheck size={15} />} onClick={() => navigate('/kho/kiem-ke')}>Kiểm kê</Button>
+              <Button variant="outline" leadingIcon={<ClipboardList size={15} />} onClick={() => navigate('/kho/phieu-mua/them')}>Tạo phiếu mua</Button>
+              <Button variant="outline" leadingIcon={<PackagePlus size={15} />} onClick={() => navigate('/kho/nhap-kho')}>Nhập kho</Button>
+              <Button variant="outline" leadingIcon={<PackageMinus size={15} />} onClick={() => navigate('/kho/xuat-kho/them')}>Xuất kho</Button>
+              <Button variant="outline" leadingIcon={<ClipboardCheck size={15} />} onClick={() => navigate('/kho/kiem-ke')}>Kiểm kê</Button>
             </div>
           }
         />
@@ -97,6 +97,12 @@ function Overview({ range }: { range: WarehouseRange }) {
 
 function OverviewBody({ d, fetching }: { d: WarehouseDashboard; fetching: boolean }) {
   const navigate = useNavigate();
+  // Tick chọn nhiều nguyên liệu cần nhập → một nút "Tạo phiếu mua" (form gợi ý nhà cung cấp bán được nhiều nhất).
+  const [picked, setPicked] = useState<string[]>([]);
+  const restockIds = d.needRestock.map((r) => r.id);
+  const pickedNow = picked.filter((id) => restockIds.includes(id));
+  const allPicked = restockIds.length > 0 && pickedNow.length === restockIds.length;
+  const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   return (
     <div className={`space-y-4 ${fetching ? 'opacity-70 transition-opacity' : ''}`}>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -142,58 +148,93 @@ function OverviewBody({ d, fetching }: { d: WarehouseDashboard; fetching: boolea
         </div>
       </Card>
 
+      {/* Hai cột cao bằng nhau: trái là danh sách cần nhập (tối đa 10 dòng), phải là 2 khung xếp chồng giãn theo. */}
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-        <Card className="overflow-hidden">
-          <div className="flex items-start justify-between gap-2 p-5 pb-3">
+        <Card className="flex min-w-0 flex-col overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-3">
             <CardHeader title="Nguyên liệu cần nhập" />
-            <Link to="/kho/nguyen-lieu?stock=low" className="text-[13px] text-[var(--accent)] hover:underline">Xem tất cả</Link>
+            <div className="flex items-center gap-3">
+              <Link to="/kho/nguyen-lieu?stock=low" className="text-[13px] text-[var(--accent)] hover:underline">Xem tất cả</Link>
+              <Button
+                size="sm"
+                leadingIcon={<ClipboardList size={14} />}
+                disabled={pickedNow.length === 0}
+                onClick={() => navigate(`/kho/phieu-mua/them?nl=${pickedNow.join(',')}`)}
+              >
+                Tạo phiếu mua{pickedNow.length ? ` (${pickedNow.length})` : ''}
+              </Button>
+            </div>
           </div>
           {d.needRestock.length === 0 ? (
-            <p className="px-5 pb-5 text-[13px] text-[var(--text-muted)]">Chưa có dữ liệu.</p>
+            <p className="px-5 pb-5 text-[13px] text-[var(--text-muted)]">Không có nguyên liệu nào sắp hết.</p>
           ) : (
-            <DataTable minWidth={520}>
-              <thead><tr><Th>Nguyên liệu</Th><Th className="text-right">Tồn</Th><Th className="text-right">Tối thiểu</Th><Th>Tình trạng</Th><Th /></tr></thead>
-              <tbody>
-                {d.needRestock.map((r) => (
-                  <tr key={r.id}>
-                    <Td><Link to={`/kho/nguyen-lieu/${r.id}`} className="font-semibold hover:text-[var(--accent)]">{r.name}</Link><p className="font-mono text-[12px] text-[var(--text-muted)]">{r.code}</p></Td>
-                    <Td className="whitespace-nowrap text-right font-mono">{formatQty(r.onHand, r.unit)}</Td>
-                    <Td className="whitespace-nowrap text-right font-mono text-[var(--text-secondary)]">{formatQty(r.minLevel, r.unit)}</Td>
-                    <Td><StockLevelBadge level={r.level} /></Td>
-                    <Td className="text-right"><Button size="sm" variant="outline" onClick={() => navigate(`/kho/phieu-mua/them?nl=${r.id}`)}>Tạo phiếu mua</Button></Td>
+            <>
+              <p className="px-5 pb-2 text-[12.5px] text-[var(--text-muted)]">Tick các nguyên liệu muốn mua rồi bấm Tạo phiếu mua.</p>
+              <DataTable minWidth={460}>
+                <thead>
+                  <tr>
+                    <Th className="w-10">
+                      <input
+                        type="checkbox"
+                        aria-label="Chọn tất cả nguyên liệu cần nhập"
+                        checked={allPicked}
+                        onChange={() => setPicked(allPicked ? [] : restockIds)}
+                        className="h-4 w-4 accent-[var(--accent)]"
+                      />
+                    </Th>
+                    <Th>Nguyên liệu</Th>
+                    <Th className="text-right">Tồn</Th>
+                    <Th className="text-right">Tối thiểu</Th>
+                    <Th>Tình trạng</Th>
                   </tr>
-                ))}
-              </tbody>
-            </DataTable>
+                </thead>
+                <tbody>
+                  {d.needRestock.map((r) => (
+                    <tr key={r.id} className={pickedNow.includes(r.id) ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--bg-subtle)]'}>
+                      <Td>
+                        <input type="checkbox" aria-label={`Chọn ${r.name}`} checked={pickedNow.includes(r.id)} onChange={() => toggle(r.id)} className="h-4 w-4 accent-[var(--accent)]" />
+                      </Td>
+                      <Td><Link to={`/kho/nguyen-lieu/${r.id}`} className="font-semibold hover:text-[var(--accent)]">{r.name}</Link><p className="font-mono text-[12px] text-[var(--text-muted)]">{r.code}</p></Td>
+                      <Td className="whitespace-nowrap text-right font-mono">{formatQty(r.onHand, r.unit)}</Td>
+                      <Td className="whitespace-nowrap text-right font-mono text-[var(--text-secondary)]">{formatQty(r.minLevel, r.unit)}</Td>
+                      <Td><StockLevelBadge level={r.level} /></Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </DataTable>
+            </>
           )}
         </Card>
-        <Card className="overflow-hidden">
+        <div className="flex min-w-0 flex-col gap-4">
+        <Card className="flex flex-1 flex-col overflow-hidden">
           <div className="flex items-start justify-between gap-2 p-5 pb-3">
             <CardHeader title="Phiếu mua chờ nhận" />
             <Link to="/kho/phieu-mua?status=waiting" className="text-[13px] text-[var(--accent)] hover:underline">Xem tất cả</Link>
           </div>
           {d.pendingPurchases.length === 0 ? (
-            <p className="px-5 pb-5 text-[13px] text-[var(--text-muted)]">Chưa có dữ liệu.</p>
+            <p className="px-5 pb-5 text-[13px] text-[var(--text-muted)]">Không có phiếu nào đang chờ nhận.</p>
           ) : (
-            <DataTable minWidth={520}>
-              <thead><tr><Th>Mã</Th><Th>Nhà cung cấp</Th><Th>Dự kiến nhận</Th><Th>Trạng thái</Th></tr></thead>
+            <DataTable minWidth={460}>
+              <thead><tr><Th>Phiếu</Th><Th>Nhà cung cấp</Th><Th>Dự kiến nhận</Th></tr></thead>
               <tbody>
                 {d.pendingPurchases.map((p) => (
-                  <tr key={p.id}>
-                    <Td className="whitespace-nowrap"><Link to={`/kho/phieu-mua/${p.id}`} className="font-mono text-[12.5px] font-semibold hover:text-[var(--accent)]">{p.code}</Link></Td>
+                  <tr key={p.id} className="cursor-pointer hover:bg-[var(--bg-subtle)]" onClick={() => navigate(`/kho/phieu-mua/${p.id}`)}>
+                    <Td className="whitespace-nowrap">
+                      <Link to={`/kho/phieu-mua/${p.id}`} className="font-mono text-[12.5px] font-semibold hover:text-[var(--accent)]">{p.code}</Link>
+                      <div className="mt-1"><Badge variant={RECEIVE_STATUS[p.receiveStatus].variant}>{RECEIVE_STATUS[p.receiveStatus].label}</Badge></div>
+                    </Td>
                     <Td className="text-[13px]">{p.supplierName}</Td>
                     <Td className="whitespace-nowrap text-[13px]">
                       {p.expectedDate ? formatDateOnly(p.expectedDate) : '—'}
                       {p.due === 'late' ? <> <Badge variant="danger">Trễ hạn</Badge></> : p.due === 'soon' ? <> <Badge variant="warning">Sắp đến hạn</Badge></> : null}
                     </Td>
-                    <Td className="whitespace-nowrap"><Badge variant={RECEIVE_STATUS[p.receiveStatus].variant}>{RECEIVE_STATUS[p.receiveStatus].label}</Badge></Td>
                   </tr>
                 ))}
               </tbody>
             </DataTable>
           )}
         </Card>
-        <Card padded>
+        <Card padded className="flex-1">
           <CardHeader title="Phiếu kiểm kê cần chú ý" />
           {d.stocktakes.length === 0 ? (
             <p className="mt-3 text-[13px] text-[var(--text-muted)]">Không có phiếu chờ duyệt hay bị từ chối.</p>
@@ -212,6 +253,8 @@ function OverviewBody({ d, fetching }: { d: WarehouseDashboard; fetching: boolea
             </ul>
           )}
         </Card>
+        </div>
+      </div>
         <Card className="overflow-hidden">
           <div className="p-5 pb-3"><CardHeader title="Hao hụt nhiều nhất (trong kỳ)" /></div>
           {d.losses.length === 0 ? (
@@ -232,7 +275,6 @@ function OverviewBody({ d, fetching }: { d: WarehouseDashboard; fetching: boolea
             </DataTable>
           )}
         </Card>
-      </div>
     </div>
   );
 }

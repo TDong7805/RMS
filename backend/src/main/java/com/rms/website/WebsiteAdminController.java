@@ -2,6 +2,8 @@ package com.rms.website;
 
 import com.rms.website.WebsiteContentService.Content;
 import com.rms.website.WebsiteContentService.ContentInput;
+import com.rms.website.WebsiteContentService.Feature;
+import com.rms.website.WebsiteContentService.FeatureInput;
 import com.rms.website.WebsiteContentService.MenuCategory;
 import com.rms.website.WebsiteContentService.MoveInput;
 import com.rms.website.WebsiteContentService.Photo;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -28,6 +31,11 @@ import org.springframework.web.bind.annotation.RestController;
  * PUT    /api/website/gallery/{id}                {image, caption, visible}
  * PATCH  /api/website/gallery/{id}/move           {direction: "up" | "down"} → cả album theo thứ tự mới
  * DELETE /api/website/gallery/{id}
+ * GET    /api/website/features?kind=              món đặc trưng (signature) / trải nghiệm (experience), kể cả mục ẩn
+ * POST   /api/website/features                    {kind, title, subtitle, description, image, visible}
+ * PUT    /api/website/features/{id}               {title, subtitle, description, image, visible}
+ * PATCH  /api/website/features/{id}/move          {direction} → cả danh sách cùng loại theo thứ tự mới
+ * DELETE /api/website/features/{id}
  * GET    /api/website/menu                        danh mục + món kèm cờ showOnWebsite
  * PATCH  /api/website/menu/categories/{id}        {visible}
  * PATCH  /api/website/menu/dishes/{id}            {visible}
@@ -74,6 +82,32 @@ public class WebsiteAdminController {
     @DeleteMapping("/gallery/{id}")
     public ResponseEntity<Void> deletePhoto(@PathVariable String id) {
         service.deletePhoto(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/features")
+    public List<Feature> features(@RequestParam(defaultValue = "") String kind) {
+        return service.features(kind);
+    }
+
+    @PostMapping("/features")
+    public Feature addFeature(@RequestBody FeatureInput in) {
+        return service.addFeature(in);
+    }
+
+    @PutMapping("/features/{id}")
+    public Feature updateFeature(@PathVariable String id, @RequestBody FeatureInput in) {
+        return service.updateFeature(id, in);
+    }
+
+    @PatchMapping("/features/{id}/move")
+    public List<Feature> moveFeature(@PathVariable String id, @RequestBody MoveInput in) {
+        return service.moveFeature(id, in);
+    }
+
+    @DeleteMapping("/features/{id}")
+    public ResponseEntity<Void> deleteFeature(@PathVariable String id) {
+        service.deleteFeature(id);
         return ResponseEntity.noContent().build();
     }
 

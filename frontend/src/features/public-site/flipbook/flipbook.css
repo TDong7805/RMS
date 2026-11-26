@@ -288,11 +288,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .site-root .fb-tabs__ink {
-    transition: none;
-  }
-}
 
 /* Danh sách kết quả tìm kiếm */
 .site-root .fb-search__list {
@@ -359,11 +354,6 @@
   transition: transform 0.6s cubic-bezier(0.45, 0.05, 0.25, 1);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .site-root .fb-book-shift {
-    transition: none;
-  }
-}
 
 /* Khung sách của page-flip: thư viện tự tạo .stf__parent / .stf__block / .stf__item và vẽ bóng khi lật */
 .site-root .fb-pf-host {
@@ -1022,9 +1012,105 @@
   flex: 1;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .site-root .fb-card--highlight {
-    animation: none;
-    box-shadow: 0 0 0 3px var(--site-gold);
+
+/* Hướng dẫn thao tác lật sách lần đầu (FlipGuide.tsx, E1 27/11/2026): bàn tay kéo góc trang sang trái. */
+@keyframes fb-guide-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+@keyframes fb-guide-hand {
+  0% {
+    transform: translateX(70px) rotate(-8deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  70% {
+    transform: translateX(-70px) rotate(10deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-70px) rotate(10deg);
+    opacity: 0;
+  }
+}
+@keyframes fb-guide-trail {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  70% {
+    transform: scaleX(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+.site-root .fb-guide {
+  position: absolute;
+  left: 50%;
+  bottom: 9%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px 12px;
+  border-radius: 18px;
+  background: rgba(29, 21, 18, 0.82);
+  color: #f6efe7;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  animation: fb-guide-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) 0.5s both;
+}
+.site-root .fb-guide__track {
+  position: relative;
+  width: 200px;
+  height: 40px;
+}
+.site-root .fb-guide__trail {
+  position: absolute;
+  left: 30px;
+  right: 30px;
+  top: 50%;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(to left, transparent, #c9a24a);
+  transform-origin: right;
+  animation: fb-guide-trail 1.8s ease-in-out 0.9s infinite;
+}
+.site-root .fb-guide__hand {
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  margin-left: -17px;
+  color: #fff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  animation: fb-guide-hand 1.8s ease-in-out 0.9s infinite;
+}
+.site-root .fb-guide__text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+@media (max-width: 420px) {
+  .site-root .fb-guide__text {
+    white-space: normal;
+    text-align: center;
+    max-width: 240px;
   }
 }

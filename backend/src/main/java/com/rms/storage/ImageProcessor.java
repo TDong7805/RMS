@@ -34,6 +34,8 @@ public final class ImageProcessor {
     public static final int MAX_BYTES = 2 * 1024 * 1024;
     static final long MAX_PIXELS = 40_000_000L;
     static final int MAX_SIDE = 1200;
+    /** Ảnh toàn khổ của website khách (banner, ảnh trượt, không gian): màn 1920px+ cần ảnh lớn hơn ảnh món. */
+    public static final int WIDE_SIDE = 2400;
     private static final float JPEG_QUALITY = 0.85f;
 
     public record Image(byte[] content, String extension) {}
@@ -47,6 +49,11 @@ public final class ImageProcessor {
 
     /** Data URL → ảnh đã chuẩn hóa. Lỗi → ValidationException cho trường {@code field}. */
     public static Image fromDataUrl(String dataUrl, String field) {
+        return fromDataUrl(dataUrl, field, MAX_SIDE);
+    }
+
+    /** Như trên, thu nhỏ cạnh dài về {@code maxSide}px (ảnh toàn khổ website dùng {@link #WIDE_SIDE}). */
+    public static Image fromDataUrl(String dataUrl, String field, int maxSide) {
         int comma = dataUrl == null ? -1 : dataUrl.indexOf(',');
         if (comma < 0 || !dataUrl.startsWith("data:") || !dataUrl.substring(0, comma).endsWith(";base64")) {
             throw new ValidationException(field, "Ảnh không hợp lệ, vui lòng chọn lại");
@@ -61,25 +68,33 @@ public final class ImageProcessor {
         } catch (IllegalArgumentException e) {
             throw new ValidationException(field, "Ảnh không hợp lệ, vui lòng chọn lại");
         }
-        return process(bytes, field);
+        return process(bytes, field, maxSide);
     }
 
     static Image process(byte[] bytes, String field) {
+        return process(bytes, field, MAX_SIDE);
+    }
+
+    static Image process(byte[] bytes, String field, int maxSide) {
         if (bytes.length > MAX_BYTES) throw new ValidationException(field, "Ảnh tối đa 2 MB");
-        return processAnySize(bytes, field);
+        return processAnySize(bytes, field, maxSide);
     }
 
     /** Ảnh mẫu do nhóm đặt sẵn trong repo (chỉ môi trường dev): không giới hạn 2 MB, vẫn thu nhỏ + làm sạch như ảnh tải lên. */
     static Image processSeed(byte[] bytes, String name) {
-        return processAnySize(bytes, name);
+        return processAnySize(bytes, name, MAX_SIDE);
     }
 
-    private static Image processAnySize(byte[] bytes, String field) {
+    static Image processSeed(byte[] bytes, String name, int maxSide) {
+        return processAnySize(bytes, name, maxSide);
+    }
+
+    private static Image processAnySize(byte[] bytes, String field, int maxSide) {
         if (!isJpeg(bytes) && !isPng(bytes) && !isWebp(bytes)) {
             throw new ValidationException(field, "Chỉ nhận ảnh JPG, PNG hoặc WebP");
         }
         BufferedImage source = decode(bytes, field);
-        BufferedImage resized = resize(source);
+        BufferedImage resized = resize(source, maxSide);
         boolean alpha = resized.getColorModel().hasAlpha() && hasTransparentPixel(resized);
         try {
             return alpha ? new Image(writePng(resized), "png") : new Image(writeJpeg(toRgb(resized)), "jpg");
@@ -109,9 +124,9 @@ public final class ImageProcessor {
         }
     }
 
-    private static BufferedImage resize(BufferedImage src) {
+    private static BufferedImage resize(BufferedImage src, int maxSide) {
         int w = src.getWidth(), h = src.getHeight();
-        double scale = Math.min(1.0, (double) MAX_SIDE / Math.max(w, h));
+        double scale = Math.min(1.0, (double) maxSide / Math.max(w, h));
         int tw = Math.max(1, (int) Math.round(w * scale)), th = Math.max(1, (int) Math.round(h * scale));
         boolean alpha = src.getColorModel().hasAlpha();
         BufferedImage out = new BufferedImage(tw, th, alpha ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);

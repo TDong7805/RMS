@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, PackageMinus, Plus, Trash2 } from 'lucide-react';
+import { Layers, PackageMinus, Plus, Trash2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
-import { BlockError, EmptyState } from '@/components/common/EmptyState';
+import { BlockError, EmptyState, FilteredEmpty } from '@/components/common/EmptyState';
+import { FilterChips } from '@/components/common/FilterChips';
+import { StickySaveBar } from '@/components/common/StickySaveBar';
+import { SubPageHeader } from '@/components/common/SubPageHeader';
 import { Field, SearchInput, SelectInput, TextArea, TextInput } from '@/components/common/Form';
 import { ConfirmDialog } from '@/components/common/Modal';
 import { DataTable, PageHeader, Pagination, StatTile, TableSkeleton, Td, Th, Toolbar } from '@/components/common/PageParts';
@@ -14,7 +17,8 @@ import { WAREHOUSE_PAGE_SIZE } from '@/api/warehouse-ingredients';
 import { createIssue } from '@/api/warehouse-issues';
 import { useIngredientOptions, useIssue, useIssues, useWarehouseEmployees, wk } from '@/features/warehouse/queries';
 import { formatQty, ISSUE_REASON } from '@/features/warehouse/labels';
-import { dateKeyOffset, InfoItem, parseQty, useLeaveGuard } from '@/features/warehouse/parts';
+import { dateKeyOffset, InfoItem, parseQty } from '@/features/warehouse/parts';
+import { useUnsavedGuard } from '@/hooks/use-unsaved-guard';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { useDebounced } from '@/hooks/use-debounced';
 import { formatCurrency } from '@/lib/format';
@@ -28,7 +32,8 @@ const dayDiff = (a: string, b: string) => Math.round((new Date(b).getTime() - ne
 export function IssuesPage() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
-  const [reason, setReason] = useState<IssueReason | 'all'>('all');
+  const [filters, setFilters] = useState<Record<string, string | undefined>>({});
+  const reason = (filters.reason ?? 'all') as IssueReason | 'all';
   const [from, setFrom] = useState(dateKeyOffset(-29));
   const [to, setTo] = useState(dateKeyOffset(0));
   const [page, setPage] = useState(1);
@@ -37,31 +42,32 @@ export function IssuesPage() {
   const list = useIssues({ keyword: debounced, reason, from, to, page }, !rangeError);
   useEffect(() => setPage(1), [debounced, reason, from, to]);
   const hasFilter = Boolean(keyword || reason !== 'all');
+  const clearFilters = () => {
+    setKeyword('');
+    setFilters({});
+  };
 
   return (
-    <AppShell meta={{ label: 'Xuất kho', parent: 'Nhập – xuất kho' }}>
+    <AppShell meta={{ label: 'Xuất kho' }}>
       <div className="min-w-0 space-y-4">
         <PageHeader
           title="Xuất kho"
           description="Lịch sử phiếu xuất: cho bếp, xuất hủy, lý do khác. Phiếu xuất không sửa, không xóa, không hủy — xuất nhầm thì điều chỉnh qua kiểm kê."
-          actions={<Button size="sm" leadingIcon={<PackageMinus size={15} />} onClick={() => navigate('/kho/xuat-kho/them')}>Tạo phiếu xuất</Button>}
+          actions={<Button leadingIcon={<PackageMinus size={15} />} onClick={() => navigate('/kho/xuat-kho/them')}>Tạo phiếu xuất</Button>}
         />
         <Card className="overflow-hidden">
           <Toolbar>
             <SearchInput value={keyword} onChange={setKeyword} placeholder="Mã phiếu xuất, tên nguyên liệu…" className="w-full sm:w-[260px]" />
-            <SelectInput
-              aria-label="Lọc theo lý do"
-              value={reason === 'all' ? '' : reason}
-              onChange={(e) => setReason((e.target.value || 'all') as IssueReason | 'all')}
-              placeholder="Tất cả lý do"
-              options={REASONS.map((r) => ({ value: r, label: ISSUE_REASON[r].label }))}
-              className="w-full sm:w-[180px]"
-            />
             <div className="flex items-center gap-2">
               <TextInput type="date" aria-label="Từ ngày" value={from} onChange={(e) => setFrom(e.target.value)} invalid={Boolean(rangeError)} className="w-[150px]" />
               <span className="text-[var(--text-muted)]">–</span>
               <TextInput type="date" aria-label="Đến ngày" value={to} onChange={(e) => setTo(e.target.value)} invalid={Boolean(rangeError)} className="w-[150px]" />
             </div>
+            <FilterChips
+              value={filters}
+              onChange={setFilters}
+              fields={[{ key: 'reason', label: 'Lý do', icon: <Layers size={14} />, options: REASONS.map((x) => ({ value: x, label: ISSUE_REASON[x].label })) }]}
+            />
           </Toolbar>
           {rangeError ? <p className="px-5 pb-2 text-[12.5px] text-[var(--danger)]">{rangeError}</p> : null}
           {list.isError ? (
@@ -69,7 +75,11 @@ export function IssuesPage() {
           ) : rangeError ? null : list.isLoading || !list.data ? (
             <TableSkeleton cols={7} />
           ) : list.data.items.length === 0 ? (
-            <div className="p-5"><EmptyState icon={PackageMinus} title={hasFilter ? 'Không tìm thấy phiếu xuất' : 'Chưa có phiếu xuất nào trong khoảng thời gian này.'} description={hasFilter ? 'Thử từ khóa hoặc bộ lọc khác.' : undefined} /></div>
+            hasFilter ? (
+              <FilteredEmpty title="Không có phiếu xuất phù hợp" unit="phiếu xuất" onClear={clearFilters} />
+            ) : (
+              <div className="p-5"><EmptyState icon={PackageMinus} title="Chưa có phiếu xuất nào trong khoảng thời gian này" /></div>
+            )
           ) : (
             <div className={list.isFetching ? 'opacity-60 transition-opacity' : ''}>
               <DataTable minWidth={980}>
@@ -81,9 +91,9 @@ export function IssuesPage() {
                       <Td className="whitespace-nowrap text-[13px]">{formatDateTime(r.at)}</Td>
                       <Td><Badge variant={ISSUE_REASON[r.reason].variant}>{ISSUE_REASON[r.reason].label}</Badge></Td>
                       <Td className="max-w-[260px] text-[13px]"><span className="line-clamp-2">{r.itemNames}</span></Td>
-                      <Td className="text-[13px]">{r.receiver || '—'}</Td>
+                      <Td className="whitespace-nowrap text-[13px]">{r.receiver || '—'}</Td>
                       <Td className="text-right font-mono font-semibold">{formatCurrency(r.value)}</Td>
-                      <Td className="text-[13px]">{r.by}</Td>
+                      <Td className="whitespace-nowrap text-[13px]">{r.by}</Td>
                     </tr>
                   ))}
                 </tbody>
@@ -105,7 +115,7 @@ export function IssueDetailPage() {
   const detail = useIssue(id);
   const r = detail.data;
   return (
-    <AppShell meta={{ label: r ? r.code : 'Chi tiết phiếu xuất', parent: 'Xuất kho' }}>
+    <AppShell meta={{ label: r ? r.code : 'Chi tiết phiếu xuất', parent: 'Xuất kho', parentTo: '/kho/xuat-kho' }}>
       <div className="min-w-0 space-y-4">
         {detail.isError ? (
           <BlockError message="Không tìm thấy phiếu xuất" onRetry={() => navigate('/kho/xuat-kho')} />
@@ -113,13 +123,14 @@ export function IssueDetailPage() {
           <Skeleton className="h-64" />
         ) : (
           <>
-            <PageHeader
+            <SubPageHeader
               title={`Phiếu xuất ${r.code}`}
+              badge={<Badge variant={ISSUE_REASON[r.reason].variant}>{ISSUE_REASON[r.reason].label}</Badge>}
               description={`${formatDateTime(r.at)} · ${r.by}`}
-              actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/kho/xuat-kho')}>Về xuất kho</Button>}
+              backTo="/kho/xuat-kho"
             />
             <div className="grid gap-3 sm:grid-cols-3">
-              <StatTile label="Lý do" value={<span className="font-sans text-[18px]"><Badge variant={ISSUE_REASON[r.reason].variant}>{ISSUE_REASON[r.reason].label}</Badge></span>} />
+              <StatTile label="Người xuất" value={<span className="font-sans text-[18px]">{r.by}</span>} hint={formatDateTime(r.at)} />
               <StatTile label="Giá trị (theo giá vốn lúc xuất)" value={formatCurrency(r.value)} hint={`${r.lines.length} nguyên liệu`} />
               <StatTile label="Người nhận" value={<span className="font-sans text-[16px]">{r.receiver || '—'}</span>} />
             </div>
@@ -167,8 +178,15 @@ export function IssueFormPage() {
   const [confirming, setConfirming] = useState(false);
 
   const dirty = Boolean(rows.length || note || receiverId || reason !== 'kitchen');
-  const { guard, dialog } = useLeaveGuard(dirty);
+  const leave = useUnsavedGuard(dirty);
   const back = () => navigate('/kho/xuat-kho');
+  const discard = () => {
+    setReason('kitchen');
+    setReceiverId('');
+    setNote('');
+    setRows([]);
+    setErrors({});
+  };
 
   // Nguyên liệu còn tồn > 0, kể cả đã ngừng sử dụng.
   const available = useMemo(() => options.filter((o) => o.onHand > 0), [options]);
@@ -193,7 +211,10 @@ export function IssueFormPage() {
       setErrors(f);
       setConfirming(false);
     },
-    onSuccess: back,
+    onSuccess: () => {
+      leave.allowLeave();
+      back();
+    },
   });
 
   const validate = () => {
@@ -210,12 +231,12 @@ export function IssueFormPage() {
   };
 
   return (
-    <AppShell meta={{ label: 'Tạo phiếu xuất', parent: 'Xuất kho' }}>
+    <AppShell meta={{ label: 'Tạo phiếu xuất', parent: 'Xuất kho', parentTo: '/kho/xuat-kho' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader
+        <SubPageHeader
           title="Tạo phiếu xuất"
           description="Tồn giảm ngay khi lưu; giá trị xuất theo giá vốn bình quân tại thời điểm xuất."
-          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => guard(back)}>Về xuất kho</Button>}
+          backTo="/kho/xuat-kho"
         />
         <Card padded>
           <CardHeader title="Thông tin phiếu" />
@@ -272,14 +293,20 @@ export function IssueFormPage() {
               </tbody>
             </DataTable>
           )}
-          <div className="flex justify-end border-t border-[var(--border)] p-5 text-[14px]">Tổng giá trị xuất: <span className="ml-2 font-mono text-[18px] font-bold text-[var(--accent)]">{formatCurrency(total)}</span></div>
         </Card>
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => guard(back)}>Hủy</Button>
-          <Button leadingIcon={<PackageMinus size={15} />} onClick={() => validate() && setConfirming(true)}>Xuất kho</Button>
-        </div>
+        <StickySaveBar
+          dirty={dirty}
+          idleText="Chưa nhập gì"
+          errorCount={Object.values(errors).filter(Boolean).length}
+          summary={<>Tổng giá trị xuất <b className="font-mono text-[var(--text-primary)]">{formatCurrency(total)}</b></>}
+          saveLabel="Xuất kho"
+          saveIcon={<PackageMinus size={15} />}
+          canSave={rows.length > 0}
+          onDiscard={discard}
+          onSave={() => validate() && setConfirming(true)}
+        />
       </div>
-      {dialog}
+      {leave.dialog}
       <ConfirmDialog
         open={confirming}
         onOpenChange={(o) => !o && setConfirming(false)}

@@ -1,5 +1,6 @@
 package com.rms.ordering;
 
+import com.rms.ordering.SalesDashboardService.Overview;
 import com.rms.ordering.SalesDashboardService.Revenue;
 import com.rms.ordering.SalesDashboardService.TopDishes;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +23,12 @@ public class SalesDashboardController {
     @GetMapping("/api/dashboard/revenue")
     public Revenue revenue(@RequestParam(required = false) String period) {
         return service.revenue(period);
+    }
+
+    /** Mọi số liệu của trang Dashboard trong một lần gọi (bản 26/11/2026). */
+    @GetMapping("/api/dashboard/overview")
+    public Overview overview(@RequestParam(required = false) String period) {
+        return service.overview(period);
     }
 
     @GetMapping("/api/dashboard/top-dishes")

@@ -31,7 +31,7 @@ export function ChatbotMenuTab() {
 
   const syncMutation = useApiMutation(() => syncChatbotMenu(), {
     invalidate: [qk.chatbot, qk.dishes],
-    success: (r) => `Đồng bộ xong: ${r.enabled}/${r.total} món được AI sử dụng`,
+    success: (r) => `Đã cập nhật: ${r.enabled}/${r.total} món được AI gợi ý`,
   });
   const aiMutation = useApiMutation((v: { id: string; aiEnabled?: boolean; aiTags?: string[] }) => updateDishAi(v.id, v), {
     invalidate: [[...qk.chatbot, 'menu'], qk.dishes],
@@ -41,14 +41,14 @@ export function ChatbotMenuTab() {
     <div className="space-y-4">
       <Card padded>
         <CardHeader
-          title="Đồng bộ thực đơn"
-          description="Lấy dữ liệu món, giá, thành phần, dị nguyên từ Quản lý món ăn. Món “Ngừng bán” tự động bị loại khỏi gợi ý."
-          actions={<Button leadingIcon={<RefreshCw size={15} />} loading={syncMutation.isPending} onClick={() => syncMutation.mutate(undefined)}>Đồng bộ ngay</Button>}
+          title="Thực đơn cho trợ lý AI"
+          description="Lấy dữ liệu món, giá, thành phần, dị nguyên từ Thực đơn. Món “Ngừng bán” tự động bị loại khỏi gợi ý."
+          actions={<Button leadingIcon={<RefreshCw size={15} />} loading={syncMutation.isPending} onClick={() => syncMutation.mutate(undefined)}>Cập nhật ngay</Button>}
         />
         {sync ? (
           <div className="mt-3 space-y-2">
             <p className="text-[13px] text-[var(--text-secondary)]">
-              Lần đồng bộ gần nhất <span className="font-mono">{formatDateTime(sync.syncedAt)}</span> · <b>{sync.enabled}</b>/{sync.total} món được AI sử dụng
+              Cập nhật lần cuối <span className="font-mono">{formatDateTime(sync.syncedAt)}</span> · <b>{sync.enabled}</b>/{sync.total} món được AI gợi ý
             </p>
             {sync.missingData.length ? (
               <div className="rounded-item bg-[var(--warning-soft)] px-3 py-2.5 text-[12.5px] text-[var(--warning)]">
@@ -58,7 +58,7 @@ export function ChatbotMenuTab() {
             ) : null}
           </div>
         ) : (
-          <p className="mt-3 text-[13px] text-[var(--text-muted)]">Chưa đồng bộ trong phiên này.</p>
+          <p className="mt-3 text-[13px] text-[var(--text-muted)]">Chưa cập nhật trong lần mở trang này.</p>
         )}
       </Card>
 
@@ -110,7 +110,7 @@ export function ChatbotMenuTab() {
       <Card padded>
         <CardHeader
           title="Set menu (AI gợi ý)"
-          description="Chatbot gợi ý các set đang bật theo số người / nhu cầu. Thêm, sửa set ở Quản lý món ăn → Set menu."
+          description="Chatbot gợi ý các set đang bật theo số người / nhu cầu. Thêm, sửa set ở Thực đơn → Set menu."
           actions={<Button size="sm" variant="outline" onClick={() => navigate('/quan-ly/mon-an/set-menu')}>Quản lý set</Button>}
         />
         {combosQuery.isLoading ? (

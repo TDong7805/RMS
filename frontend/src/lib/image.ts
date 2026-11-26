@@ -1,5 +1,7 @@
 /** Cạnh dài tối đa của ảnh gửi lên — trùng ImageProcessor.MAX_SIDE ở backend. */
 const MAX_SIDE = 1200;
+/** Ảnh toàn khổ của website (banner, ảnh trượt) — trùng ImageProcessor.WIDE_SIDE ở backend. */
+export const WIDE_SIDE = 2400;
 /** Backend nhận tối đa 2 MB sau khi giải mã base64. */
 const MAX_BYTES = 2 * 1024 * 1024;
 
@@ -10,10 +12,10 @@ const MAX_BYTES = 2 * 1024 * 1024;
  * Backend vẫn tự kiểm tra và xử lý lại ảnh; bước này giúp ảnh hiển thị đúng chiều (backend bỏ dữ liệu EXIF)
  * và giảm dung lượng tải lên.
  */
-export async function prepareImage(file: File): Promise<string> {
+export async function prepareImage(file: File, maxSide = MAX_SIDE): Promise<string> {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
   try {
-    for (const side of [MAX_SIDE, 900, 600]) {
+    for (const side of maxSide > MAX_SIDE ? [maxSide, 1920, 1600, MAX_SIDE] : [MAX_SIDE, 900, 600]) {
       const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
       const w = Math.max(1, Math.round(bitmap.width * scale));
       const h = Math.max(1, Math.round(bitmap.height * scale));

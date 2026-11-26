@@ -10,6 +10,7 @@ import com.rms.notification.NotificationService;
 import com.rms.reservation.ReservationFormConfigService;
 import com.rms.reservation.ReservationFormConfigService.FormConfig;
 import com.rms.reservation.ReservationRules;
+import com.rms.reservation.ReservationService;
 import com.rms.reservation.ReservationRules.Candidate;
 import com.rms.reservation.ReservationRules.Valid;
 import com.rms.website.PublicSiteService.AreaOption;
@@ -57,9 +58,12 @@ public class PublicReservationService {
     private final PublicSiteService site;
     private final NotificationService notifications;
     private final PublicRateLimiter limiter;
+    private final ReservationService reservations;
 
     public PublicReservationService(JdbcClient jdbc, ReservationRules rules, ReservationFormConfigService formConfig,
-                                    PublicSiteService site, NotificationService notifications, PublicRateLimiter limiter) {
+                                    PublicSiteService site, NotificationService notifications, PublicRateLimiter limiter,
+                                    ReservationService reservations) {
+        this.reservations = reservations;
         this.jdbc = jdbc;
         this.rules = rules;
         this.formConfig = formConfig;
@@ -123,7 +127,7 @@ public class PublicReservationService {
         }
 
         Long customerId = customerId(v.customerName(), phone, email);
-        String code = nextCode();
+        String code = reservations.nextCode();
         String status = cfg.autoConfirm() ? "confirmed" : "pending";
         jdbc.sql("""
                 INSERT INTO reservations (code, customer_id, customer_name, phone, email, guests, reserved_at, duration_minutes,
@@ -141,7 +145,7 @@ public class PublicReservationService {
             (cfg.autoConfirm() ? "Lịch đặt bàn mới (đã tự xác nhận) " : "Lịch đặt bàn mới cần xác nhận ") + code,
             v.customerName() + " · " + phone + " · " + v.guests() + " khách · " + when + " · " + areaName
                 + (v.note().isEmpty() ? "" : " · Ghi chú: " + v.note()),
-            "reservations", id, List.of("manager"));
+            "reservations", id, List.of("manager", "cashier"));
         return new ReservationResult(code, status, v.customerName(), v.guests(), Times.iso(v.start()), areaName);
     }
 
@@ -193,10 +197,4 @@ public class PublicReservationService {
     }
 
     /** DB-1027…: bộ đếm doc_sequences 'DB' (V24 khởi tạo nối tiếp mã đã có), khóa dòng nên không trùng khi đặt đồng thời. */
-    private String nextCode() {
-        jdbc.sql("INSERT INTO doc_sequences (seq_key, last_no) VALUES ('DB', 1001) ON DUPLICATE KEY UPDATE last_no = last_no + 1")
-            .update();
-        int n = jdbc.sql("SELECT last_no FROM doc_sequences WHERE seq_key = 'DB'").query(Integer.class).single();
-        return "DB-" + n;
-    }
 }

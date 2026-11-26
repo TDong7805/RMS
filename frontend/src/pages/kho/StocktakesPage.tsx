@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ClipboardCheck, Plus } from 'lucide-react';
+import { ClipboardCheck, Plus, Tag } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
-import { BlockError, EmptyState } from '@/components/common/EmptyState';
+import { BlockError, EmptyState, FilteredEmpty } from '@/components/common/EmptyState';
+import { FilterChips } from '@/components/common/FilterChips';
+import { SubPageHeader } from '@/components/common/SubPageHeader';
 import { Field, SearchInput, SelectInput, TextArea, TextInput } from '@/components/common/Form';
 import { Modal } from '@/components/common/Modal';
 import { DataTable, PageHeader, Pagination, TableSkeleton, Td, Th, Toolbar } from '@/components/common/PageParts';
@@ -43,7 +45,8 @@ function Value({ row }: { row: StocktakeRow }) {
 export function StocktakesPage() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
-  const [status, setStatus] = useState<StocktakeStatus | 'all'>('all');
+  const [filters, setFilters] = useState<Record<string, string | undefined>>({});
+  const status = (filters.status ?? 'all') as StocktakeStatus | 'all';
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
@@ -53,21 +56,31 @@ export function StocktakesPage() {
   const list = useStocktakes({ keyword: debounced, status, from: rangeError ? '' : from, to: rangeError ? '' : to, page });
   useEffect(() => setPage(1), [debounced, status, from, to]);
   const hasFilter = Boolean(keyword || status !== 'all' || from || to);
-  const createButton = <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => setCreateOpen(true)}>Lập phiếu kiểm kê</Button>;
+  const clearFilters = () => {
+    setKeyword('');
+    setFilters({});
+    setFrom('');
+    setTo('');
+  };
+  const createButton = <Button leadingIcon={<Plus size={15} />} onClick={() => setCreateOpen(true)}>Lập phiếu kiểm kê</Button>;
 
   return (
-    <AppShell meta={{ label: 'Kiểm kê', parent: 'Nhập – xuất kho' }}>
+    <AppShell meta={{ label: 'Kiểm kê' }}>
       <div className="min-w-0 space-y-4">
         <PageHeader title="Kiểm kê" description="Đếm thực tế và gửi Quản lý nhà hàng duyệt. Tồn chỉ được điều chỉnh khi phiếu được duyệt." actions={createButton} />
         <Card className="overflow-hidden">
           <Toolbar>
             <SearchInput value={keyword} onChange={setKeyword} placeholder="Mã phiếu kiểm kê…" className="w-full sm:w-[220px]" />
-            <SelectInput aria-label="Lọc theo trạng thái" value={status === 'all' ? '' : status} onChange={(e) => setStatus((e.target.value || 'all') as StocktakeStatus | 'all')} placeholder="Tất cả trạng thái" options={STATUSES.map((s) => ({ value: s, label: STOCKTAKE_STATUS[s].label }))} className="w-full sm:w-[220px]" />
             <div className="flex items-center gap-2">
               <TextInput type="date" aria-label="Ngày lập từ" value={from} onChange={(e) => setFrom(e.target.value)} invalid={Boolean(rangeError)} className="w-[150px]" />
               <span className="text-[var(--text-muted)]">–</span>
               <TextInput type="date" aria-label="Ngày lập đến" value={to} onChange={(e) => setTo(e.target.value)} invalid={Boolean(rangeError)} className="w-[150px]" />
             </div>
+            <FilterChips
+              value={filters}
+              onChange={setFilters}
+              fields={[{ key: 'status', label: 'Trạng thái', icon: <Tag size={14} />, options: STATUSES.map((x) => ({ value: x, label: STOCKTAKE_STATUS[x].label })) }]}
+            />
           </Toolbar>
           {rangeError ? <p className="px-5 pb-2 text-[12.5px] text-[var(--danger)]">{rangeError}</p> : null}
           {list.isError ? (
@@ -75,11 +88,15 @@ export function StocktakesPage() {
           ) : list.isLoading || !list.data ? (
             <TableSkeleton cols={8} />
           ) : list.data.items.length === 0 ? (
-            <div className="p-5"><EmptyState icon={ClipboardCheck} title={hasFilter ? 'Không tìm thấy phiếu kiểm kê' : 'Chưa có phiếu kiểm kê nào.'} description={hasFilter ? 'Thử từ khóa hoặc bộ lọc khác.' : undefined} action={hasFilter ? undefined : createButton} /></div>
+            hasFilter ? (
+              <FilteredEmpty title="Không có phiếu kiểm kê phù hợp" unit="phiếu kiểm kê" onClear={clearFilters} />
+            ) : (
+              <div className="p-5"><EmptyState icon={ClipboardCheck} title="Chưa có phiếu kiểm kê nào" action={createButton} /></div>
+            )
           ) : (
             <div className={list.isFetching ? 'opacity-60 transition-opacity' : ''}>
-              <DataTable minWidth={1100}>
-                <thead><tr><Th>Mã KK</Th><Th>Ngày lập</Th><Th>Phạm vi</Th><Th className="text-right">Số NL</Th><Th className="text-right">Dòng chênh lệch</Th><Th>Giá trị (tăng / giảm)</Th><Th>Trạng thái</Th><Th>Người lập</Th><Th>Người duyệt</Th></tr></thead>
+              <DataTable minWidth={1060}>
+                <thead><tr><Th>Mã KK</Th><Th>Ngày lập</Th><Th>Phạm vi</Th><Th className="text-right">Số NL</Th><Th className="text-right">Chênh lệch</Th><Th>Giá trị tăng / giảm</Th><Th>Trạng thái</Th><Th>Người lập</Th><Th>Người duyệt</Th></tr></thead>
                 <tbody>
                   {list.data.items.map((r) => (
                     <tr key={r.id} className="hover:bg-[var(--bg-subtle)]">
@@ -90,8 +107,8 @@ export function StocktakesPage() {
                       <Td className="text-right font-mono">{r.diffCount}</Td>
                       <Td><Value row={r} /></Td>
                       <Td><StatusBadge status={r.status} />{r.status === 'rejected' && r.rejectReason ? <p className="mt-0.5 max-w-[220px] text-[12px] text-[var(--danger)]">{r.rejectReason}</p> : null}</Td>
-                      <Td className="text-[13px]">{r.createdBy}</Td>
-                      <Td className="text-[13px]">{r.approvedBy ?? '—'}</Td>
+                      <Td className="whitespace-nowrap text-[13px]">{r.createdBy}</Td>
+                      <Td className="whitespace-nowrap text-[13px]">{r.approvedBy ?? '—'}</Td>
                     </tr>
                   ))}
                 </tbody>
@@ -204,12 +221,9 @@ export function StocktakeDetailPage() {
   const detail = useStocktake(id);
   const st = detail.data;
   return (
-    <AppShell meta={{ label: st ? st.code : 'Phiếu kiểm kê', parent: 'Kiểm kê' }}>
+    <AppShell meta={{ label: st ? st.code : 'Phiếu kiểm kê', parent: 'Kiểm kê', parentTo: '/kho/kiem-ke' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader
-          title={st ? `Phiếu kiểm kê ${st.code}` : 'Phiếu kiểm kê'}
-          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/kho/kiem-ke')}>Về danh sách</Button>}
-        />
+        <SubPageHeader title={st ? `Phiếu kiểm kê ${st.code}` : 'Phiếu kiểm kê'} badge={st ? <StatusBadge status={st.status} /> : null} backTo="/kho/kiem-ke" />
         {detail.isError ? (
           <BlockError message="Không tìm thấy phiếu kiểm kê" onRetry={() => navigate('/kho/kiem-ke')} />
         ) : !st ? (
@@ -288,12 +302,13 @@ export function StocktakeApprovalDetailPage() {
   const detail = useStocktakeForApproval(id);
   const st = detail.data;
   return (
-    <AppShell meta={{ label: st ? st.code : 'Phiếu kiểm kê', parent: 'Duyệt kiểm kê' }}>
+    <AppShell meta={{ label: st ? st.code : 'Phiếu kiểm kê', parent: 'Duyệt kiểm kê', parentTo: '/quan-ly/kiem-ke' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader
+        <SubPageHeader
           title={st ? `Phiếu kiểm kê ${st.code}` : 'Phiếu kiểm kê'}
+          badge={st ? <StatusBadge status={st.status} /> : null}
           description="Quản lý nhà hàng chỉ duyệt hoặc từ chối toàn bộ phiếu, không sửa số đếm."
-          actions={<Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/quan-ly/kiem-ke')}>Về danh sách</Button>}
+          backTo="/quan-ly/kiem-ke"
         />
         {detail.isError ? (
           <BlockError message="Không tìm thấy phiếu kiểm kê" onRetry={() => navigate('/quan-ly/kiem-ke')} />

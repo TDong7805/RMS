@@ -21,7 +21,7 @@ import {
 } from '@/api/reservations';
 import { getBackups, getOpeningHours, getRestaurantInfo } from '@/api/settings';
 import { getAssignments, getEmployees, getShifts } from '@/api/shifts';
-import { getAreas, getTables } from '@/api/tables';
+import { getAreas, getFloors, getLiveFloor, getTables } from '@/api/tables';
 import type {
   AccountFilter,
   AuditFilter,
@@ -36,6 +36,8 @@ export const qk = {
   reservations: ['reservations'] as const,
   reservationForm: ['reservation-form'] as const,
   areas: ['areas'] as const,
+  floors: ['floors'] as const,
+  liveFloor: ['floors', 'live'] as const,
   tables: ['tables'] as const,
   dishes: ['dishes'] as const,
   categories: ['dish-categories'] as const,
@@ -58,6 +60,9 @@ export const useReservation = (id: string | null) =>
 export const useReservationSummary = () =>
   useQuery({ queryKey: [...qk.reservations, 'summary'], queryFn: getReservationSummary });
 export const useReservationForm = () => useQuery({ queryKey: qk.reservationForm, queryFn: getReservationFormConfig });
+export const useFloors = () => useQuery({ queryKey: qk.floors, queryFn: getFloors, staleTime: 60_000 });
+/** Sơ đồ trực tiếp cho Quản lý: làm mới 20 giây một lần. */
+export const useLiveFloor = (enabled = true) => useQuery({ queryKey: qk.liveFloor, queryFn: getLiveFloor, enabled, refetchInterval: 20_000 });
 export const useAreas = () => useQuery({ queryKey: qk.areas, queryFn: getAreas, staleTime: 60_000 });
 export const useTables = () => useQuery({ queryKey: qk.tables, queryFn: getTables, staleTime: 30_000 });
 

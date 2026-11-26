@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Lock, Save } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
-import { Button } from '@/components/common/Button';
 import { BlockError } from '@/components/common/EmptyState';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/common/Form';
-import { PageHeader } from '@/components/common/PageParts';
+import { StickySaveBar } from '@/components/common/StickySaveBar';
+import { SubPageHeader } from '@/components/common/SubPageHeader';
 import { Skeleton } from '@/components/common/Skeleton';
 import { createIngredient, updateIngredient } from '@/api/warehouse-ingredients';
 import { useIngredient, wk } from '@/features/warehouse/queries';
 import { formatQty, INGREDIENT_GROUP_KEYS, INGREDIENT_GROUPS, STOCK_UNITS } from '@/features/warehouse/labels';
-import { InfoItem, isQty, parseMoney, parseQty, useLeaveGuard } from '@/features/warehouse/parts';
+import { InfoItem, isQty, parseMoney, parseQty } from '@/features/warehouse/parts';
+import { useUnsavedGuard } from '@/hooks/use-unsaved-guard';
 import { useApiMutation } from '@/hooks/use-api-mutation';
 import { formatCurrency } from '@/lib/format';
 import { formatDateTime } from '@/lib/labels';
@@ -60,14 +61,17 @@ export function IngredientFormPage() {
   }, [detail.data, isEdit, loaded, id]);
 
   const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(initial), [form, initial]);
-  const { guard, dialog } = useLeaveGuard(dirty);
+  const leave = useUnsavedGuard(dirty);
   const backToList = () => navigate('/kho/nguyen-lieu');
 
   const mutation = useApiMutation((input: IngredientInput) => (id ? updateIngredient(id, input) : createIngredient(input)), {
     invalidate: [wk.all],
     success: (it) => (isEdit ? `Đã cập nhật nguyên liệu ${it.name}` : `Đã thêm nguyên liệu ${it.name} (${it.code})`),
     onFieldErrors: setErrors,
-    onSuccess: backToList,
+    onSuccess: () => {
+      leave.allowLeave();
+      backToList();
+    },
   });
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -75,8 +79,8 @@ export function IngredientFormPage() {
     setErrors((prev) => ({ ...prev, [key]: '' }));
   };
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (isEdit && !dirty) {
       backToList();
       return;
@@ -115,19 +119,15 @@ export function IngredientFormPage() {
   const unitLocked = Boolean(isEdit && d?.unitLocked);
 
   return (
-    <AppShell meta={{ label: title, parent: 'Quản lý nguyên liệu' }}>
+    <AppShell meta={{ label: title, parent: 'Nguyên liệu', parentTo: '/kho/nguyen-lieu' }}>
       <div className="min-w-0 space-y-4">
-        <PageHeader
+        <SubPageHeader
           title={title}
+          backTo="/kho/nguyen-lieu"
           description={
             isEdit && d
               ? `Mã ${d.code} · cập nhật lần cuối ${formatDateTime(d.updatedAt)}. Tồn kho và giá vốn chỉ thay đổi qua nhập, xuất, kiểm kê.`
               : 'Mã nguyên liệu do hệ thống tự tạo sau khi lưu (NL…).'
-          }
-          actions={
-            <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => guard(backToList)}>
-              Về danh sách
-            </Button>
           }
         />
 
@@ -136,7 +136,7 @@ export function IngredientFormPage() {
         ) : !loaded ? (
           <Card padded><div className="grid gap-4 sm:grid-cols-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div></Card>
         ) : (
-          <form onSubmit={submit} noValidate className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <form onSubmit={submit} noValidate className={isEdit ? 'grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_300px]' : 'min-w-0'}>
             <div className="min-w-0 space-y-4">
               <Card padded>
                 <CardHeader title="Thông tin nguyên liệu" />
@@ -207,30 +207,34 @@ export function IngredientFormPage() {
               ) : null}
             </div>
 
-            <div className="min-w-0 space-y-4">
-              {isEdit && d ? (
-                <Card padded>
+            {isEdit && d ? (
+              <Card padded className="self-start">
                   <CardHeader title="Tồn kho hiện tại" />
                   <div className="mt-3 grid gap-3">
                     <InfoItem label="Mã nguyên liệu"><span className="font-mono font-semibold">{d.code}</span></InfoItem>
                     <InfoItem label="Tồn hiện tại"><span className="font-mono">{formatQty(d.onHand, d.unit)}</span></InfoItem>
                     <InfoItem label="Giá vốn bình quân"><span className="font-mono">{d.avgCost === null ? 'Chưa có' : `${formatCurrency(d.avgCost)} / ${d.unit}`}</span></InfoItem>
                   </div>
-                </Card>
-              ) : null}
-              <div className="flex gap-2 lg:flex-col">
-                <Button type="submit" loading={mutation.isPending} leadingIcon={<Save size={15} />} className="flex-1 lg:flex-none">
-                  {isEdit ? 'Lưu thay đổi' : 'Thêm nguyên liệu'}
-                </Button>
-                <Button variant="ghost" onClick={() => guard(backToList)} disabled={mutation.isPending} className="flex-1 lg:flex-none">
-                  Hủy
-                </Button>
-              </div>
-            </div>
+              </Card>
+            ) : null}
           </form>
         )}
+        {loaded ? (
+          <StickySaveBar
+            dirty={dirty}
+            saving={mutation.isPending}
+            idleText={isEdit ? 'Chưa có thay đổi' : 'Chưa nhập gì'}
+            errorCount={Object.values(errors).filter(Boolean).length}
+            saveLabel={isEdit ? 'Lưu thay đổi' : 'Thêm nguyên liệu'}
+            onDiscard={() => {
+              setForm(initial);
+              setErrors({});
+            }}
+            onSave={() => submit()}
+          />
+        ) : null}
       </div>
-      {dialog}
+      {leave.dialog}
     </AppShell>
   );
 }

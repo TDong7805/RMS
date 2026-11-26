@@ -3,6 +3,7 @@ import com.rms.common.Db;
 
 import com.rms.audit.AuditService;
 import com.rms.common.BusinessException;
+import com.rms.common.CurrentUserService;
 import com.rms.common.Ids;
 import com.rms.common.Paged;
 import com.rms.common.Times;
@@ -23,8 +24,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * UC Quản lý đặt bàn (phía Quản lý nhà hàng): tra cứu, xem chi tiết, chỉnh sửa, đổi trạng thái.
- * Lịch đặt mới do Khách hàng tạo (phân hệ khác) — xem ReservationRules để dùng chung quy tắc.
+ * Đặt bàn: Quản lý tra cứu toàn bộ lịch sử, xem chi tiết, chỉnh sửa, đổi trạng thái; Thu ngân (B6, 26/11/2026) nhận lịch
+ * qua điện thoại / tại quầy (create), xem lịch trong ngày trên màn POS (day), sửa, hủy, đánh dấu không đến.
+ * Lịch từ website do PublicReservationService tạo — mọi nơi dùng chung ReservationRules.validate.
  */
 @Service
 public class ReservationService {
@@ -39,14 +41,65 @@ public class ReservationService {
 
     public record Summary(int today, int pending, int guestsToday) {}
 
+    /** Một lịch trong ngày cho màn POS thu ngân (kèm tên khu, mã bàn). */
+    public record DayReservation(String id, String code, String customerName, String phone, int guests, String dateTime,
+                                 String areaId, String areaName, String tableId, String tableCode, String note, String status,
+                                 String source) {}
+
     private final JdbcClient jdbc;
     private final ReservationRules rules;
     private final AuditService audit;
+    private final CurrentUserService currentUser;
 
-    public ReservationService(JdbcClient jdbc, ReservationRules rules, AuditService audit) {
+    public ReservationService(JdbcClient jdbc, ReservationRules rules, AuditService audit, CurrentUserService currentUser) {
         this.jdbc = jdbc;
         this.rules = rules;
         this.audit = audit;
+        this.currentUser = currentUser;
+    }
+
+    /** Mã lịch đặt kế tiếp (DB-1002, DB-1003…) — dùng chung cho website và thu ngân. */
+    public String nextCode() {
+        jdbc.sql("INSERT INTO doc_sequences (seq_key, last_no) VALUES ('DB', 1001) ON DUPLICATE KEY UPDATE last_no = last_no + 1")
+            .update();
+        int n = jdbc.sql("SELECT last_no FROM doc_sequences WHERE seq_key = 'DB'").query(Integer.class).single();
+        return "DB-" + n;
+    }
+
+    /** Thu ngân thêm lịch đặt (khách gọi điện / đến quầy) — xác nhận luôn. source: phone | walk_in. */
+    @Transactional
+    public Reservation create(Candidate input, String source) {
+        String src = "walk_in".equals(source) ? "walk_in" : "phone";
+        Valid v = rules.validate(input, null);
+        String code = nextCode();
+        jdbc.sql("""
+                INSERT INTO reservations (code, customer_name, phone, guests, reserved_at, duration_minutes, area_id, table_id,
+                                          note, status, source, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?)
+                """)
+            .params(code, v.customerName(), v.phone(), v.guests(), v.start(), v.durationMinutes(), v.areaId(), v.tableId(),
+                v.note().isEmpty() ? null : v.note(), src, currentUser.get().id())
+            .update();
+        long id = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
+        audit.log("reservation", "Thêm đặt bàn", code + ": " + v.customerName() + " · " + v.guests() + " khách · "
+            + Times.hhmm(v.start().toLocalTime()) + (src.equals("phone") ? " (điện thoại)" : " (tại quầy)"), "reservations", id);
+        return get(Ids.str(id));
+    }
+
+    /** Lịch đặt của một ngày (giờ sớm nhất trước) cho màn POS — kể cả đã đến / hủy / không đến để thu ngân tra lại. */
+    public List<DayReservation> day(LocalDate day) {
+        return jdbc.sql("""
+                SELECT r.id, r.code, r.customer_name, r.phone, r.guests, r.reserved_at, r.area_id, a.name AS area_name, r.table_id,
+                       t.code AS table_code, r.note, r.status, r.source
+                FROM reservations r JOIN areas a ON a.id = r.area_id LEFT JOIN dining_tables t ON t.id = r.table_id
+                WHERE r.reserved_at >= ? AND r.reserved_at < ? ORDER BY r.reserved_at, r.id
+                """)
+            .params(day.atStartOfDay(), day.plusDays(1).atStartOfDay())
+            .query((rs, n) -> new DayReservation(Ids.str(rs.getLong("id")), rs.getString("code"), rs.getString("customer_name"),
+                rs.getString("phone"), rs.getInt("guests"), Times.iso(Db.dateTime(rs, "reserved_at")), Ids.str(rs.getLong("area_id")),
+                rs.getString("area_name"), Ids.str(rs.getObject("table_id", Long.class)), rs.getString("table_code"),
+                rs.getString("note") == null ? "" : rs.getString("note"), rs.getString("status"), rs.getString("source")))
+            .list();
     }
 
     private static final String SELECT = """

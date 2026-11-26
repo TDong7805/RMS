@@ -261,9 +261,8 @@ export interface FloorReservation {
 }
 
 export interface CashierFloor {
-  cols: number;
-  rows: number;
-  areas: { id: string; name: string }[];
+  floors: import('./management').Floor[];
+  areas: { id: string; name: string; floorId: string; zone: import('./management').Zone | null }[];
   tables: FloorTable[];
   ready: ReadyItem[];
   occupiedCount: number;

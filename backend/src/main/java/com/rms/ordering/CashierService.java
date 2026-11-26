@@ -45,7 +45,8 @@ public class CashierService {
     public record FloorTable(String id, String code, String areaId, int seats, String shape, int x, int y, String status,
                              OrderBrief order, ReservationBrief reservation, boolean supportRequest, boolean paymentRequest) {}
 
-    public record FloorArea(String id, String name) {}
+    /** Khu vực trên sơ đồ: thuộc tầng nào, vùng khu (ô) để tô nền và cắt khung khi xem từng khu. */
+    public record FloorArea(String id, String name, String floorId, TableService.Zone zone) {}
 
     public record ReadyItem(String id, String orderId, String tableId, String tableCode, String dishName, int qty, String note,
                             String completedAt) {}
@@ -54,7 +55,7 @@ public class CashierService {
     public record ReservationRow(String id, String time, String customerName, String phone, int guests, String tableCode,
                                  String status) {}
 
-    public record Floor(int cols, int rows, List<FloorArea> areas, List<FloorTable> tables, List<ReadyItem> ready,
+    public record Floor(List<TableService.Floor> floors, List<FloorArea> areas, List<FloorTable> tables, List<ReadyItem> ready,
                         int occupiedCount, int tableCount, long revenueToday, int requestCount, int unpaidCount,
                         List<ReservationRow> reservations, int lateMinutes) {}
 
@@ -94,9 +95,12 @@ public class CashierService {
     private final InvoiceService invoices;
     private final WarehouseCodes codes;
 
+    private final TableService tablesService;
+
     public CashierService(JdbcClient jdbc, OrderCore core, LiveEvents live, AuditService audit, CurrentUserService currentUser,
-                          ServiceRequestService requests, InvoiceService invoices, WarehouseCodes codes) {
+                          ServiceRequestService requests, InvoiceService invoices, WarehouseCodes codes, TableService tablesService) {
         this.codes = codes;
+        this.tablesService = tablesService;
         this.jdbc = jdbc;
         this.core = core;
         this.live = live;
@@ -149,8 +153,8 @@ public class CashierService {
      */
     public Floor floor(boolean forWaiter) {
         Map<Long, Set<String>> waiting = requests.waitingByTable();
-        List<FloorArea> areas = jdbc.sql("SELECT id, name FROM areas WHERE is_active = 1 ORDER BY sort_order, id")
-            .query((rs, n) -> new FloorArea(Ids.str(rs.getLong("id")), rs.getString("name"))).list();
+        List<FloorArea> areas = tablesService.areas().stream().filter(TableService.Area::active)
+            .map(a -> new FloorArea(a.id(), a.name(), a.floorId(), a.zone())).toList();
 
         // Tóm tắt đơn đang mở theo bàn.
         Map<Long, OrderBrief> orders = new HashMap<>();
@@ -213,7 +217,7 @@ public class CashierService {
                 rs.getString("customer_name"), rs.getString("phone"), rs.getInt("guests"), rs.getString("table_code"),
                 rs.getString("status")))
             .list();
-        return new Floor(TableService.FLOOR_COLS, TableService.FLOOR_ROWS, areas, tables, ready, occupied, active, revenue,
+        return new Floor(tablesService.floors(), areas, tables, ready, occupied, active, revenue,
             forWaiter ? requests.listForWaiter("waiting").waitingCount() : requests.waitingCount(), unpaid, resToday, LATE_MINUTES);
     }
 

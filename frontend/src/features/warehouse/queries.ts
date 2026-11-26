@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
 import { getIngredient, getIngredientOptions, getIngredients, getStockCard } from '@/api/warehouse-ingredients';
 import { getPriceHistory, getSupplier, getSupplierOptions, getSuppliers } from '@/api/warehouse-suppliers';
 import { getStockSummary, getWarehouseDashboard } from '@/api/warehouse-dashboard';
@@ -26,6 +26,11 @@ export const useIngredients = (f: IngredientFilter) =>
   useQuery({ queryKey: [...wk.ingredients, 'list', f], queryFn: () => getIngredients(f), placeholderData: keepPreviousData });
 export const useIngredient = (id: string | undefined) =>
   useQuery({ queryKey: [...wk.ingredients, 'detail', id], queryFn: () => getIngredient(id!), enabled: Boolean(id), retry: false });
+/** Nhiều nguyên liệu một lúc (vd. "Tạo phiếu mua" cho các nguyên liệu tick chọn ở Dashboard kho). */
+export const useIngredientsByIds = (ids: string[]) =>
+  useQueries({
+    queries: ids.map((id) => ({ queryKey: [...wk.ingredients, 'detail', id], queryFn: () => getIngredient(id), retry: false })),
+  });
 export const useIngredientOptions = () =>
   useQuery({ queryKey: [...wk.ingredients, 'options'], queryFn: getIngredientOptions, staleTime: 30_000 });
 export const useStockCard = (id: string | undefined, f: StockCardFilter) =>

@@ -1,0 +1,6 @@
+﻿"Mục","Nguồn","Mã dòng","Vai trò","Thao tác","Kết quả mong đợi","Kết quả","Ghi chú"
+"1. Màn hình chờ, tab trình duyệt","Gốc","1.1","Chung","F12 → Network → Slow 3G → mở web","Màn hình chờ: thớt gỗ, miếng steak chín dần từ trái sang, khói bốc, dao nĩa vàng; chữ ""Chờ chút, món ngon sắp lên…""","Đạt","hầu như trên các trang web(chorme,coc coc,...) không thấy hiệu ứng chín dần, có thấy màn hình chờ. Điện thoại có thể thấy hiệu ứng."
+"1. Màn hình chờ, tab trình duyệt","Gốc","1.2","Chung","Như trên, ở cỡ điện thoại và chế độ tối","Hình co vừa màn hình, không tràn; bản tối nền nâu than","Đạt",""
+"1. Màn hình chờ, tab trình duyệt","Gốc","1.3","Chung","Bỏ giả lập mạng chậm, mở lại","Tải nhanh thì không thấy màn hình chờ, không nháy trắng","Đạt","có lẽ vẫn thấy tuy tải nhanh khi bấm reload nó vẫn chớp màn hình chờ dù rất nhanh."
+"1. Màn hình chờ, tab trình duyệt","Gốc","1.4","Chung","Nhìn tab trình duyệt (Ctrl+F5 nếu chưa đổi)","Tiêu đề ""Royal Beef — Quản lý nhà hàng"", biểu tượng đầu bò vàng trên nền đỏ rượu","Đạt",""
+"1. Màn hình chờ, tab trình duyệt","Dòng thêm vào","1.5","Chung","Tắt backend hoặc mạng khi đang ở trang yêu cầu đăng nhập","màn chờ không được quay vô hạn mà cần chuyển sang trạng thái báo lỗi/kết nối lại.","Đạt","ở trang đăng nhập thì báo chưa kết nối với backend, load lại trang thì báo không có kết nối."

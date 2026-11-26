@@ -80,6 +80,56 @@ export interface TopDishesResponse {
   hasData: boolean;
 }
 
+/** Một chỉ số trên thẻ đầu Dashboard: kỳ này, kỳ trước, % thay đổi (null khi kỳ trước bằng 0). */
+export interface Kpi {
+  value: number;
+  previous: number;
+  change: number | null;
+}
+
+export interface Slice {
+  key: string;
+  label: string;
+  value: number;
+}
+
+export interface HourLoad {
+  hour: number;
+  label: string;
+  orders: number;
+  guests: number;
+}
+
+/** kind: food = món ăn · drink = đồ uống · extra = gọi thêm. */
+export type DishKind = 'food' | 'drink' | 'extra';
+
+export interface DishStat {
+  id: string;
+  name: string;
+  category: string;
+  kind: DishKind;
+  imageUrl: string | null;
+  selling: boolean;
+  quantity: number;
+  revenue: number;
+  prevQuantity: number;
+}
+
+/** GET /api/dashboard/overview?period= — mọi số liệu bán hàng của Dashboard trong một lần gọi. */
+export interface OverviewResponse {
+  period: PeriodKey;
+  revenue: Kpi;
+  orders: Kpi;
+  avgOrder: Kpi;
+  guests: Kpi;
+  series: RevenuePoint[];
+  byCategory: Slice[];
+  byPayment: Slice[];
+  peakHours: HourLoad[];
+  dishes: DishStat[];
+  hasData: boolean;
+}
+
 export type NotificationType = 'reservation' | 'inventory' | 'purchase' | 'stocktake' | 'service_request' | 'kitchen' | 'system' | 'attendance' | 'review';
 
 export interface AppNotification {

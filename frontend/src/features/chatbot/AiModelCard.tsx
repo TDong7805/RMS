@@ -52,8 +52,8 @@ export function AiModelCard() {
             {d.keyPresent ? <CheckCircle2 size={16} className="mt-0.5 shrink-0" /> : <XCircle size={16} className="mt-0.5 shrink-0" />}
             <span>
               {d.keyPresent
-                ? <>Máy chủ đã có key trong biến môi trường <b className="font-mono">{d.apiKeyRef}</b>.</>
-                : <>Máy chủ chưa có biến môi trường <b className="font-mono">{d.apiKeyRef}</b>. Lấy key ở Google AI Studio, chạy <code className="font-mono">setx {d.apiKeyRef} "khóa"</code> trên máy chủ rồi khởi động lại backend. Không dán key vào trang này.</>}
+                ? <>Đã có khóa Gemini, trợ lý có thể dùng AI.</>
+                : <>Chưa có khóa Gemini nên trợ lý đang trả lời theo luật. Nhờ người cài đặt hệ thống thêm khóa (tên <b className="font-mono">{d.apiKeyRef}</b>) vào cấu hình máy chủ rồi khởi động lại. Không dán khóa vào trang này.</>}
             </span>
           </div>
           <ToggleRow title="Dùng Gemini cho trợ lý gọi món" description="Tắt: trợ lý chỉ trả lời theo luật (miễn phí, không cần mạng)." checked={f.enabled} onChange={(v) => set('enabled', v)} />

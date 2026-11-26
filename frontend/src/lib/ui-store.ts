@@ -3,6 +3,17 @@ import { create } from 'zustand';
 export type ThemeMode = 'light' | 'dark';
 
 const STORAGE_KEY = 'rms-theme';
+/** Menu trái: '1' = đang thu gọn (ẩn, rê chuột để xem nhanh) — nhớ theo trình duyệt của từng người. */
+const SIDEBAR_KEY = 'rms-sidebar-collapsed';
+
+function readSidebarCollapsed(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(SIDEBAR_KEY) === '1';
+}
+
+function saveSidebarCollapsed(collapsed: boolean): void {
+  try { window.localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0'); } catch { /* bỏ qua */ }
+}
 
 function resolveInitialTheme(): ThemeMode {
   if (typeof window === 'undefined') return 'light';
@@ -29,7 +40,7 @@ interface UiState {
 
 export const useUiStore = create<UiState>((set, get) => ({
   theme: resolveInitialTheme(),
-  sidebarCollapsed: false,
+  sidebarCollapsed: readSidebarCollapsed(),
   mobileNavOpen: false,
   setTheme: (theme) => {
     applyTheme(theme);
@@ -40,8 +51,15 @@ export const useUiStore = create<UiState>((set, get) => ({
     const next: ThemeMode = get().theme === 'light' ? 'dark' : 'light';
     get().setTheme(next);
   },
-  toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
-  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+  toggleSidebar: () => {
+    const next = !get().sidebarCollapsed;
+    saveSidebarCollapsed(next);
+    set({ sidebarCollapsed: next });
+  },
+  setSidebarCollapsed: (collapsed) => {
+    saveSidebarCollapsed(collapsed);
+    set({ sidebarCollapsed: collapsed });
+  },
   setMobileNavOpen: (open) => set({ mobileNavOpen: open }),
 }));
 

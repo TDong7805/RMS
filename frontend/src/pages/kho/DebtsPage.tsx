@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Ban, Wallet } from 'lucide-react';
+import { Ban, Tag, Wallet } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
-import { BlockError, EmptyState } from '@/components/common/EmptyState';
+import { BlockError, EmptyState, FilteredEmpty } from '@/components/common/EmptyState';
+import { FilterChips } from '@/components/common/FilterChips';
+import { RowActions } from '@/components/common/RowActions';
+import { SubPageHeader } from '@/components/common/SubPageHeader';
 import { SearchInput } from '@/components/common/Form';
 import { DataTable, PageHeader, Pagination, StatTile, TableSkeleton, Td, Th, Toolbar } from '@/components/common/PageParts';
-import { Segmented } from '@/components/common/Segmented';
 import { Skeleton } from '@/components/common/Skeleton';
 import { WAREHOUSE_PAGE_SIZE } from '@/api/warehouse-ingredients';
 import { CancelPaymentDialog, PaymentDialog, toPayable, type PayableOrder } from '@/features/warehouse/PaymentDialogs';
@@ -26,7 +28,13 @@ import type { DebtFilter, SupplierPayment } from '@/types';
 export function DebtsPage({ manager = false }: { manager?: boolean }) {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
-  const [status, setStatus] = useState<DebtFilter['status']>('all');
+  const [filters, setFilters] = useState<Record<string, string | undefined>>({});
+  const status = (filters.status ?? 'all') as DebtFilter['status'];
+  const hasFilter = Boolean(keyword || status !== 'all');
+  const clearFilters = () => {
+    setKeyword('');
+    setFilters({});
+  };
   const [page, setPage] = useState(1);
   const debounced = useDebounced(keyword);
   const list = useDebts({ keyword: debounced, status, page }, manager);
@@ -34,7 +42,7 @@ export function DebtsPage({ manager = false }: { manager?: boolean }) {
   const root = manager ? '/quan-ly/cong-no' : '/kho/cong-no';
 
   return (
-    <AppShell meta={{ label: 'Công nợ nhà cung cấp', parent: manager ? 'Kho' : 'Tài chính' }}>
+    <AppShell meta={manager ? { label: 'Công nợ nhà cung cấp', parent: 'Kho' } : { label: 'Công nợ nhà cung cấp' }}>
       <div className="min-w-0 space-y-4">
         <PageHeader
           title="Công nợ nhà cung cấp"
@@ -50,14 +58,22 @@ export function DebtsPage({ manager = false }: { manager?: boolean }) {
         <Card className="overflow-hidden">
           <Toolbar>
             <SearchInput value={keyword} onChange={setKeyword} placeholder="Mã, tên nhà cung cấp…" className="w-full sm:w-[240px]" />
-            <Segmented<DebtFilter['status']> ariaLabel="Lọc theo tình trạng" value={status} onChange={setStatus} options={[{ value: 'all', label: 'Tất cả' }, { value: 'owing', label: 'Còn nợ' }, { value: 'clear', label: 'Đã trả hết' }]} />
+            <FilterChips
+              value={filters}
+              onChange={setFilters}
+              fields={[{ key: 'status', label: 'Tình trạng', icon: <Tag size={14} />, options: [{ value: 'owing', label: 'Còn nợ' }, { value: 'clear', label: 'Đã trả hết' }] }]}
+            />
           </Toolbar>
           {list.isError ? (
             <div className="p-5"><BlockError onRetry={() => void list.refetch()} /></div>
           ) : list.isLoading || !list.data ? (
             <TableSkeleton cols={7} />
           ) : list.data.items.length === 0 ? (
-            <div className="p-5"><EmptyState icon={Wallet} title={keyword || status !== 'all' ? 'Không tìm thấy nhà cung cấp' : 'Chưa có công nợ nhà cung cấp.'} description={keyword || status !== 'all' ? 'Thử từ khóa hoặc bộ lọc khác.' : undefined} /></div>
+            hasFilter ? (
+              <FilteredEmpty title="Không có nhà cung cấp phù hợp" unit="nhà cung cấp" onClear={clearFilters} />
+            ) : (
+              <div className="p-5"><EmptyState icon={Wallet} title="Chưa có công nợ nhà cung cấp" /></div>
+            )
           ) : (
             <>
               <DataTable minWidth={920}>
@@ -71,7 +87,7 @@ export function DebtsPage({ manager = false }: { manager?: boolean }) {
                       <Td className="text-right font-mono">{formatCurrency(r.paid)}</Td>
                       <Td className={`text-right font-mono font-semibold ${r.debt > 0 ? 'text-[var(--warning)]' : ''}`}>{formatCurrency(r.debt)}</Td>
                       <Td className="text-right font-mono">{r.openCount}</Td>
-                      <Td className="text-[13px]">{r.oldestDate ? formatDateOnly(r.oldestDate) : '—'}</Td>
+                      <Td className="whitespace-nowrap text-[13px]">{r.oldestDate ? formatDateOnly(r.oldestDate) : '—'}</Td>
                     </tr>
                   ))}
                 </tbody>
@@ -97,7 +113,7 @@ export function DebtDetailPage({ manager = false }: { manager?: boolean }) {
   const owing = useMemo(() => (d?.orders ?? []).filter((o) => o.debt > 0).map(toPayable), [d]);
 
   return (
-    <AppShell meta={{ label: d ? d.supplierName : 'Công nợ', parent: 'Công nợ nhà cung cấp' }}>
+    <AppShell meta={{ label: d ? d.supplierName : 'Công nợ', parent: 'Công nợ nhà cung cấp', parentTo: root }}>
       <div className="min-w-0 space-y-4">
         {detail.isError ? (
           <BlockError message="Không tìm thấy nhà cung cấp" onRetry={() => navigate(root)} />
@@ -105,15 +121,12 @@ export function DebtDetailPage({ manager = false }: { manager?: boolean }) {
           <Skeleton className="h-64" />
         ) : (
           <>
-            <PageHeader
+            <SubPageHeader
               title={`Công nợ · ${d.supplierName}`}
+              badge={d.debt > 0 ? <Badge variant="warning">Còn nợ</Badge> : <Badge variant="accent">Đã trả hết</Badge>}
               description={`Mã ${d.supplierCode} · thanh toán ${PAYMENT_METHOD[d.paymentMethod].toLowerCase()}`}
-              actions={
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate(root)}>Về danh sách</Button>
-                  {!manager && owing.length ? <Button size="sm" leadingIcon={<Wallet size={15} />} onClick={() => setPayOrders(owing)}>Thanh toán</Button> : null}
-                </div>
-              }
+              backTo={root}
+              actions={!manager && owing.length ? <Button leadingIcon={<Wallet size={15} />} onClick={() => setPayOrders(owing)}>Thanh toán</Button> : null}
             />
             <div className="grid gap-3 sm:grid-cols-3">
               <StatTile label="Phải trả" value={formatCurrency(d.payable)} />
@@ -126,14 +139,14 @@ export function DebtDetailPage({ manager = false }: { manager?: boolean }) {
                 <p className="px-5 pb-5 text-[13px] text-[var(--text-muted)]">Chưa có phiếu nào.</p>
               ) : (
                 <DataTable minWidth={960}>
-                  <thead><tr><Th>Mã phiếu</Th><Th>Ngày đặt</Th><Th>Trạng thái nhận</Th><Th className="text-right">Phải trả</Th><Th className="text-right">Đã trả</Th><Th className="text-right">Còn nợ</Th><Th>Thanh toán</Th>{!manager ? <Th className="text-right">Thao tác</Th> : null}</tr></thead>
+                  <thead><tr><Th>Mã phiếu</Th><Th>Ngày đặt</Th><Th>Trạng thái nhận</Th><Th className="text-right">Phải trả</Th><Th className="text-right">Đã trả</Th><Th className="text-right">Còn nợ</Th><Th>Thanh toán</Th>{!manager ? <Th className="text-right"><span className="sr-only">Thao tác</span></Th> : null}</tr></thead>
                   <tbody>
                     {d.orders.map((o) => {
                       const st = purchaseStatusLabel(o.status, o.receiveStatus);
                       return (
                         <tr key={o.id}>
                           <Td className="font-mono text-[12.5px] font-semibold">{manager ? o.code : <Link to={`/kho/phieu-mua/${o.id}`} className="hover:text-[var(--accent)]">{o.code}</Link>}</Td>
-                          <Td className="text-[13px]">{o.orderDate ? formatDateOnly(o.orderDate) : '—'}</Td>
+                          <Td className="whitespace-nowrap text-[13px]">{o.orderDate ? formatDateOnly(o.orderDate) : '—'}</Td>
                           <Td><Badge variant={st.variant}>{st.label}</Badge></Td>
                           <Td className="text-right font-mono">{formatCurrency(o.payable)}</Td>
                           <Td className="text-right font-mono">{formatCurrency(o.paid)}</Td>
@@ -157,7 +170,7 @@ export function DebtDetailPage({ manager = false }: { manager?: boolean }) {
                 <p className="px-5 pb-5 text-[13px] text-[var(--text-muted)]">Chưa có thanh toán.</p>
               ) : (
                 <DataTable minWidth={1040}>
-                  <thead><tr><Th>Mã TT</Th><Th>Ngày thanh toán</Th><Th>Phiếu mua</Th><Th className="text-right">Số tiền</Th><Th>Phương thức</Th><Th>Mã tham chiếu</Th><Th>Người ghi</Th><Th>Trạng thái</Th>{!manager ? <Th className="text-right">Thao tác</Th> : null}</tr></thead>
+                  <thead><tr><Th>Mã TT</Th><Th>Ngày thanh toán</Th><Th>Phiếu mua</Th><Th className="text-right">Số tiền</Th><Th>Phương thức</Th><Th>Mã tham chiếu</Th><Th>Người ghi</Th><Th>Trạng thái</Th>{!manager ? <Th className="text-right"><span className="sr-only">Thao tác</span></Th> : null}</tr></thead>
                   <tbody>
                     {d.payments.map((p) => (
                       <tr key={p.id}>
@@ -167,14 +180,16 @@ export function DebtDetailPage({ manager = false }: { manager?: boolean }) {
                         <Td className={`text-right font-mono font-semibold ${p.status === 'cancelled' ? 'text-[var(--text-muted)] line-through' : ''}`}>{formatCurrency(p.amount)}</Td>
                         <Td>{PAYMENT_METHOD[p.method]}</Td>
                         <Td className="text-[13px]">{p.reference || '—'}</Td>
-                        <Td className="text-[13px]">{p.by}</Td>
+                        <Td className="whitespace-nowrap text-[13px]">{p.by}</Td>
                         <Td>
                           <Badge variant={p.status === 'valid' ? 'accent' : 'neutral'}>{p.status === 'valid' ? 'Hiệu lực' : 'Đã hủy'}</Badge>
                           {p.cancelReason ? <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">{p.cancelReason}</p> : null}
                         </Td>
                         {!manager ? (
                           <Td className="text-right">
-                            {p.status === 'valid' ? <Button size="sm" variant="ghost" aria-label={`Hủy thanh toán ${p.code}`} onClick={() => setCancelTarget(p)}><Ban size={14} /></Button> : null}
+                            {p.status === 'valid' ? (
+                              <RowActions name={p.code} items={[{ label: 'Hủy thanh toán', icon: <Ban size={15} />, danger: true, onSelect: () => setCancelTarget(p) }]} />
+                            ) : null}
                           </Td>
                         ) : null}
                       </tr>

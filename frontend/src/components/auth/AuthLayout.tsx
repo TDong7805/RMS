@@ -10,7 +10,7 @@ export function BrandMark() {
   return (
     <div className="flex items-center gap-2.5">
       <span
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[var(--accent)] font-mono text-[15px] font-bold text-[var(--accent-contrast)]"
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[var(--brand)] font-mono text-[15px] font-bold text-[var(--brand-contrast)]"
         aria-hidden
       >
         RB

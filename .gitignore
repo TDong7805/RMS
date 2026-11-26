@@ -28,3 +28,6 @@ backups-test/
 
 # Dữ liệu thô tải từ mạng để đo tham số dự báo (file lớn, giấy phép riêng) — không đưa lên git
 /data-raw/
+
+# Tài liệu thiết kế giao diện (quy tắc + ảnh tham khảo) — chỉ để trên máy, không đưa lên git
+/docs/thiet-ke/

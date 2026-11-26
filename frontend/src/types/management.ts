@@ -7,13 +7,56 @@ export interface Paged<T> {
   pageCount: number;
 }
 
-/* ============================== Khu vực & bàn ============================== */
+/* ============================== Tầng, khu vực & bàn ============================== */
+
+/** Tường thẳng ngang / dọc trên đường kẻ lưới (tọa độ góc ô). outer = tường ngoài, inner = vách trong, fence = hàng rào. */
+export type WallKind = 'outer' | 'inner' | 'fence';
+export interface Wall {
+  kind: WallKind;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+/** Một tầng = một sơ đồ lưới cols × rows ô (một ô một bàn). */
+export interface Floor {
+  id: string;
+  name: string;
+  cols: number;
+  rows: number;
+  walls: Wall[];
+}
+
+export interface FloorInput {
+  name: string;
+  cols: number;
+  rows: number;
+}
+
+/** Vùng khu trên sơ đồ tầng (ô): góc trên trái + rộng, cao. */
+export interface Zone {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 export interface Area {
   id: string;
   name: string;
   description: string;
   active: boolean;
+  floorId: string;
+  /** null = chưa vẽ vùng khu trên sơ đồ. */
+  zone: Zone | null;
+}
+
+/** Lưu cả sơ đồ một tầng một lần. */
+export interface FloorLayoutInput {
+  walls: Wall[];
+  zones: { areaId: string; x: number | null; y: number | null; w: number | null; h: number | null }[];
+  tables: { id: string; x: number; y: number; areaId: string }[];
 }
 
 export type TableShape = 'square' | 'round' | 'rect';
@@ -25,7 +68,7 @@ export interface DiningTable {
   areaId: string;
   seats: number;
   shape: TableShape;
-  /** Vị trí ô trên sơ đồ (cột, hàng), bắt đầu từ 0. */
+  /** Vị trí ô trên sơ đồ TẦNG (cột, hàng), bắt đầu từ 0. */
   x: number;
   y: number;
   status: TableStatus;
@@ -45,6 +88,7 @@ export interface AreaInput {
   name: string;
   description: string;
   active: boolean;
+  floorId: string;
 }
 
 /* ============================== Đặt bàn ============================== */

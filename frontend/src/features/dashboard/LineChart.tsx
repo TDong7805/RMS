@@ -17,6 +17,10 @@ export interface LineChartProps {
   comparing: boolean;
   /** Mốc thời gian để chọn nhãn trục hoành gọn hơn khi nhiều điểm. */
   dense?: boolean;
+  /** Cho đường trượt sang số liệu mới khi đổi kỳ (tắt khi máy bật giảm chuyển động). */
+  animate?: boolean;
+  /** Giãn hết chiều cao khung cha (khung cạnh bên cao hơn thì biểu đồ cao theo, không để khoảng trắng). */
+  fill?: boolean;
 }
 
 interface ChartTooltipProps extends TooltipProps<number, string> {
@@ -51,12 +55,12 @@ function ChartTooltip({ active, payload, label, comparing }: ChartTooltipProps) 
   );
 }
 
-export function LineChart({ data, comparing, dense = false }: LineChartProps) {
+export function LineChart({ data, comparing, dense = false, animate = false, fill = false }: LineChartProps) {
   const gradientId = `revenue-fill-${useId().replace(/[:]/g, '')}`;
   const tickInterval = data.length > 8 ? Math.ceil(data.length / 6) : 0;
 
   return (
-    <div className="h-[248px] w-full min-w-0 sm:h-[292px]">
+    <div className={fill ? 'h-full min-h-[248px] w-full min-w-0' : 'h-[248px] w-full min-w-0 sm:h-[292px]'}>
       <ResponsiveContainer width="100%" height="100%">
         <RechartsLineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
           <defs>
@@ -100,7 +104,8 @@ export function LineChart({ data, comparing, dense = false }: LineChartProps) {
               strokeDasharray="5 4"
               dot={false}
               activeDot={{ r: 3, strokeWidth: 0, fill: 'var(--chart-line-previous)' }}
-              isAnimationActive={false}
+              isAnimationActive={animate}
+              animationDuration={450}
             />
           ) : null}
           <Line
@@ -116,7 +121,8 @@ export function LineChart({ data, comparing, dense = false }: LineChartProps) {
               stroke: 'var(--bg-surface)',
               fill: 'var(--chart-line)',
             }}
-            isAnimationActive={false}
+            isAnimationActive={animate}
+              animationDuration={450}
           />
         </RechartsLineChart>
       </ResponsiveContainer>
