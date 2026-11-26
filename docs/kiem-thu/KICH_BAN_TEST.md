@@ -760,7 +760,7 @@ Mỗi trang kiểm trên **máy tính và điện thoại**.
 | 46.14 | Chân trang (= Liên hệ) | Địa chỉ + Chỉ đường trên Google Maps (bản đồ nhỏ nếu dán link nhúng), điện thoại, email, giờ mở cửa (tô hôm nay), mạng xã hội, liên kết, tên quán chữ cực lớn; "Đăng nhập nhân viên" | [ ] | |
 | 46.15 | Máy tính bật **tắt hiệu ứng** của Windows (hoặc F12 → Rendering → prefers-reduced-motion: reduce) | Website vẫn chạy đủ hiệu ứng (chữ hiện dần, ảnh trượt, mục hiện dần khi cuộn) | [ ] | |
 | 46.16 | Điện thoại | Các khối xếp một cột, không kéo ngang được; thanh trên chỉ có tên + ☰; ☰ mở menu phủ kín màn hình chữ lớn, bấm mục thì đóng menu và cuộn tới | [ ] | |
-| 46.17 | Xem thử phông tiêu đề: thêm `?phong=1`, `?phong=2`, `?phong=3` sau địa chỉ | Lần lượt Playfair Display · Cormorant Garamond · Noto Serif Display, đủ dấu tiếng Việt (để nhóm chọn một phông) | [ ] | |
+| 46.17 | Tiêu đề trên website (tên quán, tên các mục, sách thực đơn) | Phông **Cormorant Garamond** (nhóm chọn 27/11/2026), đủ dấu tiếng Việt; trang gọi món QR vẫn dùng Playfair Display như cũ | [ ] | |
 
 ## Trang 47. Link cũ Giới thiệu / Album / Liên hệ (`/gioi-thieu`, `/album`, `/lien-he`)
 

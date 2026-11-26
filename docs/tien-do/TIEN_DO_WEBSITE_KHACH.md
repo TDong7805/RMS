@@ -31,7 +31,8 @@ Theo mục E1 của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md` (ảnh tham khảo `dot
 - **Cấu hình → Website** đổi sang kiểu dòng: Đầu trang · Món đặc trưng · Trải nghiệm · Không gian – album · Câu chuyện · Lời từ bếp trưởng · Đặt bàn · Mạng xã hội & bản đồ · Thực đơn trên website; thanh Lưu dính đáy.
 - **Sách thực đơn:** hướng dẫn bàn tay kéo góc trang (`FlipGuide.tsx`, lần đầu mỗi phiên); luôn lật trang, không còn rơi về sách tĩnh khi máy tắt hiệu ứng.
 - **Kiểm thử:** bộ 15 thêm 20 bước (bếp trưởng, món đặc trưng / trải nghiệm, giới hạn 8 mục, ẩn / đổi thứ tự / xóa file ảnh, số liệu không gian; album không còn giả định album mẫu trống) → **77 / 77**. Chạy 17 bộ: **753 / 755** (2 bước bộ 13 sai vì chạy lúc 00:51 — bài test tạo ca "giờ hiện tại − 1 tiếng" rơi sang hôm qua; không liên quan E1). Giao diện: 29 / 29 bước (máy tính + iPhone 13, có bật giảm chuyển động), không lỗi trang.
-- **Còn chờ:** ảnh AI (prompt ở `backend/database/seed-images/website/PROMPT_ANH_WEBSITE.md`); nhóm chọn phông (`?phong=1|2|3`) rồi bỏ hai phông còn lại.
+- **Phông tiêu đề:** nhóm chọn **Cormorant Garamond** (27/11/2026) sau khi xem thử 3 phông; đã bỏ Playfair Display (chỉ còn ở trang QR theo Figma) và Noto Serif Display khỏi website, bỏ chế độ xem thử `?phong=`.
+- **Còn chờ:** ảnh AI (prompt ở `backend/database/seed-images/website/PROMPT_ANH_WEBSITE.md`).
 - **Dòng phiếu test cần test:** trang 46 (46.1–46.17, viết lại), 47 (link cũ), 48.5–48.6, 49.7, 18.8.
 
 ## Thực đơn dạng sách lật trang (flipbook)

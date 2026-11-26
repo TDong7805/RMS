@@ -1,12 +1,13 @@
 /*
  * Bộ màu + phông riêng của website khách hàng (/, /thuc-don, /dat-ban…): cùng tông ấm với trang gọi món QR
- * (đỏ rượu vang, nền kem, chữ có chân Playfair Display cho tiêu đề, Be Vietnam Pro cho nội dung).
+ * (đỏ rượu vang, nền kem, chữ có chân Cormorant Garamond cho tiêu đề — nhóm chọn 27/11/2026, Be Vietnam Pro cho nội dung).
+ * Trang gọi món QR vẫn dùng Playfair Display theo Figma (qr-theme.css).
  * Chỉ áp dụng bên trong phần tử .site-root — không ảnh hưởng trang quản lý / nhân viên.
  * Dùng trong class Tailwind dạng bg-[var(--site-primary)], text-[var(--site-muted)]…
  */
 .site-root {
   --site-font: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --site-display: 'Playfair Display Variable', Georgia, 'Times New Roman', serif;
+  --site-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   --site-primary: #8e1b22;
   --site-primary-press: #74151b;
   --site-primary-soft: #f6e7e3;

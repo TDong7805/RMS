@@ -15,14 +15,8 @@
   overflow-x: clip;
 }
 
-/* Phông tiêu đề xem thử: ?phong=1 Playfair Display (mặc định), 2 Cormorant Garamond, 3 Noto Serif Display */
-.site-root[data-font='cormorant'] {
-  --site-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-}
-.site-root[data-font='noto'] {
-  --site-display: 'Noto Serif Display Variable', Georgia, 'Times New Roman', serif;
-}
-.site-root[data-font='cormorant'] .site-display {
+/* Phông tiêu đề: Cormorant Garamond (nhóm chọn 27/11/2026 sau khi xem thử 3 phông). Nét mảnh nên tiêu đề nhỏ dùng độ đậm 500. */
+.site-root .site-display {
   font-weight: 500;
 }
 

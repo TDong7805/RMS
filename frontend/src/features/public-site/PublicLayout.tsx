@@ -2,11 +2,11 @@ import '@fontsource/be-vietnam-pro/400.css';
 import '@fontsource/be-vietnam-pro/500.css';
 import '@fontsource/be-vietnam-pro/600.css';
 import '@fontsource/be-vietnam-pro/700.css';
-import '@fontsource-variable/playfair-display';
-// Phông tiêu đề xem thử (E1): chọn xong một phông thì bỏ hai phông còn lại.
+// Phông tiêu đề website: Cormorant Garamond (nhóm chọn 27/11/2026).
+import '@fontsource/cormorant-garamond/400.css';
 import '@fontsource/cormorant-garamond/500.css';
 import '@fontsource/cormorant-garamond/600.css';
-import '@fontsource-variable/noto-serif-display';
+import '@fontsource/cormorant-garamond/700.css';
 import '@fontsource-variable/dancing-script';
 import './site-theme.css';
 import './home.css';
@@ -36,26 +36,6 @@ export const SITE_NAV: { id?: string; to?: string; label: string }[] = [
 /** Mọi mục của trang chủ theo thứ tự (để biết đang xem mục nào; mục không có trên menu thì không tô mục nào). */
 const SECTION_IDS = ['luu-y', 'mon-dac-trung', 'trai-nghiem', 'khong-gian', 'gioi-thieu', 'bep-truong', 'dat-ban', 'lien-he'];
 
-/** Phông tiêu đề xem thử: ?phong=1|2|3, nhớ trong phiên để chuyển trang vẫn giữ. */
-function useSiteFont(): string {
-  const { search } = useLocation();
-  const q = new URLSearchParams(search).get('phong');
-  const fonts: Record<string, string> = { '1': 'playfair', '2': 'cormorant', '3': 'noto' };
-  if (q && fonts[q]) {
-    try {
-      sessionStorage.setItem('site-font', fonts[q]);
-    } catch {
-      /* chế độ riêng tư */
-    }
-    return fonts[q];
-  }
-  try {
-    return sessionStorage.getItem('site-font') ?? 'playfair';
-  } catch {
-    return 'playfair';
-  }
-}
-
 /** Cuộn tới một mục ở trang chủ (chừa chỗ thanh trên nhờ scroll-margin-top). */
 export function scrollToSection(id: string) {
   const el = document.getElementById(id);
@@ -72,7 +52,6 @@ export function scrollToSection(id: string) {
 export default function PublicLayout() {
   const site = useSite();
   const location = useLocation();
-  const font = useSiteFont();
   const home = location.pathname === '/';
 
   // Đổi trang → về đầu trang (React Router không tự làm). Có #mục thì trang chủ tự cuộn tới mục đó.
@@ -85,7 +64,7 @@ export default function PublicLayout() {
   }, [site.data]);
 
   return (
-    <div className="site-root flex min-h-screen flex-col" data-font={font}>
+    <div className="site-root flex min-h-screen flex-col">
       <SiteHeader site={site.data} home={home} />
       <main id="noi-dung" className="flex-1">
         {site.isError ? (

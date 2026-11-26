@@ -31,3 +31,8 @@ backups-test/
 
 # Tài liệu thiết kế giao diện (quy tắc + ảnh tham khảo) — chỉ để trên máy, không đưa lên git
 /docs/thiet-ke/
+
+# Impeccable (công cụ hỗ trợ giao diện, chỉ cài trên máy) — không đưa lên git
+/PRODUCT.md
+/DESIGN.md
+/.impeccable/
