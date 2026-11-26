@@ -189,6 +189,17 @@
     bottom: 16px;
   }
 }
+/* Có nút chatbot "Tư vấn món" (SiteAssistant, góc dưới phải): máy tính xếp nút Đặt bàn lên trên nút chatbot;
+   điện thoại chừa chỗ bên phải cho nút tròn của chatbot. Tắt chatbot thì nút Đặt bàn về chỗ cũ. */
+.site-root:has(.site-assistant-fab) .site-float {
+  bottom: 96px;
+}
+@media (max-width: 639px) {
+  .site-root:has(.site-assistant-fab) .site-float {
+    bottom: 20px;
+    right: 124px;
+  }
+}
 
 /* ---------------------------------------------------------------- Đầu trang */
 @keyframes site-letter {

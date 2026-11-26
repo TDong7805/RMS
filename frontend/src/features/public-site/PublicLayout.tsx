@@ -16,12 +16,8 @@ import { Award, CalendarCheck, Clock, ExternalLink, Mail, MapPin, Menu, Phone, X
 import { cn } from '@/lib/cn';
 import { useSite } from './queries';
 import { HoursList, SiteError, SiteSkeleton, SocialLinks, telHref, weekdayOf } from './parts';
-<<<<<<< HEAD
 import { useActiveSection, useInView, useScrollY } from './motion';
-=======
-import { SearchField } from './SearchField';
 import { SiteAssistant } from './SiteAssistant';
->>>>>>> c8072673fb48e14827d3c4e5b791bb7dad7bffa7
 import type { PublicSite } from '@/types';
 
 /**
@@ -107,11 +103,8 @@ export default function PublicLayout() {
         )}
       </main>
       {site.data ? <SiteFooter site={site.data} /> : null}
-<<<<<<< HEAD
       {site.data && home ? <FloatingReserve /> : null}
-=======
       {site.data ? <SiteAssistant /> : null}
->>>>>>> c8072673fb48e14827d3c4e5b791bb7dad7bffa7
     </div>
   );
 }

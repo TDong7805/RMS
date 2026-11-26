@@ -1,5 +1,5 @@
 /* =====================================================================
-   V27_1 — Nội dung mẫu cho trang chủ website kiểu dài một trang (chỉ profile dev).
+   V29_1 — Nội dung mẫu cho trang chủ website kiểu dài một trang (chỉ profile dev).
 
    Bếp trưởng "Trần Minh Khôi" và lá thư là GIẢ LẬP cho đồ án. Ảnh do SeedImageLoader gắn từ
    backend/database/seed-images/website/ (danh-sach.csv) khi có file ảnh; chưa có ảnh thì website hiện nền tối.

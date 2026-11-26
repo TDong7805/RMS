@@ -1,5 +1,5 @@
 /* =====================================================================
-   V27 — Website khách hàng kiểu trang chủ dài một trang (E1, 27/11/2026).
+   V29 — Website khách hàng kiểu trang chủ dài một trang (E1, 27/11/2026).
 
    Quản lý nhập ở Cấu hình hệ thống → Website. Để trống mục nào thì website ẩn mục đó.
    (Không viết dấu sao đôi sau dấu gạch chéo trong chú thích: Flyway hiểu là mở chú thích lồng và bỏ qua cả file.)

@@ -52,7 +52,7 @@ ok('bếp có trang "Thông tin của tôi"', (await bep.get('/api/toi/profile')
 
 /* ------------------------------------------------------------------ Chuẩn bị ca đang diễn ra */
 const area = (name) => sql(`SELECT id FROM areas WHERE name='${name}'`);
-// Khu mẫu: 'Sảnh chính' (Tầng 1), 'Khu gia đình' (Tầng 2) — đổi tên từ 'Tầng 1' / 'Tầng 2' khi có sơ đồ theo tầng (V26_1).
+// Khu mẫu: 'Sảnh chính' (Tầng 1), 'Khu gia đình' (Tầng 2) — đổi tên từ 'Tầng 1' / 'Tầng 2' khi có sơ đồ theo tầng (V28_1).
 const A1 = area('Sảnh chính'), A2 = area('Khu gia đình'), AV = area('Sân vườn');
 const uid = (u) => sql(`SELECT id FROM users WHERE username='${u}'`);
 // Dọn dữ liệu của lần chạy trước (chạy lại được mà không cần tạo lại CSDL).
@@ -238,7 +238,7 @@ const gotLayout = (async () => {
 })().catch(() => sse);
 await new Promise((res) => setTimeout(res, 300));
 const moveT = fl.floor.tables.find((t) => t.areaId === AV);
-// Sơ đồ theo tầng (V26): ô trống trong vùng khu Sân vườn, tính mọi bàn trên cùng tầng.
+// Sơ đồ theo tầng (V28): ô trống trong vùng khu Sân vườn, tính mọi bàn trên cùng tầng.
 const avArea = fl.floor.areas.find((a) => a.id === AV);
 const sameFloor = new Set(fl.floor.areas.filter((a) => a.floorId === avArea.floorId).map((a) => a.id));
 const usedCells = new Set(fl.floor.tables.filter((t) => sameFloor.has(t.areaId)).map((t) => `${t.x},${t.y}`));

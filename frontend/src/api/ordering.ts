@@ -256,7 +256,11 @@ export function getAssistantIntro(token: string): Promise<AssistantIntro> {
   return api.get<AssistantIntro>(`${qr(token)}/assistant`);
 }
 
-<<<<<<< HEAD
+/** Khách bấm "Thêm" trên thẻ gợi ý của trợ lý → thống kê "khách thêm món nhờ chatbot" (Quản lý Chatbot). */
+export function reportAssistantAdds(token: string, sessionId: string, items: { kind: 'dish' | 'set'; id: string; qty: number }[]) {
+  return api.post<{ saved: number }>(`${qr(token)}/assistant/added`, { sessionId, items });
+}
+
 /* ---------------------------------------------------------------- Thu ngân: đặt bàn (B6 — thu ngân nhận đặt bàn tại quầy) */
 
 export type CashierReservationStatus = 'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show';
@@ -295,9 +299,3 @@ export const createCashierReservation = (input: CashierReservationInput & { sour
 export const updateCashierReservation = (id: string, input: CashierReservationInput) => api.put<{ id: string; code: string }>(tn(`reservations/${enc(id)}`), input);
 export const setCashierReservationStatus = (id: string, status: 'confirmed' | 'cancelled' | 'no_show') =>
   api.patch<{ id: string }>(tn(`reservations/${enc(id)}/status`), { status });
-=======
-/** Khách bấm "Thêm" trên thẻ gợi ý của trợ lý → thống kê "khách thêm món nhờ chatbot" (Quản lý Chatbot). */
-export function reportAssistantAdds(token: string, sessionId: string, items: { kind: 'dish' | 'set'; id: string; qty: number }[]) {
-  return api.post<{ saved: number }>(`${qr(token)}/assistant/added`, { sessionId, items });
-}
->>>>>>> c8072673fb48e14827d3c4e5b791bb7dad7bffa7
