@@ -121,17 +121,23 @@ export function pagesOfView(view: number, spread: boolean, total: number): [numb
 export const sideOfPage = (index: number, spread: boolean): 'left' | 'right' | 'single' =>
   !spread ? 'single' : index % 2 === 1 ? 'left' : 'right';
 
-/** Trang chứa món (id món hoặc "g" + id nhóm, hoặc id set). */
+/** Khóa của set trong sách ("set:" + id) — id set và id món là hai dãy số riêng, có thể trùng nhau. */
+export const setKey = (id: string) => `set:${id}`;
+
+/** Trang chứa món (id món hoặc "g" + id nhóm) hoặc set (setKey(id)). */
 export function pageOfItem(pages: BookPage[], id: string): number {
-  return pages.findIndex((p) =>
-    (p.kind === 'category' && p.items.some((i) => i.id === id)) || (p.kind === 'sets' && p.sets.some((s) => s.id === id)));
+  if (id.startsWith('set:')) {
+    const sid = id.slice(4);
+    return pages.findIndex((p) => p.kind === 'sets' && p.sets.some((s) => s.id === sid));
+  }
+  return pages.findIndex((p) => p.kind === 'category' && p.items.some((i) => i.id === id));
 }
 
 /** "Mốc" của trang đang xem — sau khi chia lại trang (xoay máy) tìm lại đúng chỗ: ưu tiên món đầu tiên, không có thì khóa trang. */
 export function anchorOf(page: BookPage | undefined): string | null {
   if (!page) return null;
   if (page.kind === 'category') return `item:${page.items[0]?.id}`;
-  if (page.kind === 'sets') return `item:${page.sets[0]?.id}`;
+  if (page.kind === 'sets') return `item:${setKey(page.sets[0]?.id ?? '')}`;
   return `page:${page.key.startsWith('toc') ? 'toc-0' : page.key}`;
 }
 

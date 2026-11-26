@@ -247,13 +247,35 @@ Có quản lý khác: người đó vào Tài khoản → Đặt lại mật kh�
 2. Đặt lại `RMS_BOOTSTRAP_*` với **tên đăng nhập và email khác**, khởi động lại → có quản lý mới.
 3. Đăng nhập quản lý mới, đặt lại mật khẩu và mở khóa tài khoản cũ (hoặc xóa đi).
 
+## Khi thuê tên miền và máy chủ (danh sách cần làm)
+
+Code **không gắn cứng địa chỉ web** (`localhost` chỉ có trong cấu hình chế độ phát triển), nên khi có tên miền chủ yếu
+là cấu hình và thao tác trên trang quản lý, gần như không sửa code. Cần **thuê máy chủ chạy 24/7** (VPS / Cloud Server
+Ubuntu 22.04–24.04, từ 2 GB RAM, SSD 20 GB, có quyền root). Gói "Web hosting / cPanel" chỉ chạy PHP, **không** chạy được dự án này.
+
+| # | Việc | Ở đâu |
+|---|---|---|
+| 1 | Trỏ tên miền về IP máy chủ, cài Caddy để có **HTTPS** (bắt buộc: camera chấm công trên điện thoại chỉ mở qua HTTPS) | Mục 5 |
+| 2 | Chạy `SPRING_PROFILES_ACTIVE=prod` (không nạp dữ liệu mẫu có mật khẩu `Rms@2026`), tạo quản lý đầu tiên bằng `RMS_BOOTSTRAP_*`, user MySQL riêng | Mục 3, 4 |
+| 3 | `RMS_CORS_ALLOWED_ORIGINS=https://<tên-miền>` — chỉ khi giao diện và API nằm ở hai địa chỉ khác nhau | `.env.properties` |
+| 4 | **In lại toàn bộ mã QR trên bàn** từ trang quản lý mở bằng tên miền thật (mã in khi chạy ở máy cá nhân trỏ về `localhost`) | Quản lý → Khu vực bàn |
+| 5 | Nhập địa chỉ website, tài khoản ngân hàng thật (mã VietQR trên hóa đơn) | Cấu hình hệ thống |
+| 6 | Chấm công: đứng ở quán bấm **Thêm IP hiện tại** (IP công cộng của WiFi quán), nhân viên đăng ký lại khuôn mặt trên điện thoại | Cấu hình → Chấm công |
+| 7 | Dán key Gemini vào `backend/.env.properties` **trên máy chủ** (`GEMINI_API_KEY=...`), nên dùng key / gói trả phí của nhà hàng | README |
+| 8 | Đặt lịch sao lưu MySQL + thư mục ảnh `uploads` | Mục 7 |
+
 ## Chưa sẵn sàng cho chạy thật
 
 Danh sách đầy đủ, kèm cách thay: [DU_LIEU_GIA.md](../du-lieu/DU_LIEU_GIA.md).
 
-- Trang Thông báo, Dashboard và phần lịch sử hội thoại / thống kê của Chatbot AI vẫn dùng
-  dữ liệu giả trong trình duyệt (mất khi tải lại trang).
-- Các phân hệ Thu ngân, Bếp, Kho, Khách hàng chưa xây dựng.
+- Các phân hệ Quản lý nhà hàng, Thu ngân, Bếp, Kho, Nhân viên phục vụ, trang gọi món QR (kèm chatbot Gemini) và website khách
+  đã chạy bằng dữ liệu thật. Còn dùng dữ liệu cố định trong giao diện: menu thanh bên và mục "truy cập gần đây" của ô tìm kiếm.
+- Không gửi email / SMS (quên mật khẩu, xác nhận đặt bàn) — cần dịch vụ gửi thư / SMS.
+- Chấm công khuôn mặt: bước "quay đầu chứng minh người thật" chạy trên điện thoại nên có thể bị giả bằng video; còn hai lớp
+  bảo vệ là WiFi quán và ảnh chụp mỗi lần chấm công. Ảnh khuôn mặt là dữ liệu sinh trắc học (Nghị định 13/2023) — nên có
+  văn bản đồng ý của nhân viên.
+- Chatbot Gemini: gói miễn phí giới hạn lượt gọi và Google có thể dùng nội dung chat; Google hay ngừng model cũ (đổi tên
+  model ở Quản lý Chatbot → Cấu hình). Giới hạn 8 câu / phút / bàn đếm trong bộ nhớ của một máy chủ.
 - Tự động sao lưu chạy trong tiến trình backend: chạy nhiều máy chủ cùng lúc thì mỗi máy đều sao lưu (nên bật lịch
   trên một máy hoặc dùng cron).
 - Chặn dò mật khẩu (sai 5 lần → chặn 5 phút) đếm trong bộ nhớ: đủ cho một máy chủ; chạy nhiều máy chủ thì mỗi máy đếm riêng.

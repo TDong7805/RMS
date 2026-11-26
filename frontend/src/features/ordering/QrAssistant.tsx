@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'motion/react';
 import { Check, PaperPlaneRight, Plus, Sparkle, X } from '@phosphor-icons/react';
-import { askAssistant, getAssistantIntro, type AssistantIntro, type AssistantReply } from '@/api/ordering';
+import { askAssistant, getAssistantIntro, reportAssistantAdds, type AssistantIntro, type AssistantReply } from '@/api/ordering';
 import { DishImage, Q, SPRING, vnd } from '@/features/ordering/QrParts';
 import { cn } from '@/lib/cn';
 import type { MenuDish, MenuSet } from '@/types';
@@ -59,6 +59,17 @@ export function QrAssistant({
   onOpenSet: (s: MenuSet) => void;
 }) {
   const storeKey = `rms-assistant-${token}`;
+  // Mã phiên chat trên thiết bị này (một hội thoại trong "Lịch sử hội thoại" của Quản lý Chatbot).
+  const [sessionId] = useState(() => {
+    const k = `rms-assistant-session-${token}`;
+    const old = sessionStorage.getItem(k);
+    if (old) return old;
+    const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.floor(Math.random() * 16); return (c === 'x' ? r : (r % 4) + 8).toString(16); });
+    sessionStorage.setItem(k, id);
+    return id;
+  });
   const intro = useQuery({ queryKey: ['qr', token, 'assistant'], queryFn: () => getAssistantIntro(token), staleTime: 5 * 60_000, retry: false });
   const [msgs, setMsgs] = useState<Msg[]>(() => {
     try {
@@ -95,7 +106,7 @@ export function QrAssistant({
     setInput('');
     setBusy(true);
     try {
-      const r = await askAssistant(token, { message, history, shown, cart: cartDishIds });
+      const r = await askAssistant(token, { message, history, shown, cart: cartDishIds, sessionId });
       setMsgs((p) => [...p, { from: 'bot', ...r }]);
     } catch (e) {
       const text = e instanceof Error && /tạm tắt/.test(e.message) ? e.message : 'Xin lỗi, mình đang bận một chút 😥 Bạn thử lại sau, hoặc bấm chuông gọi nhân viên nhé.';
@@ -108,6 +119,7 @@ export function QrAssistant({
   const addOne = (msgIndex: number, d: MenuDish, qty: number, quiet = false) => {
     onAddDish(d, qty, quiet);
     setAdded((s) => new Set(s).add(`${msgIndex}:${d.id}`));
+    if (!quiet) void reportAssistantAdds(token, sessionId, [{ kind: 'dish', id: d.id, qty }]).catch(() => undefined);
   };
 
   // Quản lý tắt Chatbot (hoặc chưa tải được cấu hình) → không hiện trợ lý.
@@ -226,6 +238,7 @@ export function QrAssistant({
                                 className={cn(Q.btn, 'w-full py-3 text-[14px]')}
                                 onClick={() => {
                                   rest.forEach(({ d, qty }) => addOne(i, d, qty, true));
+                                  void reportAssistantAdds(token, sessionId, rest.map(({ d, qty }) => ({ kind: 'dish' as const, id: d.id, qty }))).catch(() => undefined);
                                   toast.success(`Đã thêm ${rest.reduce((s2, x) => s2 + x.qty, 0)} phần vào giỏ`);
                                 }}
                               >

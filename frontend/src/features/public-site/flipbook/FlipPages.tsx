@@ -5,7 +5,7 @@ import { formatCurrency } from '@/lib/format';
 import { WEEKDAYS } from '@/lib/labels';
 import type { PublicMenuItem, PublicSetMenu, PublicSite } from '@/types';
 import { mondayFirst } from '../parts';
-import { cardArea, pageMetrics, sideOfPage, type BookPage, type Grid, type Metrics } from './pagination';
+import { cardArea, pageMetrics, setKey, sideOfPage, type BookPage, type Grid, type Metrics } from './pagination';
 
 export interface PageFaceProps {
   page: BookPage;
@@ -71,7 +71,7 @@ export function PageFace({ page, index, total, pageW, pageH, spread, site, highl
           <CardGrid m={m} grid={page.grid} pageH={pageH} first={page.first}>
             {page.kind === 'category'
               ? page.items.map((item) => <ItemCard key={item.id} item={item} highlight={highlightId === item.id} />)
-              : page.sets.map((s) => <SetCard key={s.id} set={s} highlight={highlightId === s.id} />)}
+              : page.sets.map((s) => <SetCard key={s.id} set={s} highlight={highlightId === setKey(s.id)} />)}
           </CardGrid>
         </div>
       ) : null}

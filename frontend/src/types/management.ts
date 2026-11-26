@@ -358,7 +358,10 @@ export type FallbackAction = 'suggest_staff' | 'show_menu' | 'rephrase';
 export interface ChatbotConfig {
   botName: string;
   avatar: string;
+  /** Công tắc chung: tắt thì ẩn chatbot ở cả trang gọi món tại bàn (QR) lẫn website khách hàng. */
   active: boolean;
+  /** Hiện khung chat tư vấn trên website khách hàng (V27); chỉ có tác dụng khi active. */
+  websiteEnabled: boolean;
   greeting: string;
   quickReplies: string[];
   fallbackMessage: string;

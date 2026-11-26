@@ -19,6 +19,7 @@ import {
   pageOfItem,
   pagesOfView,
   viewCount,
+  setKey,
   viewOfPage,
   type BookPage,
 } from './pagination';
@@ -46,7 +47,16 @@ function useMedia(query: string): boolean {
  *  - Thanh trên cùng (không lật theo trang): ô tìm món (chọn kết quả → lật tới món), mục lục, ‹ ›, số trang.
  *  - Phím ← → (trừ khi đang gõ trong ô tìm). Tải trước ảnh 1–2 khung kế tiếp.
  */
-export function FlipMenu({ menu, site, initialQuery, paper }: { menu: PublicMenu; site: PublicSite; initialQuery: string; paper: MenuPaper }) {
+/** Món cần mở sẵn (chatbot website: /thuc-don?mon=… | ?set=…); nonce đổi mỗi lần điều hướng để bấm lại cùng món vẫn lật tới. */
+export interface MenuFocus {
+  kind: 'dish' | 'set';
+  id: string;
+  nonce: string;
+}
+
+export function FlipMenu({ menu, site, initialQuery, paper, focus }: {
+  menu: PublicMenu; site: PublicSite; initialQuery: string; paper: MenuPaper; focus?: MenuFocus | null;
+}) {
   const rootRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const bookRef = useRef<BookHandle>(null);
@@ -103,7 +113,9 @@ export function FlipMenu({ menu, site, initialQuery, paper }: { menu: PublicMenu
 
   /* ---------------------------------------------------- Trang đang xem + mốc giữ vị trí khi chia lại trang */
   const [current, setCurrent] = useState(0);
-  const anchorRef = useRef<string | null>(null);
+  const focusId = focus ? (focus.kind === 'set' ? setKey(focus.id) : focus.id) : null;
+  // Mở trang từ chatbot: sách dựng lần đầu mở ngay tại trang có món (không lật từ bìa).
+  const anchorRef = useRef<string | null>(focusId ? `item:${focusId}` : null);
   // Trang mở khi (dựng lại) sách: tính từ mốc của lần chia trang trước.
   const startPage = useMemo(() => pageOfAnchor(pages, anchorRef.current), [pages]);
   const view = viewOfPage(current, spread);
@@ -168,7 +180,7 @@ export function FlipMenu({ menu, site, initialQuery, paper }: { menu: PublicMenu
         haystack: normalizeVi([i.name, i.description, i.variants.join(' '), cat.get(i.categoryId) ?? ''].join(' ')),
       })),
       ...menu.sets.map((s) => ({
-        id: s.id, name: s.name, nameKey: normalizeVi(s.name), category: 'Set menu', price: s.price,
+        id: setKey(s.id), name: s.name, nameKey: normalizeVi(s.name), category: 'Set menu', price: s.price,
         haystack: normalizeVi([s.name, s.description, s.items.join(' '), 'set menu'].join(' ')),
       })),
     ];
@@ -180,6 +192,15 @@ export function FlipMenu({ menu, site, initialQuery, paper }: { menu: PublicMenu
     setHighlight(id);
     if (viewOfPage(p, spread) !== view) jumpToPage(p);
   };
+
+  // Chatbot gửi món tới (?mon= / ?set=): làm nổi bật; sách đang mở sẵn thì lật tới món. Mỗi lần điều hướng chỉ chạy một lần.
+  const focusDone = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focus || !focusId || !pages.length || focusDone.current === focus.nonce) return;
+    focusDone.current = focus.nonce;
+    pick(focusId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ chạy khi có yêu cầu mới / sách vừa chia trang
+  }, [focus?.nonce, focusId, pages.length]);
 
   const tocTargets = useMemo(() => {
     const out: { id: string; label: string; page: number }[] = [];

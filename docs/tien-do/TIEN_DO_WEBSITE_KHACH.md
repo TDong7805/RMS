@@ -80,4 +80,15 @@ Theo mục E1 của `docs/thiet-ke/QUY_TAC_GIAO_DIEN.md` (ảnh tham khảo `dot
 - Trang tin tức `/tin-tuc` đọc từ `posts` (đã có `slug` và trạng thái xuất bản).
 - Khách tra cứu hoặc hủy lịch đã đặt bằng mã và SĐT (hiện phải gọi nhà hàng).
 - Gửi email hoặc SMS xác nhận cho khách (cần dịch vụ gửi thư hoặc SMS).
-- Chatbot tư vấn trên website (dùng lại `MenuAssistant` của trang QR).
+
+## Chatbot tư vấn trên website (V27, 23/11/2026)
+- Nút nổi "Tư vấn món" ở góc phải mọi trang website (`features/public-site/SiteAssistant.tsx`). Điện thoại: khung chat chiếm cả màn hình.
+- API: `GET /api/public/site/assistant` (bật/tắt, tên, ảnh, lời chào, câu gợi ý), `POST /api/public/site/assistant` `{message, history, shown, sessionId}` → `{text, cards, chips, actions, source}`. Tắt thì 409.
+- Cùng bộ não với trợ lý tại bàn (`MenuAssistant.replyWebsite`: Gemini, dự phòng trả lời theo luật; FAQ; cấu hình Quản lý Chatbot). Khác:
+  - không có giỏ món; chỉ gợi ý món `ai_enabled` VÀ đang hiện trên website;
+  - trả lời địa chỉ, giờ mở cửa, hotline lấy từ Cấu hình hệ thống; câu về thanh toán / gọi nhân viên / wifi trả lời theo ngữ cảnh khách chưa tới quán;
+  - nút hành động `reservation` (→ `/dat-ban`) và `contact` (→ `/lien-he`). Gemini đặt cờ `booking`; thực đơn cho cả nhóm luôn kèm nút Đặt bàn.
+- Bấm thẻ món → `/thuc-don?mon=<id>` (hoặc `?set=<id>`): sách mở tới trang có món và làm món nổi bật. Id set trong sách dùng khóa `set:<id>` (id set và id món có thể trùng số).
+- Công tắc: Quản lý Chatbot → Cấu hình: "Bật Chatbot AI" (chung) và "Hiện trên website khách hàng" (`chatbot_config.website_enabled`).
+- Hội thoại lưu vào `chat_conversations` với `channel = 'website'`, `table_id` NULL; "Lịch sử hội thoại" hiện cột bàn là "Website". Giới hạn Gemini 8 câu/phút theo IP.
+- Hội thoại giữ trong `sessionStorage` của tab; nút ↻ bắt đầu phiên mới.

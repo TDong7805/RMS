@@ -1,6 +1,7 @@
-import { useSearchParams } from 'react-router-dom';
+import { useMemo } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { UtensilsCrossed } from 'lucide-react';
-import { FlipMenu } from '@/features/public-site/flipbook/FlipMenu';
+import { FlipMenu, type MenuFocus } from '@/features/public-site/flipbook/FlipMenu';
 import { paperFromQuery } from '@/features/public-site/flipbook/theme';
 import { usePublicMenu } from '@/features/public-site/queries';
 import { SiteEmpty, SiteError, SiteSkeleton, useSiteData } from '@/features/public-site/parts';
@@ -10,12 +11,21 @@ const ALL = { keyword: '', categoryId: '' };
 /**
  * /thuc-don — thực đơn dạng sách lật trang. Dùng cùng dữ liệu với dạng danh sách (GET /api/public/site/menu);
  * dạng danh sách cũ (MenuPage) vẫn giữ ở /thuc-don/danh-sach. ?q=… (ô tìm ở thanh đầu trang) mở sẵn kết quả tìm;
+ * ?mon=<id> / ?set=<id> (chatbot website) mở sách tới món đó và làm nổi bật;
  * ?nen=1|2|3 xem thử nền trang (giấy kem / line-art / kraft — mặc định đặt trong flipbook/theme.ts).
  */
 export default function FlipMenuPage() {
   const site = useSiteData();
   const [params] = useSearchParams();
   const menu = usePublicMenu(ALL);
+  const location = useLocation();
+  // ?mon=<id món | g+id nhóm> hoặc ?set=<id set>: chatbot mở sách tới đúng món.
+  const mon = params.get('mon');
+  const set = params.get('set');
+  const focus = useMemo<MenuFocus | null>(
+    () => (set ? { kind: 'set', id: set, nonce: location.key } : mon ? { kind: 'dish', id: mon, nonce: location.key } : null),
+    [mon, set, location.key],
+  );
 
   if (menu.isError) {
     return (
@@ -38,5 +48,5 @@ export default function FlipMenuPage() {
       </div>
     );
   }
-  return <FlipMenu menu={menu.data} site={site} initialQuery={params.get('q') ?? ''} paper={paperFromQuery(params.get('nen'))} />;
+  return <FlipMenu menu={menu.data} site={site} initialQuery={params.get('q') ?? ''} paper={paperFromQuery(params.get('nen'))} focus={focus} />;
 }

@@ -67,16 +67,16 @@ public class GeminiAssistant {
     }
 
     AiResult answer(String token, Menu menu, List<MenuDish> available, List<FaqPair> faqs, Config bot, String message,
-                    List<String> history, List<String> cart, Long budget) {
+                    List<String> history, List<String> cart, Long budget, MenuAssistant.Site site) {
         AiConfig cfg = ai.get();
         if (!ai.usable(cfg) || !allow(token)) return null;
         String key = ai.key(cfg.apiKeyRef()).orElse(null);
         if (key == null) return null;
         try {
-            String raw = gemini.generate(key, cfg.modelName(), system(bot, cfg, menu), user(menu, available, faqs, message, history, cart, budget),
+            String raw = gemini.generate(key, cfg.modelName(), system(bot, cfg, menu, site), user(menu, available, faqs, message, history, cart, budget, site),
                 // Tối thiểu 2048: mô hình Gemini mới có phần "suy nghĩ" tính vào giới hạn, 1024 dễ bị cắt cụt JSON.
                 cfg.temperature(), Math.max(cfg.maxTokens(), 2048), schema(), TIMEOUT);
-            AiResult res = parse(raw, menu, available);
+            AiResult res = parse(raw, menu, available, site != null);
             // Mô hình hay cộng sai: máy chủ tự cộng; vượt ngân sách khách nêu → dùng bộ theo luật (luôn đúng ngân sách).
             if (res != null && budget != null) {
                 long total = total(res.reply().items(), menu);
@@ -97,13 +97,42 @@ public class GeminiAssistant {
 
     /* ----------------------------------------------------------------------- Lời nhắn hệ thống */
 
-    private static String system(Config bot, AiConfig cfg, Menu menu) {
+    private static String system(Config bot, AiConfig cfg, Menu menu, MenuAssistant.Site site) {
         String tone = switch (bot.tone() == null ? "" : bot.tone()) {
             case "professional" -> "lịch sự, chuyên nghiệp";
             case "playful" -> "vui vẻ, dí dỏm, có thể dùng emoji vừa phải";
             default -> "thân thiện, gần gũi";
         };
         StringBuilder sb = new StringBuilder();
+        if (site != null) {
+            // Website khách hàng: khách đang tham khảo trước khi tới quán — không có bàn, không có giỏ món.
+            sb.append("Bạn là ").append(bot.botName()).append(", trợ lý tư vấn trên website của nhà hàng ").append(site.name())
+                .append(". Khách đang xem thực đơn trước khi tới quán.\n");
+            sb.append("Giọng điệu: ").append(tone).append(". Luôn trả lời bằng tiếng Việt, ngắn gọn (tối đa khoảng 80 từ).\n");
+            if (bot.personality() != null && !bot.personality().isBlank()) sb.append("Tính cách: ").append(bot.personality()).append('\n');
+            sb.append("""
+                QUY TẮC BẮT BUỘC:
+                1. Chỉ gợi ý món có trong THỰC ĐƠN ở tin nhắn; dùng đúng "id" của món. Không bịa món, không bịa giá, không hứa khuyến mãi.
+                   Set menu có id dạng "set:<số>". Giá có thể thay đổi tại quán.
+                2. Trên website KHÔNG gọi món được: khách bấm thẻ món để xem trong thực đơn. Tại quán, khách quét mã QR trên bàn để gọi món và thanh toán.
+                3. Khi khách tính tới quán (hỏi đặt bàn, đi nhóm, tiệc, sinh nhật, thực đơn cho cả nhóm): mời đặt bàn và đặt booking = true.
+                4. Khi khách nhắc dị ứng: loại món có chất đó (xem trường "a") và nhắc thêm câu: "%s"
+                5. Câu hỏi về nhà hàng (địa chỉ, giờ mở cửa, điện thoại, đậu xe…): dùng THÔNG TIN NHÀ HÀNG và FAQ; không có thông tin thì nói thật và mời gọi hotline.
+                6. Câu ngoài phạm vi nhà hàng / ăn uống: từ chối nhẹ nhàng theo ý: "%s".
+                7. Khách nêu ngân sách (vd. "dưới 1 triệu", "mỗi người 200k"): TỔNG (giá × qty của mọi món gợi ý) KHÔNG được vượt ngân sách;
+                   tự cộng kiểm tra trước khi trả lời và ghi tổng tiền ước tính. Khách xin "rẻ hơn" thì tổng phải thấp hơn lần gợi ý trước.
+                8. Gợi ý cho nhóm: nêu số phần hợp lý (lẩu thường cho 2–3 người); có trẻ em thì tránh món cay (trường "s").
+                ĐỊNH DẠNG: trả JSON đúng schema.
+                  text: câu trả lời (có thể dùng **đậm**, xuống dòng).
+                  items: tối đa 6 món gợi ý {id, qty (số phần, mặc định 1), note (lý do ngắn ≤ 6 từ)}; không gợi ý món thì để mảng rỗng.
+                  chips: 2–4 câu gợi ý ngắn (≤ 4 từ) khách có thể bấm hỏi tiếp.
+                  plan: true nếu bạn đang đưa ra cả một thực đơn cho cả nhóm.
+                  booking: true nếu nên hiện nút "Đặt bàn".
+                  answered: false nếu bạn không trả lời được câu hỏi.
+                """.formatted(bot.allergyDisclaimer(), bot.fallbackMessage()));
+            if (!cfg.systemPrompt().isBlank()) sb.append("Hướng dẫn thêm của quản lý: ").append(cfg.systemPrompt()).append('\n');
+            return sb.toString();
+        }
         sb.append("Bạn là ").append(bot.botName()).append(", trợ lý gọi món của nhà hàng trên trang gọi món tại bàn (khách quét mã QR).\n");
         sb.append("Giọng điệu: ").append(tone).append(". Luôn trả lời bằng tiếng Việt, ngắn gọn (tối đa khoảng 80 từ).\n");
         if (bot.personality() != null && !bot.personality().isBlank()) sb.append("Tính cách: ").append(bot.personality()).append('\n');
@@ -141,7 +170,7 @@ public class GeminiAssistant {
     }
 
     private String user(Menu menu, List<MenuDish> available, List<FaqPair> faqs, String message, List<String> history, List<String> cart,
-                        Long budget) throws Exception {
+                        Long budget, MenuAssistant.Site site) throws Exception {
         Map<String, String> catName = new HashMap<>();
         menu.categories().forEach((c) -> catName.put(c.id(), c.name()));
         Map<String, Integer> rank = new HashMap<>();
@@ -176,8 +205,16 @@ public class GeminiAssistant {
             sb.append("FAQ CỦA NHÀ HÀNG:\n");
             faqs.forEach((f) -> sb.append("- H: ").append(f.question()).append(" | Đ: ").append(f.answer()).append('\n'));
         }
-        List<String> inCart = cart.stream().map(byId::get).filter(java.util.Objects::nonNull).distinct().toList();
-        sb.append("GIỎ MÓN CỦA KHÁCH: ").append(inCart.isEmpty() ? "(trống)" : String.join(", ", inCart)).append('\n');
+        if (site != null) {
+            sb.append("THÔNG TIN NHÀ HÀNG: tên ").append(site.name());
+            if (site.address() != null && !site.address().isBlank()) sb.append("; địa chỉ ").append(site.address());
+            if (site.phone() != null && !site.phone().isBlank()) sb.append("; hotline ").append(site.phone());
+            if (site.hours() != null && !site.hours().isBlank()) sb.append("; giờ mở cửa: ").append(site.hours().replace('\n', ';'));
+            sb.append('\n');
+        } else {
+            List<String> inCart = cart.stream().map(byId::get).filter(java.util.Objects::nonNull).distinct().toList();
+            sb.append("GIỎ MÓN CỦA KHÁCH: ").append(inCart.isEmpty() ? "(trống)" : String.join(", ", inCart)).append('\n');
+        }
         if (!history.isEmpty()) sb.append("CÁC CÂU KHÁCH HỎI TRƯỚC (cũ → mới): ").append(String.join(" | ", history)).append('\n');
         if (budget != null)
             sb.append("NGÂN SÁCH TỐI ĐA CỦA KHÁCH: ").append(budget).append(" đ — tổng (giá × qty) mọi món gợi ý phải ≤ con số này.").append('\n');
@@ -195,13 +232,14 @@ public class GeminiAssistant {
                 "items", Map.of("type", "ARRAY", "items", item),
                 "chips", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
                 "plan", Map.of("type", "BOOLEAN"),
+                "booking", Map.of("type", "BOOLEAN"),
                 "answered", Map.of("type", "BOOLEAN")),
             "required", List.of("text", "items", "chips"));
     }
 
     /* ----------------------------------------------------------------------- Đọc + kiểm tra kết quả */
 
-    private AiResult parse(String raw, Menu menu, List<MenuDish> available) throws Exception {
+    private AiResult parse(String raw, Menu menu, List<MenuDish> available, boolean website) throws Exception {
         String s = raw.trim();
         if (s.startsWith("```")) s = s.replaceAll("^```(json)?", "").replaceAll("```$", "").trim();
         JsonNode root = json.readTree(s);
@@ -230,6 +268,7 @@ public class GeminiAssistant {
         }
         boolean plan = root.path("plan").asBoolean(false) && items.size() > 1;
         boolean answered = root.path("answered").asBoolean(true);
-        return new AiResult(new Reply(text, items, chips, plan, "ai"), answered);
+        List<String> actions = website && root.path("booking").asBoolean(false) ? List.of("reservation") : List.of();
+        return new AiResult(new Reply(text, items, chips, plan, "ai", actions), answered);
     }
 }
