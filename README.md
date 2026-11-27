@@ -26,7 +26,7 @@ Chi tiết: `docs/tien-do/TIEN_DO_TRO_LY_GOI_MON.md`.
 | Tài liệu | Nội dung |
 |---|---|
 | [docs/dac-ta/](docs/dac-ta/) | Đặc tả Use Case (Word): `CodeUC_QLNH.docx` (Quản lý nhà hàng), `DacTa_UC_QuanLyKho.docx`, `DacTa_UC_DatMon_Bep_ThuNgan.docx` |
-| [docs/tien-do/](docs/tien-do/) | Tiến độ từng phần: [Kho](docs/tien-do/TIEN_DO_KHO.md), [Thu ngân – Bếp – Đặt món](docs/tien-do/TIEN_DO_THU_NGAN_BEP.md) (kèm việc để sau, quyết định chờ họp), [Phục vụ – Chấm công khuôn mặt](docs/tien-do/TIEN_DO_PHUC_VU_CHAM_CONG.md), [Website khách hàng](docs/tien-do/TIEN_DO_WEBSITE_KHACH.md) |
+| [docs/tien-do/](docs/tien-do/) | Tiến độ từng phần: [Kho](docs/tien-do/TIEN_DO_KHO.md), [Thu ngân – Bếp – Đặt món](docs/tien-do/TIEN_DO_THU_NGAN_BEP.md) (kèm việc để sau, quyết định chờ họp), [Phục vụ – Chấm công khuôn mặt](docs/tien-do/TIEN_DO_PHUC_VU_CHAM_CONG.md), [Website khách hàng](docs/tien-do/TIEN_DO_WEBSITE_KHACH.md), [Màn hình chung – Cổng nhân viên – Tin tức (27/11)](docs/tien-do/TIEN_DO_MAN_HINH_CHUNG.md) |
 | [docs/kiem-thu/KICH_BAN_TEST.md](docs/kiem-thu/KICH_BAN_TEST.md) | Kịch bản thử bằng tay theo từng vai |
 | [tests/](tests/README.md) | Kiểm thử API tự động (`node tests/run-all.mjs`) |
 | [docs/du-lieu/DU_LIEU_GIA.md](docs/du-lieu/DU_LIEU_GIA.md) | Chỗ nào còn dữ liệu giả / dữ liệu mẫu và cách thay |
@@ -66,20 +66,25 @@ CSDL và dữ liệu mẫu tự được tạo ở lần chạy đầu.
 
 ### Tài khoản mẫu
 
-Mật khẩu chung `Rms@2026`. Không có trang đăng ký — Quản lý cấp tài khoản.
+Mật khẩu chung `Rms@2026` (chỉ dữ liệu mẫu ở môi trường dev). Không có trang đăng ký — Quản lý cấp tài khoản.
+Danh sách đầy đủ để test (cả tài khoản bị khóa, chưa đổi mật khẩu) và các bước test: [TIEN_DO_MAN_HINH_CHUNG.md](docs/tien-do/TIEN_DO_MAN_HINH_CHUNG.md).
 
 | Tài khoản | Vai trò | Trang chính |
 |---|---|---|
 | `tuan.nguyen` | Quản lý nhà hàng | `/quan-ly` |
-| `linh.tran` | Thu ngân | `/thu-ngan` |
-| `hung.pham` | Nhân viên bếp | `/bep` |
+| `khu.thu.ngan` | Thu ngân — **màn hình chung** ở quầy | `/thu-ngan` (POS) |
+| `khu.bep` | Bếp — **màn hình chung** ở bếp | `/bep` |
+| `linh.tran`, `khoa.le` | Thu ngân — tài khoản riêng | `/nhan-vien` (Cổng nhân viên + Chấm công nhân viên, Bảng lương) |
+| `hung.pham`, `mai.vo` | Nhân viên bếp — tài khoản riêng | `/nhan-vien` (chấm công, ca, phiếu lương, hồ sơ) |
 | `thao.bui` | Quản lý kho | `/kho` |
-| `nam.hoang` | Nhân viên phục vụ (khu Tầng 1) | `/phuc-vu` — giao diện điện thoại |
+| `nam.hoang`, `vy.ngo` | Nhân viên phục vụ | `/phuc-vu` — giao diện điện thoại; phải chấm công vào ca mới thao tác được |
 
 Website khách hàng: mở `http://localhost:3000/` (không đăng nhập) — Giới thiệu, Thực đơn, Đặt bàn, Album ảnh, Liên hệ. Lịch khách đặt hiện ở Quản lý → Đặt bàn → Lịch sử đặt bàn (nguồn "Website") kèm thông báo cho Quản lý.
 Nhân viên vào trang làm việc bằng `/dang-nhap` (link "Đăng nhập nhân viên" ở chân website).
 
 Khách gọi món: quét mã QR của bàn (Quản lý → Khu vực bàn → in mã QR), đường dẫn dạng `/goi-mon/<mã QR riêng của bàn>`.
-Thu ngân hoặc phục vụ phải **mở bàn** thì khách mới gửi món được. Khách *gọi nhân viên* → phục vụ của khu đó nhận; *yêu cầu thanh toán* → thu ngân.
+Thu ngân hoặc phục vụ phải **mở bàn** thì khách mới gửi món được. Khách *gọi nhân viên* → phục vụ đã vào ca của khu đó nhận (chưa ai vào ca → quầy thu ngân); *yêu cầu thanh toán* → thu ngân.
+
+Bài viết **đã xuất bản** ở Quản lý → Bài viết hiện trên website: mục *Tin tức & Ưu đãi* ở trang chủ, trang `/tin-tuc`.
 
 Chấm công khuôn mặt (phục vụ, thu ngân, bếp) dùng camera của điện thoại: trình duyệt chỉ cho mở camera khi trang chạy **HTTPS** (hoặc `localhost` trên laptop) — xem [TRIEN_KHAI.md](docs/trien-khai/TRIEN_KHAI.md).
