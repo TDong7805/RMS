@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Wallet } from 'lucide-react';
-import { CashierShell } from '@/features/ordering/CashierShell';
+import { PORTAL_PATHS, StaffPortalShell } from '@/features/self/StaffPortalShell';
 import { Card } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
@@ -35,7 +35,7 @@ export default function PayrollPage() {
   const [creating, setCreating] = useState(false);
 
   return (
-    <CashierShell>
+    <StaffPortalShell wide>
       <div className="min-w-0 space-y-4">
         <PageHeader
           title="Bảng lương"
@@ -56,7 +56,7 @@ export default function PayrollPage() {
               </thead>
               <tbody>
                 {list.data.map((p) => (
-                  <tr key={p.id} className="cursor-pointer hover:bg-[var(--bg-subtle)]" onClick={() => navigate(`/thu-ngan/bang-luong/${p.id}`)}>
+                  <tr key={p.id} className="cursor-pointer hover:bg-[var(--bg-subtle)]" onClick={() => navigate(`${PORTAL_PATHS.payroll}/${p.id}`)}>
                     <Td><button type="button" className="font-semibold hover:text-[var(--accent)]">{p.name}</button></Td>
                     <Td className="whitespace-nowrap font-mono text-[13px]">{dmy(p.startDate)} – {dmy(p.endDate)}</Td>
                     <Td className="text-right font-mono">{p.employeeCount}</Td>
@@ -70,8 +70,8 @@ export default function PayrollPage() {
           )}
         </Card>
       </div>
-      <CreatePeriodDialog open={creating} onClose={() => setCreating(false)} onCreated={(id) => navigate(`/thu-ngan/bang-luong/${id}`)} />
-    </CashierShell>
+      <CreatePeriodDialog open={creating} onClose={() => setCreating(false)} onCreated={(id) => navigate(`${PORTAL_PATHS.payroll}/${id}`)} />
+    </StaffPortalShell>
   );
 }
 

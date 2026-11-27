@@ -74,8 +74,6 @@ export const cashierPageSuggestions: PageSuggestion[] = [
   { id: 'tn-order-list', label: 'Đơn hàng', context: 'Bán hàng', path: '/thu-ngan/don-hang' },
   { id: 'tn-requests', label: 'Yêu cầu của khách', context: 'Bán hàng', path: '/thu-ngan/yeu-cau' },
   { id: 'tn-invoices', label: 'Hóa đơn', context: 'Bán hàng', path: '/thu-ngan/hoa-don' },
-  { id: 'tn-attendance', label: 'Chấm công', context: 'Nhân sự', path: '/thu-ngan/cham-cong' },
-  { id: 'tn-payroll', label: 'Bảng lương', context: 'Nhân sự', path: '/thu-ngan/bang-luong' },
   { id: 'tn-notifications', label: 'Thông báo', context: 'Hệ thống', path: '/thu-ngan/thong-bao' },
 ];
 

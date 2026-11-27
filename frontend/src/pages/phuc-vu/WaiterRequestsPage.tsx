@@ -14,6 +14,7 @@ import { REQUEST_TYPE_LABEL } from '@/features/ordering/requestLabels';
 import { minutesSince, REQUEST_STATUS } from '@/features/ordering/cashierParts';
 import { formatDateTime } from '@/lib/labels';
 import { cn } from '@/lib/cn';
+import { useWaiterLock } from '@/features/waiter/lock';
 
 type Tab = 'waiting' | 'done' | 'cancelled';
 
@@ -44,9 +45,10 @@ export default function WaiterRequestsPage() {
 
   const after = (msg: string) => () => { toast.success(msg); void qc.invalidateQueries({ queryKey: WAITER_KEYS.all }); };
   const onError = (e: unknown) => { toast.error(e instanceof Error ? e.message : 'Không lưu được'); void qc.invalidateQueries({ queryKey: WAITER_KEYS.all }); };
-  const accept = useMutation({ mutationFn: acceptRequest, onSuccess: after('Đã nhận — khách thấy "Nhân viên đang đến"'), onError });
-  const finish = useMutation({ mutationFn: finishRequest, onSuccess: after('Đã hoàn thành yêu cầu'), onError });
-  const drop = useMutation({ mutationFn: dropRequest, onSuccess: after('Đã hủy yêu cầu'), onError });
+  const { guard } = useWaiterLock();
+  const accept = useMutation({ mutationFn: guard(acceptRequest), onSuccess: after('Đã nhận — khách thấy "Nhân viên đang đến"'), onError });
+  const finish = useMutation({ mutationFn: guard(finishRequest), onSuccess: after('Đã hoàn thành yêu cầu'), onError });
+  const drop = useMutation({ mutationFn: guard(dropRequest), onSuccess: after('Đã hủy yêu cầu'), onError });
   const confirms = useQuery({ queryKey: WAITER_KEYS.confirmations, queryFn: getConfirmations, refetchInterval: 15_000 });
   const focusOrder = params.get('order');
 
@@ -125,8 +127,9 @@ function ConfirmCard({ c, focus, remindMinutes }: { c: PendingConfirm; focus: bo
   useEffect(() => {
     if (focus) document.querySelector(`[data-confirm="${c.orderId}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [focus, c.orderId]);
+  const { guard } = useWaiterLock();
   const m = useMutation({
-    mutationFn: () => confirmOrder(c.orderId, Object.entries(rejects).map(([itemId, reason]) => ({ itemId, reason }))),
+    mutationFn: guard(() => confirmOrder(c.orderId, Object.entries(rejects).map(([itemId, reason]) => ({ itemId, reason })))),
     onSuccess: () => {
       const n = Object.keys(rejects).length;
       toast.success(`Đã xác nhận đơn bàn ${c.tableCode}${n ? ` (bỏ ${n} món)` : ''} — món chuyển xuống bếp`);

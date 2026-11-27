@@ -25,7 +25,10 @@ export interface AttendanceSettings {
   /** IP / dải mạng WiFi quán, cách nhau dấu phẩy; trống = không kiểm tra. */
   allowedNetworks: string;
   earlyMinutes: number;
+  /** Ngưỡng của nhân viên phục vụ. */
   faceThreshold: number;
+  /** Ngưỡng của thu ngân / bếp (chặt hơn, mặc định 0,3). */
+  faceThresholdCounter: number;
   photoRetentionDays: number;
   /** IP của máy đang mở trang (để bấm "Dùng IP hiện tại"). */
   currentIp: string;

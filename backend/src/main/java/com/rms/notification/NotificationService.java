@@ -40,7 +40,11 @@ public class NotificationService {
 
     /* ------------------------------------------------------------------ Gửi */
 
-    /** Gửi cho mọi tài khoản đang hoạt động thuộc các vai trò (vd. "warehouse", "manager"). */
+    /**
+     * Gửi cho mọi tài khoản đang hoạt động thuộc các vai trò (vd. "warehouse", "manager").
+     * Thu ngân / bếp: chỉ gửi tới tài khoản MÀN HÌNH CHUNG (V30) — tài khoản riêng chỉ có Cổng nhân viên, thông báo
+     * riêng cho từng người dùng {@link #sendToUser}.
+     */
     @Transactional
     public void sendToRoles(String type, String title, String content, String refTable, Long refId, Collection<String> roles) {
         if (roles.isEmpty()) return;
@@ -50,6 +54,7 @@ public class NotificationService {
                 INSERT INTO notification_recipients (notification_id, user_id)
                 SELECT ?, u.id FROM users u JOIN roles r ON r.id = u.role_id
                 WHERE u.deleted_at IS NULL AND u.status = 'active' AND r.code IN (%s)
+                  AND (r.code NOT IN ('cashier', 'kitchen') OR u.shared_screen = 1)
                 """.formatted(placeholders))
             .params(concat(id, roles))
             .update();
@@ -122,9 +127,10 @@ public class NotificationService {
         boolean cashier = "cashier".equals(role);
         boolean waiter = "waiter".equals(role);
         return switch (refTable) {
-            // Chấm công khuôn mặt: quản lý → trang duyệt khuôn mặt; nhân viên: chỉ xem (trang "Thông tin của tôi" đã gỡ khỏi
-            // màn làm việc 26/11/2026 — sẽ trỏ về Cổng nhân viên khi làm).
-            case "users" -> manager ? "/quan-ly/nhan-vien/khuon-mat" : null;
+            // Chấm công khuôn mặt: quản lý → trang duyệt khuôn mặt; thu ngân / bếp (tài khoản riêng) → Cổng nhân viên;
+            // phục vụ → trang "Của tôi" trong khu phục vụ.
+            case "users" -> manager ? "/quan-ly/nhan-vien/khuon-mat" : waiter ? "/phuc-vu/toi"
+                : cashier || "kitchen".equals(role) ? "/nhan-vien" : null;
             case "ingredients" -> warehouse ? "/kho/nguyen-lieu/" + refId : null;
             case "purchase_orders" -> warehouse ? "/kho/phieu-mua/" + refId : null;
             case "stocktakes" -> warehouse ? "/kho/kiem-ke/" + refId : manager ? "/quan-ly/kiem-ke/" + refId : null;

@@ -49,9 +49,17 @@ function startsWithSegment(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(prefix + '/') || path.startsWith(prefix + '?');
 }
 
-/** Vai trò có được vào đường dẫn này không (dùng để quyết định có quay lại trang "next" sau đăng nhập). */
-export function canAccessPath(role: StaffRole, path: string): boolean {
+/** Cổng nhân viên của tài khoản riêng thu ngân / bếp (khớp backend StaffAreas.STAFF_PORTAL). */
+export const STAFF_PORTAL = '/nhan-vien';
+
+/** Thu ngân / bếp có hai loại tài khoản: màn hình chung (màn làm việc) và tài khoản riêng (Cổng nhân viên). */
+export const isScreenRole = (role: StaffRole) => role === 'cashier' || role === 'kitchen';
+
+/** Tài khoản có được vào đường dẫn này không (dùng để quyết định có quay lại trang "next" sau đăng nhập). */
+export function canAccessPath(user: Pick<AuthUser, 'role' | 'sharedScreen'>, path: string): boolean {
+  const role = user.role;
   if (PUBLIC_PATHS.some((p) => startsWithSegment(path, p))) return false;
+  if (isScreenRole(role) && !user.sharedScreen) return startsWithSegment(path, STAFF_PORTAL);
   if (role === 'manager') return startsWithSegment(path, MANAGER_HOME);
   return startsWithSegment(path, AREA_PREFIXES[role]);
 }
@@ -62,7 +70,7 @@ export function canAccessPath(role: StaffRole, path: string): boolean {
  */
 export function destinationAfterLogin(user: AuthUser, next: string | null): string {
   if (user.mustChangePassword) return '/doi-mat-khau';
-  if (next && next.startsWith('/') && !next.startsWith('//') && canAccessPath(user.role, next)) return next;
+  if (next && next.startsWith('/') && !next.startsWith('//') && canAccessPath(user, next)) return next;
   return user.home;
 }
 

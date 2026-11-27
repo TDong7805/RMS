@@ -41,16 +41,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccountService {
     public static final int PAGE_SIZE = 10;
 
+    /** sharedScreen: tài khoản màn hình chung ở quầy / bếp (V30, chỉ thu ngân / bếp). */
     public record Account(String id, String username, String fullName, String email, String phone, String role,
-                          String status, boolean mustChangePassword, String createdAt, String lastLoginAt) {}
+                          String status, boolean mustChangePassword, String createdAt, String lastLoginAt, boolean sharedScreen) {}
 
-    public record AccountInput(String username, String fullName, String email, String phone, String role, String password) {}
+    /** sharedScreen: null khi sửa = giữ nguyên; vai trò khác thu ngân / bếp luôn là false. */
+    public record AccountInput(String username, String fullName, String email, String phone, String role, String password,
+                               Boolean sharedScreen) {}
 
     public record TempPassword(String password) {}
 
     private static final String SELECT = """
         SELECT u.id, u.username, u.full_name, u.email, u.phone, u.status, u.must_change_password,
-               u.created_at, u.last_login_at, r.code AS role
+               u.created_at, u.last_login_at, u.shared_screen, r.code AS role
         FROM users u JOIN roles r ON r.id = u.role_id
         WHERE u.deleted_at IS NULL
         """;
@@ -76,7 +79,8 @@ public class AccountService {
         return new Account(Ids.str(rs.getLong("id")), rs.getString("username"), rs.getString("full_name"),
             rs.getString("email"), phone == null ? "" : phone, rs.getString("role"), rs.getString("status"),
             rs.getBoolean("must_change_password"), Times.iso(Db.dateTime(rs, "created_at")),
-            Times.iso(Db.dateTime(rs, "last_login_at")));
+            Times.iso(Db.dateTime(rs, "last_login_at")),
+            StaffAreas.isSharedScreen(rs.getString("role"), rs.getBoolean("shared_screen")));
     }
 
     public Paged<Account> list(String keyword, String role, String status, int page) {
@@ -119,13 +123,15 @@ public class AccountService {
         String hash = encoder.encode(canLogin ? password : generatePassword() + generatePassword());
 
         jdbc.sql("""
-                INSERT INTO users (username, password_hash, must_change_password, full_name, email, phone, role_id)
-                VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM roles WHERE code = ?))
+                INSERT INTO users (username, password_hash, must_change_password, full_name, email, phone, role_id, shared_screen)
+                VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM roles WHERE code = ?), ?)
                 """)
-            .params(c.username(), hash, canLogin, c.fullName(), c.email(), c.phone(), c.role())
+            .params(c.username(), hash, canLogin, c.fullName(), c.email(), c.phone(), c.role(),
+                StaffAreas.isSharedScreen(c.role(), Boolean.TRUE.equals(in.sharedScreen())))
             .update();
         long id = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
-        audit.log("account", "Tạo tài khoản", "Tạo tài khoản " + c.username() + " – " + roleName(c.role()), "users", id);
+        audit.log("account", "Tạo tài khoản", "Tạo tài khoản " + c.username() + " – " + roleName(c.role())
+            + (StaffAreas.isSharedScreen(c.role(), Boolean.TRUE.equals(in.sharedScreen())) ? " (màn hình chung)" : ""), "users", id);
         return find(id);
     }
 
@@ -141,15 +147,18 @@ public class AccountService {
             v.throwIfAny();
         }
 
+        boolean shared = StaffAreas.isSharedScreen(c.role(),
+            in.sharedScreen() == null ? current.sharedScreen() : in.sharedScreen());
         jdbc.sql("""
                 UPDATE users SET username = ?, full_name = ?, email = ?, phone = ?,
-                       role_id = (SELECT id FROM roles WHERE code = ?)
+                       role_id = (SELECT id FROM roles WHERE code = ?), shared_screen = ?
                 WHERE id = ? AND deleted_at IS NULL
                 """)
-            .params(c.username(), c.fullName(), c.email(), c.phone(), c.role(), id)
+            .params(c.username(), c.fullName(), c.email(), c.phone(), c.role(), shared, id)
             .update();
 
         List<String> changes = new ArrayList<>();
+        if (shared != current.sharedScreen()) changes.add(shared ? "đổi sang màn hình chung" : "đổi sang tài khoản riêng");
         if (!c.role().equals(current.role())) changes.add("vai trò: " + roleName(current.role()) + " → " + roleName(c.role()));
         if (!c.username().equals(current.username())) changes.add("tên đăng nhập: " + current.username() + " → " + c.username());
         audit.log("account", "Cập nhật tài khoản",

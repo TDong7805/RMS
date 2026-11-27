@@ -215,7 +215,7 @@ public class ShiftService {
                 SELECT u.id, u.full_name, r.code AS role,
                        CASE WHEN u.deleted_at IS NOT NULL THEN 'deleted' ELSE u.status END AS state
                 FROM users u JOIN roles r ON r.id = u.role_id
-                WHERE (u.deleted_at IS NULL AND u.status = 'active')""" + extra);
+                WHERE (u.deleted_at IS NULL AND u.status = 'active' AND u.shared_screen = 0)""" + extra);
         if (!extra.isEmpty()) q = q.params(from, to);
         Collator vi = Collator.getInstance(Locale.forLanguageTag("vi"));
         return q.query((rs, n) -> new Employee(Ids.str(rs.getLong("id")), rs.getString("full_name"), rs.getString("role"),
@@ -262,7 +262,7 @@ public class ShiftService {
         Long userId = Ids.parseOrNull(in.employeeId());
         Employee emp = userId == null ? null : jdbc.sql("""
                 SELECT u.id, u.full_name, r.code AS role,
-                       CASE WHEN u.deleted_at IS NOT NULL THEN 'deleted' ELSE u.status END AS state
+                       CASE WHEN u.deleted_at IS NOT NULL OR u.shared_screen = 1 THEN 'deleted' ELSE u.status END AS state
                 FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?
                 """).param(userId)
             .query((rs, n) -> new Employee(Ids.str(rs.getLong("id")), rs.getString("full_name"), rs.getString("role"),

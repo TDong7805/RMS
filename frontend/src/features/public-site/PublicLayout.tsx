@@ -30,6 +30,7 @@ export const SITE_NAV: { id?: string; to?: string; label: string }[] = [
   { id: 'khong-gian', label: 'Không gian' },
   { id: 'gioi-thieu', label: 'Câu chuyện' },
   { to: '/thuc-don', label: 'Thực đơn' },
+  { to: '/tin-tuc', label: 'Tin tức' },
   { id: 'lien-he', label: 'Liên hệ' },
 ];
 
@@ -276,6 +277,7 @@ function SiteFooter({ site }: { site: PublicSite }) {
           <p className={heading}>{brand.name}</p>
           <ul className="space-y-2.5 text-[14.5px] text-[var(--site-cream)]/85">
             <li><Link to="/thuc-don" className="hover:underline">Thực đơn</Link></li>
+            <li><Link to="/tin-tuc" className="hover:underline">Tin tức & Ưu đãi</Link></li>
             <li><a href="/#dat-ban" className="hover:underline">Đặt bàn</a></li>
             <li><a href="/#khong-gian" className="hover:underline">Không gian</a></li>
             <li><Link to="/dang-nhap" className="hover:underline">Đăng nhập nhân viên</Link></li>

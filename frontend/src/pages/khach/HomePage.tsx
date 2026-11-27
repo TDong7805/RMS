@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Award, CalendarCheck, Clock, Images, MapPin, NotebookPen, Phone, Sofa, UtensilsCrossed, X } from 'lucide-react';
-import { useGallery, usePublicMenu } from '@/features/public-site/queries';
+import { useGallery, usePublicMenu, usePublicPosts } from '@/features/public-site/queries';
+import { PostCard } from '@/features/public-site/posts';
+import type { PublicPost } from '@/api/public-site';
 import { mondayFirst, telHref, useSiteData } from '@/features/public-site/parts';
 import { ReservationForm, goToReservation } from '@/features/public-site/ReservationForm';
 import { scrollToSection } from '@/features/public-site/PublicLayout';
@@ -16,7 +18,8 @@ const d = (ms: number) => ({ '--d': `${ms}ms` }) as CSSProperties;
 
 /**
  * Trang chủ website kiểu dài một trang (E1, phong cách ảnh docs/thiet-ke/tham-khao/dot-E-WebsiteKH/E1.png):
- * Đầu trang → Trước khi đặt bàn → Món đặc trưng → Trải nghiệm → Không gian → Câu chuyện → Lời bếp trưởng → Đặt bàn
+ * Đầu trang → Trước khi đặt bàn → Món đặc trưng → Trải nghiệm → Tin tức & Ưu đãi (3 bài mới nhất đã xuất bản ở Quản lý
+ * bài viết) → Không gian → Câu chuyện → Lời bếp trưởng → Đặt bàn
  * → chân trang (Liên hệ). Nội dung lấy từ Cấu hình → Website; mục nào chưa có nội dung thì ẩn.
  * Link /#mục (từ menu hoặc link cũ /gioi-thieu, /album, /lien-he) tự cuộn tới mục đó.
  */
@@ -24,10 +27,11 @@ export default function HomePage() {
   const site = useSiteData();
   const menu = usePublicMenu(ALL);
   const gallery = useGallery();
+  const posts = usePublicPosts('', 3);
   const root = useRef<HTMLDivElement>(null);
   const { hash } = useLocation();
 
-  useReveal(root, [Boolean(menu.data), Boolean(gallery.data)]);
+  useReveal(root, [Boolean(menu.data), Boolean(gallery.data), Boolean(posts.data)]);
 
   // Mở bằng /#mục: đợi các mục vẽ xong rồi cuộn tới.
   useEffect(() => {
@@ -57,6 +61,7 @@ export default function HomePage() {
       <Notice site={site} />
       {signatures.length ? <Signatures items={signatures} /> : null}
       <Experiences site={site} sets={menu.data?.sets ?? []} />
+      {posts.data?.length ? <News posts={posts.data} /> : null}
       <Space site={site} photos={gallery.data ?? []} />
       <About site={site} />
       {site.chef ? <ChefLetter chef={site.chef} /> : null}
@@ -343,6 +348,35 @@ function Experiences({ site, sets }: { site: PublicSite; sets: { id: string; nam
               </div>
             ))}
           </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ================================================================ Tin tức & Ưu đãi */
+
+function News({ posts }: { posts: PublicPost[] }) {
+  return (
+    <section id="tin-tuc" className="bg-[var(--site-ink)] py-24 text-[var(--site-cream)] md:py-32">
+      <div className="mx-auto max-w-[1200px] px-4 md:px-8">
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <p className="site-eyebrow" data-reveal="fade">Tin tức & Ưu đãi</p>
+            <h2 className="site-display mt-5 max-w-[640px] text-[36px] leading-[1.1] md:text-[52px]" data-reveal style={d(100)}>
+              Có gì mới ở nhà hàng
+            </h2>
+          </div>
+          <Link to="/tin-tuc" className="site-btn site-btn-outline h-11 px-5 text-[14px]" data-reveal="fade">
+            Xem tất cả <ArrowRight size={15} aria-hidden />
+          </Link>
+        </div>
+        <div className="mt-14 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+          {posts.map((p, i) => (
+            <div key={p.slug} data-reveal style={d(120 * i)}>
+              <PostCard post={p} dark />
+            </div>
+          ))}
         </div>
       </div>
     </section>

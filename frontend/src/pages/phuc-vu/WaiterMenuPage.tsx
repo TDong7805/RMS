@@ -15,6 +15,7 @@ import { formatCurrency } from '@/lib/format';
 import { matchesKeyword } from '@/lib/normalize';
 import { cn } from '@/lib/cn';
 import type { CartSetPart, MenuDish, MenuSet } from '@/types';
+import { useWaiterLock } from '@/features/waiter/lock';
 
 const SETS = '__sets';
 
@@ -73,10 +74,11 @@ export default function WaiterMenuPage() {
   const total = cart.reduce((s, l) => s + l.price * l.qty, 0);
   const count = cart.reduce((s, l) => s + l.qty, 0);
 
+  const { guard } = useWaiterLock();
   const send = useMutation({
-    mutationFn: () => waiterSendItems(tableId!, cart.map<SendLine>((l) => (l.setId
+    mutationFn: guard(() => waiterSendItems(tableId!, cart.map<SendLine>((l) => (l.setId
       ? { setId: l.setId, qty: l.qty, parts: l.parts?.map((p) => ({ dishId: p.dishId, qty: p.qty, note: p.note })) }
-      : { dishId: l.dishId, qty: l.qty, note: l.note }))),
+      : { dishId: l.dishId, qty: l.qty, note: l.note })))),
     onSuccess: () => {
       toast.success(`Đã gửi ${count} món của bàn ${table?.code ?? ''} cho bếp`);
       setCart([]);

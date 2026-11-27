@@ -184,16 +184,8 @@ export const cashierMenuGroups: MenuGroup[] = [
   {
     id: 'tn-root',
     label: null,
-    // Khu Văn phòng (chấm công, bảng lương, thông báo). Việc trong ca (sơ đồ bàn, đơn, yêu cầu, hóa đơn) ở khu POS toàn màn hình.
+    // Màn hình chung ở quầy (27/11/2026): Chấm công / Bảng lương chuyển sang Cổng nhân viên của tài khoản riêng thu ngân.
     items: [{ id: 'tn-floor', label: 'Về quầy thu ngân', icon: 'layout-grid', path: '/thu-ngan' }],
-  },
-  {
-    id: 'tn-staff',
-    label: 'NHÂN SỰ',
-    items: [
-      { id: 'tn-attendance', label: 'Chấm công', icon: 'clipboard-check', path: '/thu-ngan/cham-cong' },
-      { id: 'tn-payroll', label: 'Bảng lương', icon: 'users', path: '/thu-ngan/bang-luong' },
-    ],
   },
   {
     id: 'tn-system',

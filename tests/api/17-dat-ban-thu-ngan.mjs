@@ -12,7 +12,7 @@ async function login(user) {
   const call = (method) => (path, body) => fetch(BASE + path, { method, headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: body === undefined ? undefined : JSON.stringify(body) }).then(j);
   return { get: call('GET'), post: call('POST'), put: call('PUT'), patch: call('PATCH') };
 }
-const tn = await login('linh.tran');
+const tn = await login('khu.thu.ngan');
 const ql = await login('tuan.nguyen');
 const pv = await login('nam.hoang');
 
@@ -47,7 +47,7 @@ ok('bàn ít ghế hơn số khách → lỗi tại ô bàn', r.status === 422 &
 r = await tn.post('/api/thu-ngan/reservations', { ...base, tableId: big });
 const A = r.body;
 ok('thêm lịch qua điện thoại → Đã xác nhận, nguồn phone, ghi người tạo', r.status === 201 && A.status === 'confirmed' && A.source === 'phone'
-  && sql(`SELECT created_by FROM reservations WHERE id = ${A.id}`) === sql(`SELECT id FROM users WHERE username = 'linh.tran'`), r.body);
+  && sql(`SELECT created_by FROM reservations WHERE id = ${A.id}`) === sql(`SELECT id FROM users WHERE username = 'khu.thu.ngan'`), r.body);
 r = await tn.post('/api/thu-ngan/reservations', { ...base, customerName: 'KT Đặt bàn B', phone: '0907654321', guests: 2, time: '12:30', tableId: big, source: 'walk_in' });
 ok('trùng bàn trong khung giờ → lỗi tại ô bàn', r.status === 422 && /trùng/.test(r.body.fields?.tableId ?? ''), r.body);
 r = await tn.post('/api/thu-ngan/reservations', { ...base, customerName: 'KT Đặt bàn B', phone: '0907654321', guests: 2, time: '19:00', tableId: '', source: 'walk_in' });
@@ -82,12 +82,12 @@ ok('khách đã đến → mở bàn (chưa vào ca vẫn được), lịch thà
 if (r.status === 200) await tn.post(`/api/thu-ngan/orders/${r.body.order.id}/close`);
 
 /* ------------------------------------------------------------------ Website báo cả thu ngân */
-const n0 = Number(sql(`SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE n.type_code = 'reservation' AND nr.user_id = (SELECT id FROM users WHERE username = 'linh.tran')`));
+const n0 = Number(sql(`SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE n.type_code = 'reservation' AND nr.user_id = (SELECT id FROM users WHERE username = 'khu.thu.ngan')`));
 const site = await fetch(BASE + '/api/public/site').then((x) => x.json());
 const webArea = site.areas?.[0]?.id ?? null;
 r = await fetch(BASE + '/api/public/reservations', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.17.17.' + Math.floor(Math.random() * 200) },
   body: JSON.stringify({ customerName: 'KT Đặt bàn Web', phone: '0933' + String(Math.floor(Math.random() * 1e6)).padStart(6, '0'), guests: 2, date: tomorrow, time: '13:00', areaId: webArea, note: '', email: '' }) }).then(j);
-const n1 = Number(sql(`SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE n.type_code = 'reservation' AND nr.user_id = (SELECT id FROM users WHERE username = 'linh.tran')`));
+const n1 = Number(sql(`SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE n.type_code = 'reservation' AND nr.user_id = (SELECT id FROM users WHERE username = 'khu.thu.ngan')`));
 ok('khách đặt qua website → thu ngân nhận thông báo', r.status === 201 && n1 === n0 + 1, [r.status, r.body?.message, n1 - n0]);
 
 clean();

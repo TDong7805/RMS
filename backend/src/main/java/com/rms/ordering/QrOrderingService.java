@@ -442,8 +442,14 @@ public class QrOrderingService {
         if ("unconfirmed".equals(status)) {
             int n = plan.stream().mapToInt(p -> p.set() == null ? p.pieces().get(0).qty() : p.qty()).sum();
             String title = "Bàn " + t.code() + " (" + t.areaName() + ") gọi " + n + " món – chờ xác nhận";
-            for (long w : duty.waitersFor(t.areaId(), Times.now())) {
+            List<Long> waiters = duty.waitersFor(t.areaId(), Times.now());
+            for (long w : waiters) {
                 notifications.sendToUser("service_request", title, "Kiểm tra với khách rồi xác nhận để chuyển bếp", "orders", orderId, w);
+            }
+            // Chưa phục vụ nào vào ca → báo quầy thu ngân gọi người (đơn vẫn chờ phục vụ xác nhận).
+            if (waiters.isEmpty()) {
+                notifications.sendToRoles("service_request", title, "Chưa có phục vụ nào vào ca để xác nhận đơn", "orders", orderId,
+                    List.of("cashier"));
             }
         }
         live.publish(LiveEvents.KITCHEN, LiveEvents.CASHIER, LiveEvents.WAITER, LiveEvents.table(t.id()));

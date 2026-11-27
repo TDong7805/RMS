@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { getPublicGallery, getPublicMenu, getPublicSite } from '@/api/public-site';
+import { getPublicGallery, getPublicMenu, getPublicPost, getPublicPosts, getPublicSite } from '@/api/public-site';
 import type { PublicMenuFilter } from '@/types';
 
 /** Khóa query của website khách hàng. Dữ liệu ít đổi → giữ 60 giây, tải lại khi khách quay lại tab. */
@@ -19,3 +19,9 @@ export const usePublicMenu = (f: PublicMenuFilter) =>
   useQuery({ queryKey: [...ps.menu, f], queryFn: () => getPublicMenu(f), staleTime: STALE, placeholderData: keepPreviousData });
 
 export const useGallery = () => useQuery({ queryKey: ps.gallery, queryFn: getPublicGallery, staleTime: STALE });
+
+export const usePublicPosts = (category = '', limit = 12) =>
+  useQuery({ queryKey: ['public-site', 'posts', category, limit], queryFn: () => getPublicPosts(category, limit), staleTime: STALE });
+
+export const usePublicPost = (slug: string) =>
+  useQuery({ queryKey: ['public-site', 'post', slug], queryFn: () => getPublicPost(slug), staleTime: STALE, retry: false, enabled: Boolean(slug) });

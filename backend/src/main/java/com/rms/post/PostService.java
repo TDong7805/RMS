@@ -111,6 +111,35 @@ public class PostService {
         return toPost(row(Ids.parse(id, notFound())));
     }
 
+    /* ------------------------------------------------------------------ Website khách (chỉ bài đã xuất bản) */
+
+    /** Bài hiện trên website: không lộ trạng thái / tác giả nội bộ. */
+    public record PublicPost(String title, String slug, String summary, String content, String coverImage, String category,
+                             String publishedAt) {}
+
+    private PublicPost toPublic(Row r, boolean withContent) {
+        return new PublicPost(r.title(), r.slug(), r.summary(), withContent ? r.content() : null, images.url(r.coverKey()),
+            r.category(), Times.iso(r.publishedAt()));
+    }
+
+    /** Bài đã xuất bản, mới nhất trước; category trống / "all" = mọi chuyên mục; limit 1–50. Không kèm nội dung (nhẹ). */
+    public List<PublicPost> published(String category, int limit) {
+        int n = Math.max(1, Math.min(50, limit));
+        return jdbc.sql(SELECT + " WHERE p.status = 'published' ORDER BY p.published_at DESC, p.id DESC").query(PostService::map).list()
+            .stream()
+            .filter(r -> Vi.blank(category) || "all".equals(category) || r.category().equals(category))
+            .limit(n)
+            .map(r -> toPublic(r, false))
+            .toList();
+    }
+
+    /** Một bài đã xuất bản theo đường dẫn; bài nháp / đã ẩn / không có → 404. */
+    public PublicPost publishedBySlug(String slug) {
+        return jdbc.sql(SELECT + " WHERE p.status = 'published' AND p.slug = ?").param(Vi.trim(slug)).query(PostService::map).optional()
+            .map(r -> toPublic(r, true))
+            .orElseThrow(() -> BusinessException.notFound("Bài viết không tồn tại hoặc đã được gỡ"));
+    }
+
     private Row row(long id) {
         return jdbc.sql(SELECT + " WHERE p.id = ?").param(id).query(PostService::map).optional()
             .orElseThrow(() -> BusinessException.notFound(notFound()));

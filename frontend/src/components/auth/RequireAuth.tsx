@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import type { StaffRole } from '@/api/auth';
 import { Button } from '@/components/common/Button';
 import { PageLoader } from '@/components/common/PageLoader';
-import { AUTH_KEY, setSignedInUser, useAuth } from '@/lib/auth';
+import { AUTH_KEY, isScreenRole, setSignedInUser, useAuth } from '@/lib/auth';
 import { setUnauthorizedHandler } from '@/lib/http';
 
 export interface RequireAuthProps {
@@ -14,6 +14,11 @@ export interface RequireAuthProps {
   roles?: StaffRole[];
   /** Cho vào khi đang bị buộc đổi mật khẩu (chỉ dùng cho trang đổi mật khẩu). */
   allowPasswordChange?: boolean;
+  /**
+   * Loại tài khoản thu ngân / bếp được vào: 'screen' = màn hình chung (khu.thu.ngan, khu.bep), 'self' = tài khoản riêng
+   * (Cổng nhân viên). Bỏ trống = cả hai.
+   */
+  kind?: 'screen' | 'self';
 }
 
 /**
@@ -23,7 +28,7 @@ export interface RequireAuthProps {
  *  - sai vai trò           → trang chủ của vai trò mình (vd. thu ngân gõ /khu-vuc-ban → /thu-ngan)
  * Đây chỉ là lớp giao diện; backend vẫn kiểm tra quyền ở từng API.
  */
-export function RequireAuth({ roles, allowPasswordChange = false }: RequireAuthProps) {
+export function RequireAuth({ roles, allowPasswordChange = false, kind }: RequireAuthProps) {
   const location = useLocation();
   const { data: user, isPending, isError, refetch, isRefetching } = useAuth();
 
@@ -55,6 +60,7 @@ export function RequireAuth({ roles, allowPasswordChange = false }: RequireAuthP
   }
   if (user.mustChangePassword && !allowPasswordChange) return <Navigate to="/doi-mat-khau" replace />;
   if (roles && !roles.includes(user.role)) return <Navigate to={user.home} replace />;
+  if (kind && isScreenRole(user.role) && (kind === 'screen') !== user.sharedScreen) return <Navigate to={user.home} replace />;
 
   return <Outlet />;
 }

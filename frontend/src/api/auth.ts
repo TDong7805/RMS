@@ -14,8 +14,13 @@ export interface AuthUser {
   roleLabel: string;
   /** true: tài khoản mới tạo hoặc vừa được đặt lại mật khẩu → phải đổi trước khi dùng. */
   mustChangePassword: boolean;
-  /** Trang chủ của vai trò: "/quan-ly", "/thu-ngan", "/bep", "/kho", "/phuc-vu". */
+  /** Trang chủ: "/quan-ly", "/thu-ngan", "/bep", "/kho", "/phuc-vu"; tài khoản riêng thu ngân / bếp → "/nhan-vien". */
   home: string;
+  /**
+   * true: tài khoản MÀN HÌNH CHUNG ở quầy / bếp (vd. khu.thu.ngan, khu.bep) — chỉ màn làm việc.
+   * false với thu ngân / bếp: tài khoản riêng — chỉ Cổng nhân viên /nhan-vien. Vai trò khác luôn false.
+   */
+  sharedScreen: boolean;
 }
 
 export interface LoginInput {

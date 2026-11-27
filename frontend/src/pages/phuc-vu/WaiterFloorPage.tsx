@@ -28,6 +28,7 @@ import { REQUEST_TYPE_LABEL } from '@/features/ordering/requestLabels';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import type { CashierFloor, CashierOrderDetail, FloorTable, OrderItemStatus } from '@/types';
+import { useWaiterLock } from '@/features/waiter/lock';
 
 const VIEW_KEY = 'rms-waiter-view';
 const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
@@ -217,22 +218,23 @@ function WaiterTablePanel({ table: t, floor, onClose }: { table: FloorTable; flo
     refresh();
   };
   const onErr = (e: unknown) => toast.error(errText(e, 'Không lưu được'));
+  const { guard } = useWaiterLock();
 
   const open = useMutation({
-    mutationFn: (v: { reservationId?: string; guests: number | null }) => waiterOpenTable(t.id, v.guests, v.reservationId),
-    onSuccess: (d) => { toast.success(`Đã mở bàn ${t.code} — khách quét mã QR để gọi món`); apply(d); },
+    mutationFn: guard((v: { reservationId?: string; guests: number | null }) => waiterOpenTable(t.id, v.guests, v.reservationId)),
+    onSuccess: (d: CashierOrderDetail) => { toast.success(`Đã mở bàn ${t.code} — khách quét mã QR để gọi món`); apply(d); },
     onError: onErr,
   });
-  const guests = useMutation({ mutationFn: (n: number | null) => waiterSetGuests(orderId, n), onSuccess: apply, onError: onErr });
+  const guests = useMutation({ mutationFn: guard((n: number | null) => waiterSetGuests(orderId, n)), onSuccess: apply, onError: onErr });
   const close = useMutation({
-    mutationFn: waiterCloseTable,
+    mutationFn: guard(waiterCloseTable),
     onSuccess: () => { toast.success(`Đã đóng bàn ${t.code}`); refresh(); onClose(); },
     onError: onErr,
   });
-  const accept = useMutation({ mutationFn: acceptRequest, onSuccess: () => { toast.success('Đã nhận — khách thấy "Nhân viên đang đến"'); void detail.refetch(); refresh(); }, onError: onErr });
-  const finish = useMutation({ mutationFn: finishRequest, onSuccess: () => { toast.success('Đã hoàn thành yêu cầu'); void detail.refetch(); refresh(); }, onError: onErr });
+  const accept = useMutation({ mutationFn: guard(acceptRequest), onSuccess: () => { toast.success('Đã nhận — khách thấy "Nhân viên đang đến"'); void detail.refetch(); refresh(); }, onError: onErr });
+  const finish = useMutation({ mutationFn: guard(finishRequest), onSuccess: () => { toast.success('Đã hoàn thành yêu cầu'); void detail.refetch(); refresh(); }, onError: onErr });
   const confirm = useMutation({
-    mutationFn: () => confirmOrder(orderId),
+    mutationFn: guard(() => confirmOrder(orderId)),
     onSuccess: () => { toast.success(`Đã xác nhận đơn bàn ${t.code} — món chuyển xuống bếp`); void detail.refetch(); refresh(); },
     onError: (e) => { onErr(e); void detail.refetch(); },
   });
@@ -384,7 +386,7 @@ function WaiterTablePanel({ table: t, floor, onClose }: { table: FloorTable; flo
           mode={moveOpen ?? 'move'}
           order={o}
           loadTargets={moveOpen === 'merge' ? waiterMergeTargets : waiterMoveTargets}
-          submit={moveOpen === 'merge' ? waiterMerge : waiterMove}
+          submit={guard(moveOpen === 'merge' ? waiterMerge : waiterMove)}
           targetsKey={['phuc-vu', moveOpen === 'merge' ? 'merge-targets' : 'move-targets']}
           onClose={() => setMoveOpen(null)}
           onDone={(x) => { apply(x); onClose(); }}

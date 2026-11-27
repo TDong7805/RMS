@@ -7,8 +7,11 @@ import { cn } from '@/lib/cn';
 /*
  * Camera nhận diện khuôn mặt (face-api chạy ngay trên trình duyệt, mô hình ở /models/face — tải lần đầu ~7 MB).
  *
- * Các bước: 1 khuôn mặt, đủ gần, nhìn thẳng → quay đầu sang một bên → nhìn thẳng lại (người thật, không phải ảnh in)
- * → lấy mã khuôn mặt (trung bình 3 khung hình) + chụp ảnh JPEG. Máy chủ so mã với khuôn mặt đã đăng ký.
+ * Các bước: 1 khuôn mặt, đủ gần, nhìn thẳng → THỬ THÁCH NGẪU NHIÊN (27/11/2026): quay trái HOẶC phải (chọn ngẫu nhiên) và
+ * nhắm mắt rồi mở, thứ tự cũng ngẫu nhiên — ảnh in / ảnh trên điện thoại không làm được, video quay sẵn khó khớp đúng lệnh
+ * → nhìn thẳng lại → lấy mã khuôn mặt (trung bình 3–5 khung hình) + chụp ảnh JPEG. Máy chủ so mã với khuôn mặt đã đăng ký.
+ * Mỗi lệnh có 12 giây; quá giờ thì đổi bộ lệnh mới và làm lại. Lưu ý: kiểm tra chạy trên trình duyệt — chặn được việc giơ
+ * ảnh / video trước camera, không chặn được người sửa mã trang (cần thêm camera cố định ở quầy nếu muốn chặt hơn nữa).
  * Camera trên điện thoại chỉ mở được khi trang chạy HTTPS (hoặc localhost).
  */
 
@@ -33,19 +36,48 @@ function loadFaceApi(): Promise<FaceApi> {
   return apiPromise;
 }
 
-type Step = 'loading' | 'center' | 'turn' | 'back' | 'capturing' | 'done' | 'error';
+type Step = 'loading' | 'center' | 'challenge' | 'back' | 'capturing' | 'done' | 'error';
+
+/** Lệnh người sống. left / right theo hướng của người đứng trước camera (màn hình hiện như gương). */
+type Challenge = 'left' | 'right' | 'blink';
+
+const CHALLENGE_TEXT: Record<Challenge, string> = {
+  left: 'Quay đầu chậm sang TRÁI',
+  right: 'Quay đầu chậm sang PHẢI',
+  blink: 'Nhắm hai mắt khoảng 1 giây rồi mở ra',
+};
 
 const STEP_TEXT: Record<Step, string> = {
   loading: 'Đang mở camera và tải mô hình nhận diện…',
   center: 'Đưa khuôn mặt vào khung, nhìn thẳng camera',
-  turn: 'Quay đầu chậm sang trái hoặc phải',
+  challenge: '',
   back: 'Tốt! Giờ nhìn thẳng lại camera',
   capturing: 'Giữ yên… đang nhận diện',
   done: 'Đã nhận diện xong',
   error: '',
 };
 
-/** Tỉ lệ vị trí mũi giữa hai mắt: ~0,5 = nhìn thẳng; < 0,32 hoặc > 0,68 = đã quay đầu. */
+/** Thời gian cho mỗi lệnh. */
+const CHALLENGE_MS = 12_000;
+
+/** Bộ lệnh ngẫu nhiên: một hướng quay (trái / phải) + nhắm mắt, thứ tự ngẫu nhiên. Nhắm mắt trượt 2 lần → thay bằng quay hướng kia. */
+function randomChallenges(noBlink = false): Challenge[] {
+  const turn: Challenge = Math.random() < 0.5 ? 'left' : 'right';
+  const second: Challenge = noBlink ? (turn === 'left' ? 'right' : 'left') : 'blink';
+  return Math.random() < 0.5 ? [turn, second] : [second, turn];
+}
+
+type Pt = { x: number; y: number };
+/** Độ mở mắt (eye aspect ratio) từ 6 điểm của một mắt: mở ~0,25–0,35, nhắm < ~0,18. */
+function earOf(e: Pt[]) {
+  const d = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
+  return (d(e[1], e[5]) + d(e[2], e[4])) / Math.max(1, 2 * d(e[0], e[3]));
+}
+
+/**
+ * Tỉ lệ vị trí mũi giữa hai mắt (ảnh gốc của camera, chưa lật gương): ~0,5 = nhìn thẳng; > 0,68 = người quay sang TRÁI
+ * của họ (mũi lệch về phía phải ảnh); < 0,32 = quay sang PHẢI.
+ */
 function yawOf(landmarks: { getNose: () => { x: number }[]; getLeftEye: () => { x: number }[]; getRightEye: () => { x: number }[] }) {
   const nose = landmarks.getNose()[3].x;
   const l = landmarks.getLeftEye()[0].x;
@@ -60,6 +92,8 @@ export function FaceCamera({ onCapture, onCancel, title }: { onCapture: (c: Face
   const [hint, setHint] = useState('');
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const [challengeText, setChallengeText] = useState('');
+  const [challengeNo, setChallengeNo] = useState(0);
   const stepRef = useRef<Step>('loading');
   // Giữ hàm mới nhất mà không khởi động lại camera khi trang cha vẽ lại.
   const onCaptureRef = useRef(onCapture);
@@ -75,6 +109,21 @@ export function FaceCamera({ onCapture, onCancel, title }: { onCapture: (c: Face
     let cancelled = false;
     let timer = 0;
     let stable = 0;
+    // Thử thách ngẫu nhiên đang làm.
+    let challenges: Challenge[] = randomChallenges();
+    let ci = 0;
+    let challengeStart = 0;
+    let blinkFails = 0;
+    let earBase = 0; // độ mở mắt lúc nhìn thẳng (trung bình trượt)
+    let eyesClosed = false;
+    const startChallenge = (i: number) => {
+      ci = i;
+      eyesClosed = false;
+      challengeStart = performance.now();
+      setChallengeText(CHALLENGE_TEXT[challenges[i]]);
+      setChallengeNo(i + 1);
+      go('challenge');
+    };
     go('loading');
     setError('');
     setHint('');
@@ -151,13 +200,33 @@ export function FaceCamera({ onCapture, onCancel, title }: { onCapture: (c: Face
           const wide = f.detection.box.width / v.videoWidth;
           const yaw = yawOf(f.landmarks);
           const front = Math.abs(yaw - 0.5) < 0.12;
+          const ear = (earOf(f.landmarks.getLeftEye()) + earOf(f.landmarks.getRightEye())) / 2;
           if (wide < 0.22) { setHint('Lại gần camera hơn'); stable = 0; }
           else if (s === 'center') {
-            setHint('');
             stable = front ? stable + 1 : 0;
-            if (stable >= 4) { stable = 0; go('turn'); }
-          } else if (s === 'turn') {
-            if (yaw < 0.32 || yaw > 0.68) { stable = 0; go('back'); }
+            if (front) earBase = earBase ? earBase * 0.8 + ear * 0.2 : ear;
+            if (stable >= 4) { stable = 0; setHint(''); challenges = randomChallenges(blinkFails >= 2); startChallenge(0); }
+          } else if (s === 'challenge') {
+            const c = challenges[ci];
+            let passed = false;
+            if (c === 'left') passed = yaw > 0.68;
+            else if (c === 'right') passed = yaw < 0.32;
+            else if (front) {
+              // Nhắm: độ mở mắt tụt dưới 70% lúc nhìn thẳng; mở lại: trên 85%.
+              if (!eyesClosed && ear < earBase * 0.7) eyesClosed = true;
+              else if (eyesClosed && ear > earBase * 0.85) passed = true;
+            }
+            if ((c === 'left' && yaw < 0.32) || (c === 'right' && yaw > 0.68)) setHint('Ngược hướng rồi — làm đúng theo lệnh');
+            if (passed) {
+              setHint('');
+              if (ci + 1 < challenges.length) startChallenge(ci + 1);
+              else { stable = 0; go('back'); }
+            } else if (performance.now() - challengeStart > CHALLENGE_MS) {
+              if (c === 'blink') blinkFails++;
+              setHint('Chưa làm đúng lệnh — nhìn thẳng camera để thử lại với lệnh mới');
+              stable = 0;
+              go('center');
+            }
           } else if (s === 'back') {
             stable = front ? stable + 1 : 0;
             if (stable >= 3) { go('capturing'); await capture(); return; }
@@ -175,7 +244,7 @@ export function FaceCamera({ onCapture, onCancel, title }: { onCapture: (c: Face
     };
   }, [attempt, stop]);
 
-  const progress = { loading: 0, center: 1, turn: 2, back: 3, capturing: 4, done: 4, error: 0 }[step];
+  const progress = { loading: 0, center: 1, challenge: 1 + challengeNo, back: 3, capturing: 4, done: 4, error: 0 }[step];
 
   return (
     <div className="space-y-3">
@@ -183,12 +252,12 @@ export function FaceCamera({ onCapture, onCancel, title }: { onCapture: (c: Face
       <div className="relative mx-auto aspect-[3/4] w-full max-w-[340px] overflow-hidden rounded-[20px] bg-black">
         <video ref={videoRef} playsInline muted className="h-full w-full -scale-x-100 object-cover" />
         {/* Khung hình bầu dục hướng dẫn */}
-        <div className={cn('pointer-events-none absolute left-1/2 top-[44%] h-[62%] w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-[3px] transition-colors', step === 'back' || step === 'capturing' || step === 'done' ? 'border-[#22c55e]' : step === 'turn' ? 'border-[#f59e0b]' : 'border-white/80')} />
+        <div className={cn('pointer-events-none absolute left-1/2 top-[44%] h-[62%] w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-[3px] transition-colors', step === 'back' || step === 'capturing' || step === 'done' ? 'border-[#22c55e]' : step === 'challenge' ? 'border-[#f59e0b]' : 'border-white/80')} />
         {step === 'loading' ? <div className="absolute inset-0 grid place-items-center text-white/80"><ScanFace size={48} className="animate-pulse" /></div> : null}
         {step === 'error' ? <div className="absolute inset-0 grid place-items-center p-6 text-center text-[13.5px] text-white">{error}</div> : null}
         {step !== 'error' ? (
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3 pt-10 text-center text-white">
-            <p className="text-[15px] font-bold">{STEP_TEXT[step]}</p>
+            <p className="text-[15px] font-bold">{step === 'challenge' ? `${challengeNo}/2 · ${challengeText}` : STEP_TEXT[step]}</p>
             {hint ? <p className="text-[12.5px] text-[#fde68a]">{hint}</p> : null}
           </div>
         ) : null}

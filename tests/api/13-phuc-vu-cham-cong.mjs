@@ -1,7 +1,7 @@
 // [13-phuc-vu-cham-cong.mjs] V20: Nhân viên phục vụ (khu vực, yêu cầu hỗ trợ, bàn, gọi món hộ, bưng món, ghép bàn,
 // sơ đồ cập nhật tức thời) và chấm công bằng khuôn mặt (đăng ký, duyệt, WiFi quán, vào ca / tan ca, ảnh không công khai).
 import { deflateSync } from 'node:zlib';
-import { BASE, sql, fakeClockIn } from '../lib/env.mjs';
+import { BASE, sql } from '../lib/env.mjs';
 
 let pass = 0, fail = 0;
 const ok = (n, c, x = '') => { c ? pass++ : fail++; console.log(`${c ? 'PASS' : 'FAIL'} ${n}${c ? '' : ' — ' + JSON.stringify(x).slice(0, 300)}`); };
@@ -33,13 +33,16 @@ function png(w, h) {
 const PHOTO = `data:image/png;base64,${png(96, 96).toString('base64')}`;
 const FACE = Array.from({ length: 128 }, (_, i) => Math.round(Math.sin(i * 1.7) * 1000) / 10000);
 const SAME = FACE.map((v, i) => v + (i % 2 ? 0.004 : -0.004));        // cùng người (độ lệch ~0.045)
+const MID = FACE.map((v, i) => v + (i % 2 ? 0.031 : -0.031));          // lệch ~0.35: qua ngưỡng phục vụ 0.5, không qua ngưỡng thu ngân 0.3
 const OTHER = FACE.map((v, i) => v + (i % 3 ? 0.09 : -0.09));          // người khác (độ lệch ~1.0)
 
 const ql = await login('tuan.nguyen');
-const tn = await login('linh.tran');
+const tn = await login('khu.thu.ngan');      // màn hình chung ở quầy (V30)
+const tnSelf = await login('linh.tran');     // tài khoản riêng thu ngân: chấm công của mình + việc văn phòng
 const pv = await login('nam.hoang');
 const pv2 = await login('vy.ngo');
-const bep = await login('hung.pham');
+const bep = await login('khu.bep');          // màn hình chung ở bếp
+const bepSelf = await login('hung.pham');    // tài khoản riêng bếp
 const kho = await login('thao.bui');
 
 /* ------------------------------------------------------------------ Đăng nhập & phân quyền */
@@ -48,7 +51,8 @@ ok('phục vụ không vào được khu thu ngân', (await pv.get('/api/thu-nga
 ok('thu ngân không vào được khu phục vụ', (await tn.get('/api/phuc-vu/floor')).status === 403);
 ok('phục vụ xem được thông báo của mình', (await pv.get('/api/notifications')).status === 200);
 ok('kho / quản lý không có trang "Thông tin của tôi"', (await kho.get('/api/toi/clock')).status === 403 && (await ql.get('/api/toi/clock')).status === 403);
-ok('bếp có trang "Thông tin của tôi"', (await bep.get('/api/toi/profile')).status === 200);
+ok('bếp (tài khoản riêng) có trang "Thông tin của tôi"', (await bepSelf.get('/api/toi/profile')).status === 200);
+ok('màn hình chung bếp không có trang "Thông tin của tôi"', (await bep.get('/api/toi/profile')).status === 403);
 
 /* ------------------------------------------------------------------ Chuẩn bị ca đang diễn ra */
 const area = (name) => sql(`SELECT id FROM areas WHERE name='${name}'`);
@@ -69,9 +73,9 @@ sql(`UPDATE system_settings SET setting_value='true' WHERE setting_key='order.re
   if (r0.status === 200) await tn.post(`/api/thu-ngan/orders/${r0.body.order.id}/close`);
   const r1 = await bep.post('/api/bep/items/start', { ids: ['1'] });
   ok('bếp chưa vào ca: không bị chặn (màn bếp dùng chung)', !/vào ca/.test(r1.body?.message ?? ''), r1);
-  ok('thu ngân chưa vào ca: vẫn xem / sửa chấm công (việc văn phòng)', (await tn.get('/api/thu-ngan/attendance')).status === 200);
+  ok('thu ngân (tài khoản riêng) xem / sửa chấm công nhân viên (việc văn phòng)', (await tnSelf.get('/api/thu-ngan/attendance')).status === 200);
 }
-fakeClockIn(); // thu ngân, bếp phải đã vào ca (V22); phục vụ được thử riêng bên dưới
+// Thu ngân / bếp không còn phải vào ca (D13–D16); phục vụ thì phải — thử riêng bên dưới.
 sql(`DELETE FROM shift_assignments WHERE user_id IN (SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE r.code='waiter')
      AND work_date BETWEEN CURDATE() - INTERVAL 1 DAY AND CURDATE() + INTERVAL 1 DAY; SELECT 1`);
 sql(`INSERT INTO shifts (name, start_time, end_time) VALUES ('Ca kiểm thử', TIME(DATE_FORMAT(NOW() - INTERVAL 1 HOUR, '%H:%i:00')),
@@ -79,27 +83,38 @@ sql(`INSERT INTO shifts (name, start_time, end_time) VALUES ('Ca kiểm thử', 
 const SHIFT = sql(`SELECT id FROM shifts WHERE name='Ca kiểm thử'`);
 const assign = (u, areaId) => sql(`INSERT INTO shift_assignments (shift_id, user_id, work_date, area_id) VALUES (${SHIFT}, ${uid(u)},
      DATE(NOW() - INTERVAL 1 HOUR), ${areaId ?? 'NULL'}); SELECT LAST_INSERT_ID()`);
-/* ------------------------------------------------------------------ Ngoài ca: không bị khóa (D15 — khu theo lịch ca, không theo chấm công) */
+/* ------------------------------------------------------------------ Chưa vào ca: chỉ xem, không nhận thông báo (27/11/2026) */
 let fl = (await pv.get('/api/phuc-vu/floor')).body;
-ok('chưa có ca lúc này: sơ đồ ghi ngoài ca, không khu riêng', fl.onShift === false && fl.myAreaIds.length === 0 && !('clockedIn' in fl), fl);
+ok('chưa có ca, chưa chấm công: sơ đồ ghi ngoài ca, clockedIn = false', fl.onShift === false && fl.clockedIn === false && fl.myAreaIds.length === 0, fl);
 const anyFree = fl.floor.tables.find((t) => t.status === 'available' && !t.order && !t.reservation);
 const tokenOf = (id) => sql(`SELECT qr_token FROM dining_tables WHERE id=${id}`);
 const notifCount = (u) => Number(sql(`SELECT COUNT(*) FROM notification_recipients WHERE user_id=${uid(u)}`));
-const n0 = notifCount('nam.hoang'), n0b = notifCount('phuc.do');
-let r = await pub(tokenOf(anyFree.id) + '/requests', { type: 'support', content: 'Thử khi chưa ai có ca' });
+const n0 = notifCount('nam.hoang'), n0b = notifCount('phuc.do'), n0q = notifCount('khu.thu.ngan'), n0l = notifCount('linh.tran');
+let r = await pub(tokenOf(anyFree.id) + '/requests', { type: 'support', content: 'Thử khi chưa ai vào ca' });
 const earlyReq = r.body.support?.id;
-ok('không ai có ca: khách gọi nhân viên → báo mọi phục vụ', notifCount('nam.hoang') === n0 + 1 && notifCount('phuc.do') === n0b + 1, [notifCount('nam.hoang') - n0, notifCount('phuc.do') - n0b]);
+ok('chưa ai vào ca: khách gọi nhân viên → KHÔNG báo phục vụ nào', notifCount('nam.hoang') === n0 && notifCount('phuc.do') === n0b, [notifCount('nam.hoang') - n0, notifCount('phuc.do') - n0b]);
+ok('chưa ai vào ca: báo màn hình chung thu ngân (không báo tài khoản riêng)', notifCount('khu.thu.ngan') === n0q + 1 && notifCount('linh.tran') === n0l, [notifCount('khu.thu.ngan') - n0q, notifCount('linh.tran') - n0l]);
 r = await pv.post(`/api/phuc-vu/requests/${earlyReq}/accept`);
-ok('ngoài ca: nhận yêu cầu được (không còn khóa "chưa vào ca")', r.status === 200 && r.body.status === 'forwarded', r);
+ok('chưa vào ca: nhận yêu cầu → 409 (phải chấm công)', r.status === 409 && /chấm công/.test(r.body?.message), r);
+ok('chưa vào ca: vẫn xem được yêu cầu', (await pv.get('/api/phuc-vu/requests')).status === 200);
 sql(`UPDATE service_requests SET status='cancelled', cancelled_at=NOW() WHERE id=${earlyReq}; SELECT 1`);
-ok('API bưng món của phục vụ đã bỏ (bếp bấm Đã mang đi)', [404, 405].includes((await pv.post('/api/phuc-vu/serve', { ids: ['1'] })).status));
+ok('API bưng món của phục vụ đã bỏ (bếp bấm Đã mang đi)', [404, 405, 409].includes((await pv.post('/api/phuc-vu/serve', { ids: ['1'] })).status));
 
-// Xếp ca (không cần chấm công): ca đang diễn ra → khu của ca.
+// Xếp ca nhưng chưa chấm công: vẫn bị khóa.
 const asgNam = assign('nam.hoang', A1);
 const asgVy = assign('vy.ngo', A2);
 fl = (await pv.get('/api/phuc-vu/floor')).body;
-ok('có ca theo lịch (chưa chấm công): sơ đồ mở sẵn khu Sảnh chính, có nhãn ca', fl.onShift === true && fl.myAreaIds?.length === 1 && fl.myAreaIds[0] === A1 && /Ca kiểm thử/.test(fl.dutyLabel)
-  && sql(`SELECT COUNT(*) FROM attendances WHERE user_id=${uid('nam.hoang')} AND check_out IS NULL`) === '0', fl?.myAreaIds);
+ok('có ca theo lịch, chưa chấm công: onShift, chưa vào ca, mở sẵn khu Sảnh chính, có nhãn ca', fl.onShift === true && fl.clockedIn === false
+  && fl.myAreaIds?.length === 1 && fl.myAreaIds[0] === A1 && /Ca kiểm thử/.test(fl.dutyLabel), fl);
+r = await pv.post(`/api/phuc-vu/tables/${anyFree.id}/open`, { guests: 2 });
+ok('có ca nhưng chưa chấm công: mở bàn → 409', r.status === 409 && /chấm công/.test(r.body?.message), r);
+// Giả lập đã chấm công vào ca (gắn ca để có khu); phần chấm công thật bằng khuôn mặt thử ở dưới.
+const fakeIn = (u, asg) => sql(`INSERT INTO attendances (assignment_id, user_id, work_date, check_in, source, note)
+     VALUES (${asg}, ${uid(u)}, DATE(NOW() - INTERVAL 1 HOUR), NOW() - INTERVAL 1 MINUTE, 'manual', 'Vào ca (kiểm thử)'); SELECT 1`);
+fakeIn('nam.hoang', asgNam);
+fakeIn('vy.ngo', asgVy);
+fl = (await pv.get('/api/phuc-vu/floor')).body;
+ok('đã chấm công vào ca: clockedIn = true, khu Sảnh chính', fl.clockedIn === true && fl.myAreaIds?.[0] === A1, fl);
 ok('sơ đồ phục vụ không có doanh thu / hóa đơn chưa thu', fl.floor.revenueToday === 0 && fl.floor.unpaidCount === 0);
 
 /* ------------------------------------------------------------------ Yêu cầu hỗ trợ theo khu vực */
@@ -202,7 +217,7 @@ sql(`UPDATE order_items SET status='done', completed_at=NOW() WHERE id=${item}; 
 fl = (await pv.get('/api/phuc-vu/floor')).body;
 ok('món đã xong hiện ở "Món xong" của phục vụ (chỉ xem)', fl.floor.ready.some((x) => x.id === item));
 r = await bep.post('/api/bep/items/serve', { ids: [item] });
-ok('bếp bấm Đã mang đi → Đã mang ra, ghi người bấm', r.status === 200 && sql(`SELECT CONCAT(status,'/',served_by) FROM order_items WHERE id=${item}`) === `served/${uid('hung.pham')}`, r);
+ok('bếp bấm Đã mang đi → Đã mang ra, ghi người bấm', r.status === 200 && sql(`SELECT CONCAT(status,'/',served_by) FROM order_items WHERE id=${item}`) === `served/${uid('khu.bep')}`, r);
 ok('món đã mang đi rời "Món xong" của phục vụ', !(await pv.get('/api/phuc-vu/floor')).body.floor.ready.some((x) => x.id === item));
 
 r = await pv.post(`/api/phuc-vu/tables/${T2.id}/open`, { guests: 3 });
@@ -291,6 +306,8 @@ ok('hủy ca → phục vụ nhận sự kiện cập nhật', await waiterEvent
 ok('ca đã hủy không còn trong "Ca làm của tôi"', !(await pv.get(`/api/toi/shifts?from=${tomorrow}&to=${tomorrow}`)).body.some((s) => s.id === newAsg));
 
 /* ------------------------------------------------------------------ Khuôn mặt: đăng ký & duyệt */
+// Bỏ lượt vào ca giả lập để thử chấm công thật.
+sql(`DELETE FROM attendances WHERE note='Vào ca (kiểm thử)' AND user_id IN (${uid('nam.hoang')}, ${uid('vy.ngo')}); SELECT 1`);
 // Chấm công khuôn mặt (API /api/toi/** vẫn giữ — giao diện sẽ chuyển về Cổng nhân viên sau).
 ok('chưa đăng ký khuôn mặt', (await pv.get('/api/toi/face')).body.status === 'none');
 r = await pv.post('/api/toi/clock/in', { descriptor: FACE, photo: PHOTO, liveness: true });
@@ -349,6 +366,9 @@ const early = Number(sql(`SELECT early_minutes FROM attendances WHERE id=${att}`
 ok('lưu giờ ra, về sớm ~180 phút', early >= 178 && early <= 181 && sql(`SELECT check_out IS NOT NULL AND check_out_photo IS NOT NULL FROM attendances WHERE id=${att}`) === '1', early);
 r = await pv.post('/api/toi/clock/out', { descriptor: SAME, photo: PHOTO, liveness: true });
 ok('tan ca khi chưa vào ca → 409', r.status === 409, r);
+r = await pv.post(`/api/phuc-vu/orders/${orderB}/guests`, { guests: 2 });
+ok('đã tan ca: thao tác → 409 (chỉ xem)', r.status === 409 && /chấm công/.test(r.body?.message), r);
+ok('đã tan ca: sơ đồ ghi chưa vào ca', (await pv.get('/api/phuc-vu/floor')).body.clockedIn === false);
 r = await pv.post('/api/toi/clock/in', { descriptor: SAME, photo: PHOTO, liveness: true });
 ok('ca đã chấm rồi → không vào lại được', r.status === 409 && /không có ca/.test(r.body?.message), r);
 
@@ -358,8 +378,9 @@ ok('"Thông tin của tôi": chấm công có ảnh, đi trễ / về sớm', ro
 r = await fetch(BASE + `/api/toi/attendance/${att}/photo/in`, { headers: { Cookie: pv.cookie } });
 ok('xem ảnh chấm công của mình', r.status === 200 && /image\//.test(r.headers.get('content-type')));
 ok('người khác không xem được ảnh chấm công', (await fetch(BASE + `/api/toi/attendance/${att}/photo/in`, { headers: { Cookie: pv2.cookie } })).status === 404);
-ok('thu ngân xem ảnh chấm công (trang Chấm công)', (await fetch(BASE + `/api/thu-ngan/attendance/${att}/photo/out`, { headers: { Cookie: tn.cookie } })).status === 200);
-const tnRow = (await tn.get(`/api/thu-ngan/attendance?userId=${uid('nam.hoang')}`)).body.items.find((x) => x.id === att);
+ok('thu ngân xem ảnh chấm công (trang Chấm công)', (await fetch(BASE + `/api/thu-ngan/attendance/${att}/photo/out`, { headers: { Cookie: tnSelf.cookie } })).status === 200);
+ok('màn hình chung thu ngân không xem được ảnh chấm công', (await fetch(BASE + `/api/thu-ngan/attendance/${att}/photo/out`, { headers: { Cookie: tn.cookie } })).status === 403);
+const tnRow = (await tnSelf.get(`/api/thu-ngan/attendance?userId=${uid('nam.hoang')}`)).body.items.find((x) => x.id === att);
 ok('trang Chấm công của thu ngân có cờ ảnh + đi trễ', tnRow?.hasInPhoto && tnRow.lateMinutes === late, tnRow);
 const shifts = (await pv.get('/api/toi/shifts')).body;
 ok('ca của tôi: có ca kiểm thử, đã chấm công, khu Sảnh chính', shifts.some((s) => s.id === asgNam && s.attended && s.areaName === 'Sảnh chính'), shifts.slice(0, 3));
@@ -368,6 +389,24 @@ r = await pv2.post('/api/toi/clock/in', { descriptor: FACE, photo: PHOTO, livene
 ok('phục vụ khác chưa đăng ký khuôn mặt → chặn', r.status === 409, r);
 r = await ql.del(`/api/faces/${myFace.id}`);
 ok('quản lý yêu cầu đăng ký lại → khuôn mặt bị xóa', r.status === 204 && (await pv.get('/api/toi/face')).body.status === 'none', r);
+
+/* ------------------------------------------------------------------ Thu ngân (tài khoản riêng): ngưỡng chặt hơn (0,3) */
+{
+  r = await ql.get('/api/settings/attendance');
+  ok('cài đặt có ngưỡng riêng thu ngân / bếp = 0,3', r.body.faceThresholdCounter === 0.3, r.body);
+  r = await ql.put('/api/settings/attendance', { allowedNetworks: '', earlyMinutes: 30, faceThreshold: 0.5, faceThresholdCounter: 0.1, photoRetentionDays: 90 });
+  ok('ngưỡng thu ngân ngoài 0,2–0,6 → 422', r.status === 422 && r.body?.fields?.faceThresholdCounter, r);
+  await tnSelf.post('/api/toi/face', { descriptor: FACE, photo: PHOTO, consent: true });
+  const linhFace = (await ql.get('/api/faces')).body.find((f) => f.username === 'linh.tran');
+  await ql.post(`/api/faces/${linhFace.id}/approve`);
+  const asgLinh = assign('linh.tran', null);
+  ok('trạng thái chấm công của thu ngân báo ngưỡng 0,3', (await tnSelf.get('/api/toi/clock')).body.threshold === 0.3);
+  r = await tnSelf.post('/api/toi/clock/in', { descriptor: MID, photo: PHOTO, liveness: true });
+  ok('thu ngân: mặt lệch ~0,35 (phục vụ thì qua) → không khớp', r.status === 409 && /không khớp/.test(r.body?.message), r);
+  r = await tnSelf.post('/api/toi/clock/in', { descriptor: SAME, photo: PHOTO, liveness: true });
+  ok('thu ngân: đúng mặt → vào ca', r.status === 200 && r.body.open, r);
+  sql(`DELETE FROM attendances WHERE assignment_id=${asgLinh}; DELETE FROM shift_assignments WHERE id=${asgLinh}; DELETE FROM face_profiles WHERE user_id=${uid('linh.tran')}; SELECT 1`);
+}
 
 /* ------------------------------------------------------------------ Hồ sơ, phiếu lương */
 r = await pv.put('/api/toi/profile', { email: 'sai-email', phone: '0901000006' });

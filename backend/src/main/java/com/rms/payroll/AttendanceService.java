@@ -90,7 +90,7 @@ public class AttendanceService {
     public List<Employee> employees() {
         return jdbc.sql("""
                 SELECT u.id, u.full_name, u.username, r.name AS role_name, u.status FROM users u JOIN roles r ON r.id = u.role_id
-                WHERE u.deleted_at IS NULL ORDER BY u.full_name
+                WHERE u.deleted_at IS NULL AND u.shared_screen = 0 ORDER BY u.full_name
                 """)
             .query((rs, n) -> new Employee(Ids.str(rs.getLong("id")), rs.getString("full_name"), rs.getString("username"),
                 rs.getString("role_name"), "locked".equals(rs.getString("status"))))

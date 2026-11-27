@@ -82,9 +82,24 @@ public class ClockService {
         this.storage = storage;
     }
 
+    /** Ngưỡng riêng của thu ngân / bếp (V30) — chặt hơn phục vụ. */
+    public static final String COUNTER_THRESHOLD_KEY = "attendance.face_threshold_counter";
+
+    /** Ngưỡng của nhân viên phục vụ. */
     double threshold() {
         double t = settings.decimal(THRESHOLD_KEY, 0.4);
         return t < 0.2 || t > 0.8 ? 0.4 : t;
+    }
+
+    /** Ngưỡng của thu ngân / bếp. */
+    double counterThreshold() {
+        double t = settings.decimal(COUNTER_THRESHOLD_KEY, 0.3);
+        return t < 0.2 || t > 0.8 ? 0.3 : t;
+    }
+
+    /** Ngưỡng áp cho vai trò (thu ngân / bếp dùng ngưỡng riêng, chặt hơn). */
+    double thresholdFor(String role) {
+        return com.rms.auth.StaffAreas.SCREEN_ROLES.contains(role) ? counterThreshold() : threshold();
     }
 
     boolean networkChecked() {
@@ -142,7 +157,7 @@ public class ClockService {
                 (Integer) rs.getObject("late_minutes", Integer.class), (Integer) rs.getObject("early_minutes", Integer.class),
                 rs.getString("source")))
             .list();
-        return new ClockStatus(ip, networkChecked(), networkOk(ip), faces.status(me), threshold(),
+        return new ClockStatus(ip, networkChecked(), networkOk(ip), faces.status(me), thresholdFor(currentUser.get().role()),
             open == null ? brief(currentDuty(me, now)) : null, brief(duty.next(me, now)), openOut, recent);
     }
 
@@ -162,8 +177,9 @@ public class ClockService {
         }
         double[] d = FaceService.descriptor(in.descriptor(), "descriptor");
         double dist = FaceService.distance(registered, d);
-        if (dist > threshold()) {
-            log.info("Chấm công: khuôn mặt không khớp user={} dist={}", userId, String.format("%.3f", dist));
+        double limit = thresholdFor(currentUser.get().role());
+        if (dist > limit) {
+            log.info("Chấm công: khuôn mặt không khớp user={} dist={} limit={}", userId, String.format("%.3f", dist), limit);
             throw new BusinessException("Khuôn mặt không khớp với khuôn mặt đã đăng ký. Hãy đứng nơi đủ sáng, nhìn thẳng camera rồi thử lại.");
         }
         return dist;

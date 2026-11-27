@@ -28,9 +28,9 @@ const d2 = menu.body.dishes.filter((d) => !d.soldOut)[1];
 
 // SSE của bếp: đếm sự kiện
 const ctrl = new AbortController();
-const bep = await login('hung.pham');
+const bep = await login('khu.bep');
 let kitchenEvents = 0;
-const bepCookie = (await fetch(BASE + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'hung.pham', password: 'Rms@2026' }) })).headers.get('set-cookie').split(';')[0];
+const bepCookie = (await fetch(BASE + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'khu.bep', password: 'Rms@2026' }) })).headers.get('set-cookie').split(';')[0];
 fetch(BASE + '/api/bep/stream', { headers: { Cookie: bepCookie }, signal: ctrl.signal }).then(async (r) => {
   const reader = r.body.getReader();
   const dec = new TextDecoder();
@@ -45,7 +45,7 @@ await new Promise((r) => setTimeout(r, 800));
 
 // Mở bàn (thu ngân) trước khi khách gửi món.
 const t05id = sql(`SELECT id FROM dining_tables WHERE code='T05'`);
-await (await login('linh.tran'))(`/api/thu-ngan/tables/${t05id}/open`, { method: 'POST', body: '{}' });
+await (await login('khu.thu.ngan'))(`/api/thu-ngan/tables/${t05id}/open`, { method: 'POST', body: '{}' });
 const sent = await pub(token + '/orders', { method: 'POST', body: JSON.stringify({ items: [{ dishId: d1.id, qty: 2, note: 'ít cay' }, { dishId: d2.id, qty: 1 }] }) });
 const isOpen = info.body.openNow;
 if (isOpen) {
@@ -84,7 +84,7 @@ const back = await bep(`/api/bep/dishes/${soldOut.id}/sold-out`, { method: 'PATC
 ok('bán lại món', back.body.soldOut === false, back);
 
 // Thu ngân
-const tn = await login('linh.tran');
+const tn = await login('khu.thu.ngan');
 const floor = await tn('/api/thu-ngan/floor');
 ok('sơ đồ bàn', floor.status === 200 && floor.body.tables.length >= 12 && floor.body.occupiedCount >= 3, floor.body?.occupiedCount);
 ok('có món chờ mang ra (VIP01)', floor.body.ready.some((r) => r.tableCode === 'VIP01'), floor.body.ready);

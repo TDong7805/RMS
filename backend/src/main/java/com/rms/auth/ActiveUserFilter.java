@@ -25,7 +25,7 @@ class ActiveUserFilter extends OncePerRequestFilter {
         this.jdbc = jdbc;
     }
 
-    private record Row(String status, boolean deleted, String role, boolean mustChangePassword) {}
+    private record Row(String status, boolean deleted, String role, boolean mustChangePassword, boolean shared) {}
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -38,12 +38,13 @@ class ActiveUserFilter extends OncePerRequestFilter {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof AuthUser user) {
             Row row = jdbc.sql("""
-                    SELECT u.status, u.deleted_at IS NOT NULL AS deleted, r.code AS role, u.must_change_password
+                    SELECT u.status, u.deleted_at IS NOT NULL AS deleted, r.code AS role, u.must_change_password, u.shared_screen
                     FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?
                     """)
                 .param(user.id())
                 .query((rs, n) -> new Row(rs.getString("status"), rs.getBoolean("deleted"), rs.getString("role"),
-                    rs.getBoolean("must_change_password")))
+                    rs.getBoolean("must_change_password"),
+                    StaffAreas.isSharedScreen(rs.getString("role"), rs.getBoolean("shared_screen"))))
                 .optional()
                 .orElse(null);
 
@@ -51,8 +52,11 @@ class ActiveUserFilter extends OncePerRequestFilter {
             boolean sessionPending = auth.getAuthorities().stream()
                 .anyMatch(g -> StaffAreas.PASSWORD_CHANGE_REQUIRED.equals(g.getAuthority()));
             boolean passwordReset = row != null && row.mustChangePassword() && !sessionPending;
+            // Quản lý đổi tài khoản giữa "màn hình chung" và "tài khoản riêng" → quyền trong phiên đã cũ, đăng nhập lại.
+            boolean kindChanged = row != null && !sessionPending && row.shared() != StaffAreas.sessionShared(auth.getAuthorities());
 
-            if (row == null || row.deleted() || !"active".equals(row.status()) || !row.role().equals(user.role()) || passwordReset) {
+            if (row == null || row.deleted() || !"active".equals(row.status()) || !row.role().equals(user.role()) || passwordReset
+                || kindChanged) {
                 SecurityContextHolder.clearContext();
                 var session = req.getSession(false);
                 if (session != null) session.invalidate();

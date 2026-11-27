@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AlertTriangle, ArrowLeft, Lock, Pencil, Printer, RefreshCw } from 'lucide-react';
-import { CashierShell } from '@/features/ordering/CashierShell';
+import { PORTAL_PATHS, StaffPortalShell } from '@/features/self/StaffPortalShell';
 import { Card } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
@@ -66,10 +66,10 @@ export default function PayrollDetailPage() {
   const p = d?.period;
   const draft = p?.status === 'draft';
   return (
-    <CashierShell>
+    <StaffPortalShell wide>
       <div className="min-w-0 space-y-4">
         {q.isError ? (
-          <BlockError message="Không tìm thấy kỳ lương" onRetry={() => navigate('/thu-ngan/bang-luong')} />
+          <BlockError message="Không tìm thấy kỳ lương" onRetry={() => navigate(PORTAL_PATHS.payroll)} />
         ) : !d || !p ? (
           <Skeleton className="h-72" />
         ) : (
@@ -79,7 +79,7 @@ export default function PayrollDetailPage() {
               description={`${dmy(p.startDate)} – ${dmy(p.endDate)} · ${p.status === 'closed' ? `đã chốt bởi ${p.closedBy ?? ''} lúc ${p.closedAt ? formatDateTime(p.closedAt) : ''}` : 'nháp — chưa chốt'}`}
               actions={
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate('/thu-ngan/bang-luong')}>Danh sách kỳ</Button>
+                  <Button variant="ghost" size="sm" leadingIcon={<ArrowLeft size={15} />} onClick={() => navigate(PORTAL_PATHS.payroll)}>Danh sách kỳ</Button>
                   <Button variant="outline" size="sm" leadingIcon={<Printer size={15} />} onClick={() => printPayroll(d)}>In bảng lương</Button>
                   {draft ? (
                     <>
@@ -158,7 +158,7 @@ export default function PayrollDetailPage() {
           </>
         )}
       </div>
-    </CashierShell>
+    </StaffPortalShell>
   );
 }
 

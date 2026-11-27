@@ -24,14 +24,14 @@ public class AuthService {
 
     /** Thông tin trả cho frontend sau khi đăng nhập và ở GET /api/auth/me. */
     public record Me(String id, String username, String fullName, String email, String role, String roleLabel,
-                     boolean mustChangePassword, String home) {}
+                     boolean mustChangePassword, String home, boolean sharedScreen) {}
 
     record Account(long id, String username, String passwordHash, String fullName, String email, String status,
-                   String role, String roleName, boolean mustChangePassword) {}
+                   String role, String roleName, boolean mustChangePassword, boolean sharedScreen) {}
 
     private static final String SELECT_ACCOUNT = """
         SELECT u.id, u.username, u.password_hash, u.full_name, u.email, u.status, u.must_change_password,
-               r.code AS role, r.name AS role_name
+               u.shared_screen, r.code AS role, r.name AS role_name
         FROM users u JOIN roles r ON r.id = u.role_id
         WHERE u.deleted_at IS NULL AND
         """;
@@ -62,12 +62,13 @@ public class AuthService {
     private Account map(java.sql.ResultSet rs, int n) throws java.sql.SQLException {
         return new Account(rs.getLong("id"), rs.getString("username"), rs.getString("password_hash"),
             rs.getString("full_name"), rs.getString("email"), rs.getString("status"), rs.getString("role"),
-            rs.getString("role_name"), rs.getBoolean("must_change_password"));
+            rs.getString("role_name"), rs.getBoolean("must_change_password"),
+            StaffAreas.isSharedScreen(rs.getString("role"), rs.getBoolean("shared_screen")));
     }
 
     Me toMe(Account a) {
         return new Me(Ids.str(a.id()), a.username(), a.fullName(), a.email(), a.role(), a.roleName(),
-            a.mustChangePassword(), StaffAreas.home(a.role()));
+            a.mustChangePassword(), StaffAreas.home(a.role(), a.sharedScreen()), a.sharedScreen());
     }
 
     /**

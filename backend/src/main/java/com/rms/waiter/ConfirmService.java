@@ -176,7 +176,7 @@ public class ConfirmService {
         return core.order(orderId);
     }
 
-    /** Mỗi 30 giây: đơn chờ xác nhận quá N phút (chưa nhắc) → báo mọi phục vụ đang trong ca (không ai có ca → mọi phục vụ), đánh dấu đã nhắc. */
+    /** Mỗi 30 giây: đơn chờ xác nhận quá N phút (chưa nhắc) → báo mọi phục vụ đã vào ca (chưa ai vào ca → quầy thu ngân), đánh dấu đã nhắc. */
     @Scheduled(fixedDelay = 30_000, initialDelay = 20_000)
     @Transactional
     public void remindOverdue() {
@@ -184,12 +184,16 @@ public class ConfirmService {
         List<Row> late = rows(" AND oi.confirm_reminded_at IS NULL AND oi.created_at < ?", now.minusMinutes(remindMinutes()));
         if (late.isEmpty()) return;
         List<Long> waiters = duty.waitersOnDuty(now).stream().map(DutyService.Duty::userId).distinct().toList();
-        if (waiters.isEmpty()) waiters = duty.allWaiters();
         Map<Long, Row> byOrder = new LinkedHashMap<>();
         late.forEach(r -> byOrder.putIfAbsent(r.orderId(), r));
         for (Row r : byOrder.values()) {
             String title = "Bàn " + r.tableCode() + " (" + r.areaName() + ") chờ xác nhận quá " + remindMinutes() + " phút";
             for (long w : waiters) notifications.sendToUser("service_request", title, "Khách đang chờ — xác nhận để chuyển bếp", "orders", r.orderId(), w);
+            // Chưa phục vụ nào vào ca → báo quầy thu ngân.
+            if (waiters.isEmpty()) {
+                notifications.sendToRoles("service_request", title, "Chưa có phục vụ nào vào ca để xác nhận đơn", "orders", r.orderId(),
+                    List.of("cashier"));
+            }
         }
         jdbc.sql("UPDATE order_items SET confirm_reminded_at = ? WHERE status = 'unconfirmed' AND confirm_reminded_at IS NULL AND created_at < ?")
             .params(now, now.minusMinutes(remindMinutes())).update();

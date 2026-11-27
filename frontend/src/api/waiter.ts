@@ -12,8 +12,9 @@ const enc = encodeURIComponent;
 
 /**
  * floor: sơ đồ (không có doanh thu); myAreaIds: khu của ca đang làm; dutyLabel: "Ca sáng 06:00–14:00 · Tầng 1".
- * onShift: giờ này có ca theo lịch phân công (D15: không còn khóa theo chấm công). dutyLabel: ca đang diễn ra;
- * nextLabel: ca kế tiếp khi đang ngoài ca. confirmCount: số bàn có món chờ mình xác nhận.
+ * onShift: giờ này có ca theo lịch phân công. clockedIn: đã chấm công vào ca, chưa tan ca — chưa vào ca thì chỉ xem,
+ * không nhận thông báo (27/11/2026). dutyLabel: ca đang diễn ra; nextLabel: ca kế tiếp khi đang ngoài ca.
+ * confirmCount: số bàn có món chờ mình xác nhận.
  */
 export interface WaiterFloor {
   floor: CashierFloor;
@@ -22,6 +23,7 @@ export interface WaiterFloor {
   onShift: boolean;
   nextLabel: string | null;
   confirmCount: number;
+  clockedIn: boolean;
 }
 
 /** Một bàn có món khách gửi đang chờ xác nhận (gộp mọi lượt chưa xác nhận). overdue = chờ quá N phút. */

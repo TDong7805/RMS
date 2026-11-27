@@ -14,7 +14,7 @@ async function login(user) {
   const call = (method) => (path, body) => fetch(BASE + path, { method, headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: body === undefined ? undefined : JSON.stringify(body) }).then(j);
   return { get: call('GET'), post: call('POST'), put: call('PUT') };
 }
-const tn = await login('linh.tran');
+const tn = await login('khu.thu.ngan');
 const ql = await login('tuan.nguyen');
 const table = (code) => ({ id: sql(`SELECT id FROM dining_tables WHERE code='${code}'`), token: sql(`SELECT qr_token FROM dining_tables WHERE code='${code}'`) });
 

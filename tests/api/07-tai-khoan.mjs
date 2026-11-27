@@ -53,11 +53,16 @@ try {
   r = await m('POST', '/api/accounts', { username: 'test.phucvu', fullName: 'Thử Phục Vụ', email: 'test.phucvu@example.com', phone: '', role: 'waiter', password: 'KhoiTao123' });
   ok('Tạo phục vụ có mật khẩu', r.status === 200 && r.data.role === 'waiter', JSON.stringify(r.data?.fields ?? ''));
   const waiterId = r.data.id;
+  // Màn hình chung (V30): chỉ thu ngân / bếp; vai trò khác bỏ qua cờ.
+  r = await m('POST', '/api/accounts', { username: 'test.quay2', fullName: 'Quầy 2', email: 'test.quay2@example.com', phone: '', role: 'cashier', password: 'KhoiTao123', sharedScreen: true });
+  ok('Tạo tài khoản màn hình chung thu ngân', r.status === 200 && r.data.sharedScreen === true, JSON.stringify(r.data));
+  r = await m('POST', '/api/accounts', { username: 'test.kho2', fullName: 'Kho 2', email: 'test.kho2@example.com', phone: '', role: 'warehouse', password: 'KhoiTao123', sharedScreen: true });
+  ok('Vai trò kho không làm màn hình chung được (cờ bị bỏ qua)', r.status === 200 && r.data.sharedScreen === false, JSON.stringify(r.data));
 
   // ---- Người mới đăng nhập → phải đổi mật khẩu
   const u = client();
   r = await u('POST', '/api/auth/login', { username: 'test.thungan', password: 'KhoiTao123' });
-  ok('Tài khoản mới đăng nhập được, mustChangePassword', r.status === 200 && r.data.mustChangePassword === true && r.data.home === '/thu-ngan');
+  ok('Tài khoản mới đăng nhập được, mustChangePassword (thu ngân riêng → /nhan-vien)', r.status === 200 && r.data.mustChangePassword === true && r.data.home === '/nhan-vien');
   r = await u('POST', '/api/auth/change-password', { currentPassword: 'KhoiTao123', newPassword: 'CuaToi2026', confirmPassword: 'CuaToi2026' });
   ok('Người dùng tự đổi mật khẩu', r.status === 200 && r.data.mustChangePassword === false);
   r = await u('GET', '/api/accounts');

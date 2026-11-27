@@ -94,11 +94,11 @@ public class AuthController {
 
     private void signIn(AuthService.Account account, HttpServletRequest req, HttpServletResponse res) {
         var principal = new AuthUser(account.id(), account.username(), account.fullName(), account.role());
-        var authority = account.mustChangePassword()
-            ? StaffAreas.PASSWORD_CHANGE_REQUIRED
-            : StaffAreas.authority(account.role());
+        List<String> authorities = account.mustChangePassword()
+            ? List.of(StaffAreas.PASSWORD_CHANGE_REQUIRED)
+            : StaffAreas.authorities(account.role(), account.sharedScreen());
         var token = UsernamePasswordAuthenticationToken.authenticated(principal, null,
-            List.of(new SimpleGrantedAuthority(authority)));
+            authorities.stream().map(SimpleGrantedAuthority::new).toList());
         var context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(token);
         SecurityContextHolder.setContext(context);

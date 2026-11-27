@@ -257,6 +257,8 @@ export interface Account {
   mustChangePassword: boolean;
   createdAt: string;
   lastLoginAt: string | null;
+  /** Tài khoản màn hình chung ở quầy / bếp (chỉ thu ngân, bếp) — không chấm công, không vào lịch ca / bảng lương. */
+  sharedScreen: boolean;
 }
 
 export interface AccountFilter {
@@ -275,6 +277,8 @@ export interface AccountInput {
   role: RoleKey | '';
   /** Chỉ dùng khi tạo mới (mọi vai trò đều đăng nhập được từ V20). */
   password?: string;
+  /** Màn hình chung (chỉ thu ngân / bếp). */
+  sharedScreen?: boolean;
 }
 
 /* ============================== Ca làm việc ============================== */

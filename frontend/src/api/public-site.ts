@@ -26,3 +26,25 @@ export const getSiteAssistant = () => api.get<SiteAssistantIntro>('/api/public/s
 
 /** 409 khi chatbot đang tắt trên website. */
 export const askSiteAssistant = (q: SiteAssistantQuestion) => api.post<SiteAssistantReply>('/api/public/site/assistant', q);
+
+/* Tin tức & Ưu đãi — chỉ bài đã xuất bản ở Quản lý bài viết. */
+
+export type PublicPostCategory = 'news' | 'promotion' | 'event';
+
+export interface PublicPost {
+  title: string;
+  slug: string;
+  summary: string;
+  /** Chỉ có khi xem một bài (danh sách không kèm nội dung). Văn bản thuần, giữ xuống dòng. */
+  content: string | null;
+  coverImage: string | null;
+  category: PublicPostCategory;
+  publishedAt: string | null;
+}
+
+export const POST_CATEGORY_LABEL: Record<PublicPostCategory, string> = { news: 'Tin tức', promotion: 'Ưu đãi', event: 'Sự kiện' };
+
+export const getPublicPosts = (category = '', limit = 12) => api.get<PublicPost[]>('/api/public/posts', { category, limit });
+
+/** 404 khi bài nháp / đã ẩn / không có. */
+export const getPublicPost = (slug: string) => api.get<PublicPost>(`/api/public/posts/${encodeURIComponent(slug)}`);

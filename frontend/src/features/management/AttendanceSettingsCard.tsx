@@ -22,6 +22,7 @@ export function AttendanceSettingsCard() {
     allowedNetworks: x.allowedNetworks,
     earlyMinutes: String(x.earlyMinutes),
     faceThreshold: String(x.faceThreshold).replace('.', ','),
+    faceThresholdCounter: String(x.faceThresholdCounter).replace('.', ','),
     photoRetentionDays: String(x.photoRetentionDays),
   }));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -32,6 +33,7 @@ export function AttendanceSettingsCard() {
         allowedNetworks: f.allowedNetworks,
         earlyMinutes: Number(f.earlyMinutes),
         faceThreshold: Number(f.faceThreshold.replace(',', '.')),
+        faceThresholdCounter: Number(f.faceThresholdCounter.replace(',', '.')),
         photoRetentionDays: Number(f.photoRetentionDays),
       });
     },
@@ -80,12 +82,20 @@ export function AttendanceSettingsCard() {
           </UnitInput>
         </SettingRow>
         <SettingRow
-          label="Độ chặt khi so khuôn mặt"
+          label="Độ chặt khi so khuôn mặt – phục vụ"
           description="Số càng nhỏ càng chặt: 0,3 rất chặt – 0,7 dễ. Nên để 0,4."
           htmlFor="att-th"
           error={errors.faceThreshold}
         >
           <TextInput id="att-th" inputMode="decimal" value={f.faceThreshold} invalid={Boolean(errors.faceThreshold)} onChange={(e) => set('faceThreshold', e.target.value)} className="w-[96px]" />
+        </SettingRow>
+        <SettingRow
+          label="Độ chặt khi so khuôn mặt – thu ngân, bếp"
+          description="Chặt hơn phục vụ: 0,2 rất chặt (người thật cũng hay bị từ chối) – 0,6 dễ. Nên để 0,3. Ảnh / video trên điện thoại bị chặn ở bước nhắm mắt + quay đầu theo lệnh ngẫu nhiên, không phải ở ngưỡng này."
+          htmlFor="att-thc"
+          error={errors.faceThresholdCounter}
+        >
+          <TextInput id="att-thc" inputMode="decimal" value={f.faceThresholdCounter} invalid={Boolean(errors.faceThresholdCounter)} onChange={(e) => set('faceThresholdCounter', e.target.value)} className="w-[96px]" />
         </SettingRow>
         <SettingRow label="Giữ ảnh chấm công" description="Ảnh cũ hơn số ngày này tự xóa; giờ chấm công vẫn giữ (7–365)." htmlFor="att-days" error={errors.photoRetentionDays}>
           <UnitInput unit="ngày">

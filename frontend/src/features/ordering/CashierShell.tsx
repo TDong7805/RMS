@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, ClipboardCheck, ClipboardList, KeyRound, LayoutGrid, LogOut, Menu, Receipt, Users, Wallet, Wifi, WifiOff, X } from 'lucide-react';
+import { Bell, ClipboardList, KeyRound, LayoutGrid, LogOut, Menu, Receipt, Wallet, Wifi, WifiOff, X } from 'lucide-react';
 import { CASHIER_STREAM, getCashierFloor } from '@/api/ordering';
 import { NotificationMenu } from '@/components/layout/NotificationMenu';
 import { ConfirmDialog } from '@/components/common/Modal';
@@ -11,8 +11,10 @@ import { cn } from '@/lib/cn';
 
 /*
  * Khung Thu ngân (D16, 26/11/2026): màn POS làm được hết việc chính trên một màn; thanh trên chỉ còn ☰ · giờ · kết nối · chuông.
- * Menu ☰ chứa mọi trang phụ (Đơn hàng, Yêu cầu thanh toán, Hóa đơn, Chấm công, Bảng lương, Thông báo, Đổi mật khẩu,
- * Đăng xuất có hỏi lại) để không bấm nhầm. Trang phụ có nút lớn "Về quầy thu ngân". Không còn chấm công cá nhân / khóa "chưa vào ca".
+ * Menu ☰ chứa mọi trang phụ (Đơn hàng, Yêu cầu thanh toán, Hóa đơn, Thông báo, Đổi mật khẩu, Đăng xuất có hỏi lại) để
+ * không bấm nhầm. Trang phụ có nút lớn "Về quầy thu ngân".
+ * 27/11/2026: màn này chỉ mở bằng tài khoản MÀN HÌNH CHUNG (khu.thu.ngan). Chấm công nhân viên, Bảng lương chuyển sang
+ * Cổng nhân viên của tài khoản riêng thu ngân (/nhan-vien/van-phong/…) — không mở bảng lương trên máy quầy dùng chung.
  */
 
 export const CASHIER_FLOOR_KEY = ['thu-ngan', 'floor'] as const;
@@ -120,9 +122,6 @@ function CashierMenu({ counts, onClose, onLogout }: { counts: { requests: number
           {item('/thu-ngan/yeu-cau', 'Yêu cầu thanh toán', Bell, counts.requests)}
           {item('/thu-ngan/hoa-don', 'Hóa đơn', Wallet, counts.unpaid)}
           {item('/thu-ngan/don-hang', 'Đơn hàng', ClipboardList)}
-          <p className="px-3 pb-1 pt-3 text-[11.5px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Văn phòng</p>
-          {item('/thu-ngan/cham-cong', 'Chấm công', ClipboardCheck)}
-          {item('/thu-ngan/bang-luong', 'Bảng lương', Users)}
           {item('/thu-ngan/thong-bao', 'Thông báo', Receipt)}
           {item('/doi-mat-khau', 'Đổi mật khẩu', KeyRound)}
         </div>

@@ -122,6 +122,28 @@ await m('DELETE', `/api/accounts/${author.id}`);
 ok('Tác giả bị xóa tài khoản → bài vẫn còn, giữ tên tác giả', (await m('GET', `/api/posts/${other.id}`)).data.author === 'Thử Tác Giả');
 await m('DELETE', `/api/posts/${other.id}`);
 
+// ---------------------------------------------------------------- Website khách: Tin tức & Ưu đãi (chỉ bài đã xuất bản)
+{
+  const anon = client();
+  const pub = await m('POST', '/api/posts', { title: 'Ưu đãi thử website', summary: 'Giảm 20% cuối tuần', content: 'Giảm 20% cho mọi món bò Úc vào cuối tuần.\nÁp dụng tại nhà hàng.', category: 'promotion', status: 'published' });
+  const draft = await m('POST', '/api/posts', { title: 'Bản nháp thử website', summary: '', content: 'Nội dung nháp chưa được đăng lên website.', category: 'news', status: 'draft' });
+  ok('Tạo 1 bài xuất bản + 1 bài nháp', pub.status === 200 && draft.status === 200, JSON.stringify([pub.data, draft.data]).slice(0, 200));
+  let w = await anon('GET', '/api/public/posts');
+  ok('Website (không đăng nhập): có bài đã xuất bản, không có bài nháp', w.status === 200 && w.data.some((p) => p.slug === pub.data.slug) && !w.data.some((p) => p.slug === draft.data.slug), JSON.stringify(w.data).slice(0, 200));
+  const item = w.data.find((p) => p.slug === pub.data.slug);
+  ok('Danh sách không kèm nội dung, không lộ trạng thái / tác giả', item && item.content === null && !('status' in item) && !('author' in item) && item.category === 'promotion' && item.publishedAt, JSON.stringify(item));
+  w = await anon('GET', '/api/public/posts?category=news');
+  ok('Lọc chuyên mục: news không có bài ưu đãi', w.status === 200 && !w.data.some((p) => p.slug === pub.data.slug));
+  w = await anon('GET', `/api/public/posts/${pub.data.slug}`);
+  ok('Xem một bài: có nội dung (giữ xuống dòng)', w.status === 200 && w.data.content.includes('\n') && w.data.title === 'Ưu đãi thử website', JSON.stringify(w.data).slice(0, 200));
+  ok('Xem bài nháp qua link → 404', (await anon('GET', `/api/public/posts/${draft.data.slug}`)).status === 404);
+  await m('PATCH', `/api/posts/${pub.data.id}/status`, { status: 'hidden' });
+  ok('Quản lý ẩn bài → website không còn, link cũ 404', !(await anon('GET', '/api/public/posts')).data.some((p) => p.slug === pub.data.slug)
+    && (await anon('GET', `/api/public/posts/${pub.data.slug}`)).status === 404);
+  await m('DELETE', `/api/posts/${pub.data.id}`);
+  await m('DELETE', `/api/posts/${draft.data.id}`);
+}
+
 // ---------------------------------------------------------------- Phân quyền, nhật ký
 const cashier = client();
 await cashier('POST', '/api/auth/login', { username: 'linh.tran', password: 'Rms@2026' });

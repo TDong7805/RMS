@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Camera, ClipboardCheck, FileSpreadsheet, Lock, Pencil, Plus, Trash2 } from 'lucide-react';
-import { CashierShell } from '@/features/ordering/CashierShell';
+import { StaffPortalShell } from '@/features/self/StaffPortalShell';
 import { Card, CardHeader } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
@@ -62,7 +62,7 @@ export default function AttendancePage() {
 
   const d = list.data;
   return (
-    <CashierShell>
+    <StaffPortalShell wide>
       <div className="min-w-0 space-y-4">
         <PageHeader
           title="Chấm công"
@@ -201,7 +201,7 @@ export default function AttendancePage() {
         loading={del.isPending}
         onConfirm={() => deleting && del.mutate(deleting)}
       />
-    </CashierShell>
+    </StaffPortalShell>
   );
 }
 

@@ -29,13 +29,14 @@ import org.springframework.web.bind.annotation.RestController;
  * DELETE /api/faces/{id}                                   yêu cầu đăng ký lại (xóa khuôn mặt)
  * GET    /api/attendance/{id}/photo/{in|out}               ảnh chấm công (quản lý)
  * GET    /api/thu-ngan/attendance/{id}/photo/{in|out}      ảnh chấm công (thu ngân — trang Chấm công)
- * GET    /api/settings/attendance                          {allowedNetworks, earlyMinutes, faceThreshold, photoRetentionDays, currentIp}
- * PUT    /api/settings/attendance                          {allowedNetworks, earlyMinutes, faceThreshold, photoRetentionDays}
+ * GET    /api/settings/attendance                          {allowedNetworks, earlyMinutes, faceThreshold, faceThresholdCounter, photoRetentionDays, currentIp}
+ * PUT    /api/settings/attendance                          {allowedNetworks, earlyMinutes, faceThreshold, faceThresholdCounter, photoRetentionDays}
  */
 @RestController
 public class AttendanceAdminController {
-    public record AttendanceSettings(String allowedNetworks, Integer earlyMinutes, Double faceThreshold, Integer photoRetentionDays,
-                                     String currentIp) {}
+    /** faceThreshold: phục vụ; faceThresholdCounter: thu ngân / bếp (V30, chặt hơn). */
+    public record AttendanceSettings(String allowedNetworks, Integer earlyMinutes, Double faceThreshold, Double faceThresholdCounter,
+                                     Integer photoRetentionDays, String currentIp) {}
 
     private final FaceService faces;
     private final ClockService clock;
@@ -90,7 +91,7 @@ public class AttendanceAdminController {
 
     private AttendanceSettings read(HttpServletRequest req) {
         return new AttendanceSettings(settings.string(ClockService.NETWORKS_KEY, ""), settings.integer(DutyService.EARLY_KEY, 30),
-            clock.threshold(), settings.integer(ClockService.RETENTION_KEY, 90), SelfController.clientIp(req));
+            clock.threshold(), clock.counterThreshold(), settings.integer(ClockService.RETENTION_KEY, 90), SelfController.clientIp(req));
     }
 
     @GetMapping("/api/settings/attendance")
@@ -114,6 +115,8 @@ public class AttendanceAdminController {
         if (early == null || early < 0 || early > 180) v.add("earlyMinutes", "Từ 0 đến 180 phút");
         Double th = in.faceThreshold();
         if (th == null || th < 0.3 || th > 0.7) v.add("faceThreshold", "Từ 0,3 (chặt) đến 0,7 (dễ)");
+        Double thc = in.faceThresholdCounter() == null ? clock.counterThreshold() : in.faceThresholdCounter();
+        if (thc < 0.2 || thc > 0.6) v.add("faceThresholdCounter", "Từ 0,2 (rất chặt) đến 0,6 (dễ)");
         Integer days = in.photoRetentionDays();
         if (days == null || days < 7 || days > 365) v.add("photoRetentionDays", "Từ 7 đến 365 ngày");
         v.throwIfAny();
@@ -122,10 +125,11 @@ public class AttendanceAdminController {
         settings.put(ClockService.NETWORKS_KEY, normalized, "string", me);
         settings.put(DutyService.EARLY_KEY, String.valueOf(early), "number", me);
         settings.put(ClockService.THRESHOLD_KEY, String.format(Locale.ROOT, "%.2f", th), "number", me);
+        settings.put(ClockService.COUNTER_THRESHOLD_KEY, String.format(Locale.ROOT, "%.2f", thc), "number", me);
         settings.put(ClockService.RETENTION_KEY, String.valueOf(days), "number", me);
         audit.log("settings", "Cập nhật chấm công khuôn mặt",
-            (normalized.isEmpty() ? "Không kiểm tra WiFi" : "WiFi quán: " + normalized) + " · vào sớm " + early + " phút · ngưỡng "
-                + String.format(Locale.ROOT, "%.2f", th) + " · giữ ảnh " + days + " ngày");
+            (normalized.isEmpty() ? "Không kiểm tra WiFi" : "WiFi quán: " + normalized) + " · vào sớm " + early + " phút · ngưỡng phục vụ "
+                + String.format(Locale.ROOT, "%.2f", th) + " · ngưỡng thu ngân / bếp " + String.format(Locale.ROOT, "%.2f", thc) + " · giữ ảnh " + days + " ngày");
         return read(req);
     }
 }

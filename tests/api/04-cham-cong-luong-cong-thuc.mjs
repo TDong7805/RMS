@@ -19,7 +19,7 @@ async function login(user) {
 const isXlsx = (buf) => buf instanceof ArrayBuffer && new Uint8Array(buf)[0] === 0x50 && new Uint8Array(buf)[1] === 0x4b;
 
 const tn = await login('linh.tran');
-const bep = await login('hung.pham');
+const bep = await login('khu.bep');
 const ql = await login('tuan.nguyen');
 
 /* ---------------- Dữ liệu mẫu */

@@ -18,7 +18,7 @@ function client() {
 }
 const m = client(), tn = client();
 await m('POST', '/api/auth/login', { username: 'tuan.nguyen', password: 'Rms@2026' });
-await tn('POST', '/api/auth/login', { username: 'linh.tran', password: 'Rms@2026' });
+await tn('POST', '/api/auth/login', { username: 'khu.thu.ngan', password: 'Rms@2026' });
 
 // Dọn lần chạy trước
 sql(`DELETE t FROM dining_tables t JOIN areas a ON a.id=t.area_id JOIN floors f ON f.id=a.floor_id WHERE f.name LIKE 'Tầng KT%'`);

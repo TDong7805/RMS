@@ -28,9 +28,9 @@ function crc16(s) {
   return crc.toString(16).toUpperCase().padStart(4, '0');
 }
 
-const tn = await login('linh.tran');
+const tn = await login('khu.thu.ngan');
 const waiter = await login('nam.hoang');
-const bep = await login('hung.pham');
+const bep = await login('khu.bep');
 const ql = await login('tuan.nguyen');
 
 /* ---------------- Khách: gọi nhân viên */

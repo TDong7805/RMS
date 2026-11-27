@@ -18,7 +18,7 @@ import { ROLES, ROLE_KEYS } from '@/lib/labels';
 import type { AccountInput, RoleKey } from '@/types';
 
 // Vai trò để trống: bắt quản lý chọn rõ ràng (UC "Phân vai trò" là bắt buộc).
-const EMPTY: AccountInput = { username: '', fullName: '', email: '', phone: '', role: '', password: '' };
+const EMPTY: AccountInput = { username: '', fullName: '', email: '', phone: '', role: '', password: '', sharedScreen: false };
 
 /** 8 chữ + 2 số, bỏ ký tự dễ nhầm (0/O, 1/l/I); dùng crypto thay Math.random để khó đoán. */
 function randomPassword(): string {
@@ -51,7 +51,7 @@ export function AccountFormPage() {
 
   useEffect(() => {
     const a = accountQuery.data;
-    if (a && a.id === id) setForm({ username: a.username, fullName: a.fullName, email: a.email, phone: a.phone, role: a.role });
+    if (a && a.id === id) setForm({ username: a.username, fullName: a.fullName, email: a.email, phone: a.phone, role: a.role, sharedScreen: a.sharedScreen });
   }, [accountQuery.data, id]);
 
   const mutation = useApiMutation((input: AccountInput) => (id ? updateAccount(id, input) : createAccount(input)), {
@@ -181,6 +181,32 @@ export function AccountFormPage() {
                 })}
               </div>
               {isSelf ? <p className="mt-2 text-[12px] text-[var(--text-muted)]">Bạn không thể tự thay đổi vai trò của chính mình.</p> : null}
+              {form.role === 'cashier' || form.role === 'kitchen' ? (
+                <div className="mt-4 rounded-item border border-[var(--border)] p-3">
+                  <p className="text-[13px] font-semibold">Loại tài khoản</p>
+                  <div role="radiogroup" aria-label="Loại tài khoản" className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {([
+                      [false, 'Tài khoản riêng', 'Của một nhân viên: chấm công khuôn mặt, ca làm, phiếu lương' + (form.role === 'cashier' ? ', chấm công nhân viên và bảng lương' : '') + '. Không mở được màn làm việc.'],
+                      [true, 'Màn hình chung', form.role === 'cashier' ? 'Máy ở quầy (vd. khu.thu.ngan): chỉ màn thu ngân. Không chấm công, không vào lịch ca / bảng lương.' : 'Màn hình ở bếp (vd. khu.bep): chỉ màn bếp. Không chấm công, không vào lịch ca / bảng lương.'],
+                    ] as const).map(([value, label, desc]) => {
+                      const selected = Boolean(form.sharedScreen) === value;
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => set('sharedScreen', value)}
+                          className={cn('rounded-item border px-3 py-2.5 text-left', selected ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--border)] hover:border-[var(--accent)]/60')}
+                        >
+                          <span className="block text-[13.5px] font-semibold">{label}</span>
+                          <span className="block text-[12px] text-[var(--text-muted)]">{desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               {becomesLoginRole ? (
                 <p className="mt-2 rounded-item bg-[var(--warning-soft)] px-3 py-2 text-[12.5px] text-[var(--text-primary)]">
                   Nhân viên phục vụ chưa có mật khẩu đăng nhập. Sau khi lưu, chọn <b>Đặt lại mật khẩu</b> ở danh sách để cấp mật khẩu.

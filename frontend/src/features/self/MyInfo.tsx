@@ -49,7 +49,7 @@ import { cn } from '@/lib/cn';
 
 /*
  * "Thông tin của tôi" — Nhân viên phục vụ, Thu ngân, Nhân viên bếp: chấm công bằng khuôn mặt, ca làm, lịch sử chấm công
- * (kèm ảnh), phiếu lương (kỳ đã chốt), hồ sơ. Hiện chưa trang nào dùng (26/11/2026 gỡ khỏi thu ngân / bếp / phục vụ) — giữ lại để dựng Cổng nhân viên /nhan-vien.
+ * (kèm ảnh), phiếu lương (kỳ đã chốt), hồ sơ. Dùng ở Cổng nhân viên /nhan-vien (tài khoản riêng thu ngân / bếp) và /phuc-vu/toi.
  */
 
 type Tab = 'clock' | 'shifts' | 'history' | 'payslips' | 'profile';
@@ -101,6 +101,8 @@ function ClockTab() {
   const done = (s: ClockStatus, msg: string) => {
     qc.setQueryData(SELF_KEYS.clock, s);
     void qc.invalidateQueries({ queryKey: SELF_KEYS.all });
+    // Phục vụ: sơ đồ trả clockedIn — cập nhật ngay dải "Chưa vào ca".
+    void qc.invalidateQueries({ queryKey: ['phuc-vu'] });
     setCamera(null);
     toast.success(msg);
   };

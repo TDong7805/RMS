@@ -54,14 +54,43 @@ ok('Nhật ký ghi "Đăng nhập" đúng người', r.status === 200 && r.data.
 
 const cashier = client();
 r = await cashier.req('POST', '/api/auth/login', { username: 'linh.tran', password: PW, remember: true });
-ok('Thu ngân đăng nhập → home /thu-ngan', r.status === 200 && r.data.home === '/thu-ngan');
+ok('Thu ngân (tài khoản riêng) đăng nhập → home /nhan-vien (Cổng nhân viên)', r.status === 200 && r.data.home === '/nhan-vien' && r.data.sharedScreen === false, JSON.stringify(r.data));
 ok('Ghi nhớ đăng nhập → cookie lâu dài (Max-Age ≥ 7 ngày)', r.setCookies.some((c) => Number(/Max-Age=(\d+)/.exec(c)?.[1] ?? 0) >= 604800), r.setCookies.join(' | ').slice(0, 200));
 r = await cashier.req('GET', '/api/tables');
 ok('Thu ngân gọi API quản lý → 403', r.status === 403, r.data?.message);
+ok('Thu ngân riêng: không mở màn quầy (POS) → 403', (await cashier.req('GET', '/api/thu-ngan/floor')).status === 403);
+ok('Thu ngân riêng: chấm công của mình, bảng lương, chấm công nhân viên → 200',
+  (await cashier.req('GET', '/api/toi/clock')).status === 200 && (await cashier.req('GET', '/api/thu-ngan/payroll')).status === 200
+  && (await cashier.req('GET', '/api/thu-ngan/attendance')).status === 200);
 r = await cashier.req('POST', '/api/auth/logout');
 ok('Đăng xuất → 204', r.status === 204);
 r = await cashier.req('GET', '/api/auth/me');
 ok('Sau đăng xuất /me → 401', r.status === 401);
+
+// Tài khoản MÀN HÌNH CHUNG (V30): khu.thu.ngan / khu.bep chỉ mở màn làm việc; không chấm công, không bảng lương.
+const quay = client();
+r = await quay.req('POST', '/api/auth/login', { username: 'khu.thu.ngan', password: PW });
+ok('Màn hình chung thu ngân → home /thu-ngan, sharedScreen', r.status === 200 && r.data.home === '/thu-ngan' && r.data.sharedScreen === true, JSON.stringify(r.data));
+ok('Màn hình chung thu ngân: mở POS → 200', (await quay.req('GET', '/api/thu-ngan/floor')).status === 200);
+ok('Màn hình chung thu ngân: không chấm công / bảng lương / chấm công NV → 403',
+  (await quay.req('GET', '/api/toi/clock')).status === 403 && (await quay.req('GET', '/api/thu-ngan/payroll')).status === 403
+  && (await quay.req('GET', '/api/thu-ngan/attendance')).status === 403 && (await quay.req('GET', '/api/thu-ngan/employees')).status === 403);
+const bepChung = client();
+r = await bepChung.req('POST', '/api/auth/login', { username: 'khu.bep', password: PW });
+ok('Màn hình chung bếp → home /bep; mở màn bếp → 200; không chấm công → 403', r.data?.home === '/bep'
+  && (await bepChung.req('GET', '/api/bep/queue')).status === 200 && (await bepChung.req('GET', '/api/toi/clock')).status === 403);
+const bepRieng = client();
+r = await bepRieng.req('POST', '/api/auth/login', { username: 'hung.pham', password: PW });
+ok('Bếp tài khoản riêng → home /nhan-vien; không mở màn bếp → 403; chấm công của mình → 200', r.data?.home === '/nhan-vien'
+  && (await bepRieng.req('GET', '/api/bep/queue')).status === 403 && (await bepRieng.req('GET', '/api/toi/clock')).status === 200);
+// Quản lý đổi loại tài khoản → phiên cũ hết hiệu lực ngay.
+sql("UPDATE users SET shared_screen = 1 WHERE username = 'hung.pham'; SELECT 1");
+r = await bepRieng.req('GET', '/api/toi/clock');
+ok('Đổi tài khoản riêng → màn hình chung: phiên cũ bị đăng xuất (401)', r.status === 401, r.data?.message);
+sql("UPDATE users SET shared_screen = 0 WHERE username = 'hung.pham'; SELECT 1");
+// Màn hình chung không vào lịch ca / danh sách chấm công / bảng lương.
+r = await mgr.req('GET', '/api/employees');
+ok('Lịch ca: không có tài khoản màn hình chung', r.status === 200 && !JSON.stringify(r.data).includes('Quầy thu ngân'), JSON.stringify(r.data).slice(0, 120));
 
 // Phiên cũ không dùng lại được sau khi đăng nhập (chống session fixation)
 const fx = client();

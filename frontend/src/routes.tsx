@@ -18,6 +18,8 @@ const SiteMenuPage = lazy(() => import('@/pages/khach/MenuPage'));
 const SiteFlipMenuPage = lazy(() => import('@/pages/khach/FlipMenuPage'));
 const SiteReservationPage = lazy(() => import('@/pages/khach/ReservationPage'));
 const SiteNotFoundPage = lazy(() => import('@/pages/khach/NotFoundPage'));
+const SiteNewsPage = lazy(() => import('@/pages/khach/NewsPage'));
+const SiteNewsDetailPage = lazy(() => import('@/pages/khach/NewsDetailPage'));
 import ReservationsPage from '@/pages/ReservationsPage';
 import ReservationFormPage from '@/pages/ReservationFormPage';
 import TablesPage from '@/pages/TablesPage';
@@ -68,12 +70,17 @@ import WaiterRequestsPage from '@/pages/phuc-vu/WaiterRequestsPage';
 import WaiterServePage from '@/pages/phuc-vu/WaiterServePage';
 import WaiterMenuPage from '@/pages/phuc-vu/WaiterMenuPage';
 import WaiterNotificationsPage from '@/pages/phuc-vu/WaiterNotificationsPage';
+import WaiterSelfPage from '@/pages/phuc-vu/WaiterSelfPage';
+import CashierNotificationsPage from '@/pages/thu-ngan/CashierNotificationsPage';
+import { PortalHomePage, PortalNotificationsPage } from '@/pages/nhan-vien/PortalPages';
+import { PORTAL_PATHS } from '@/features/self/StaffPortalShell';
 
 /**
  * Định tuyến theo vai trò (backend: com.rms.auth.StaffAreas):
  *  - /dang-nhap               ai cũng vào được
  *  - /doi-mat-khau            đã đăng nhập (kể cả khi bị buộc đổi mật khẩu)
- *  - /thu-ngan, /bep, /kho    khu vực Thu ngân / Bếp / Kho
+ *  - /thu-ngan, /bep, /kho    khu vực Thu ngân / Bếp / Kho (thu ngân, bếp: tài khoản màn hình chung)
+ *  - /nhan-vien               Cổng nhân viên — tài khoản riêng thu ngân / bếp (chấm công, phiếu lương…; thu ngân thêm văn phòng)
  *  - /phuc-vu                 khu vực Nhân viên phục vụ (giao diện điện thoại)
  *  - /quan-ly/...             Quản lý nhà hàng (MANAGER_HOME trong lib/paths.ts)
  *  - /, /thuc-don, /dat-ban   website khách hàng (công khai, PublicLayout); trang chủ dài một trang, /gioi-thieu,
@@ -98,17 +105,29 @@ export function AppRoutes() {
         <Route path="/doi-mat-khau" element={<ChangePasswordPage />} />
       </Route>
 
-      <Route element={<RequireAuth roles={['cashier']} />}>
+      {/* Quầy thu ngân — chỉ tài khoản MÀN HÌNH CHUNG (vd. khu.thu.ngan), V30 / 27/11/2026 */}
+      <Route element={<RequireAuth roles={['cashier']} kind="screen" />}>
         <Route path="/thu-ngan" element={<FloorPage />} />
         <Route path="/thu-ngan/don/:id" element={<CashierOrderPage />} />
-        <Route path="/thu-ngan/thong-bao" element={<NotificationsPage />} />
+        <Route path="/thu-ngan/thong-bao" element={<CashierNotificationsPage />} />
         <Route path="/thu-ngan/don-hang" element={<OrdersPage />} />
         <Route path="/thu-ngan/yeu-cau" element={<RequestsPage />} />
         <Route path="/thu-ngan/hoa-don" element={<InvoicesPage />} />
-        <Route path="/thu-ngan/cham-cong" element={<AttendancePage />} />
-        <Route path="/thu-ngan/bang-luong" element={<PayrollPage />} />
-        <Route path="/thu-ngan/bang-luong/:id" element={<PayrollDetailPage />} />
         <Route path="/thu-ngan/*" element={<PlaceholderPage title="Không tìm thấy trang" description="Đường dẫn không tồn tại trong khu Thu ngân." />} />
+      </Route>
+      {/* Đường cũ của Chấm công / Bảng lương → Cổng nhân viên (tài khoản riêng thu ngân) */}
+      <Route element={<RequireAuth roles={['cashier']} kind="self" />}>
+        <Route path="/thu-ngan/cham-cong" element={<Navigate to={PORTAL_PATHS.attendance} replace />} />
+        <Route path="/thu-ngan/bang-luong" element={<Navigate to={PORTAL_PATHS.payroll} replace />} />
+        <Route path="/nhan-vien/van-phong/cham-cong" element={<AttendancePage />} />
+        <Route path="/nhan-vien/van-phong/bang-luong" element={<PayrollPage />} />
+        <Route path="/nhan-vien/van-phong/bang-luong/:id" element={<PayrollDetailPage />} />
+      </Route>
+      {/* Cổng nhân viên — tài khoản RIÊNG của thu ngân / bếp: chấm công, ca, lịch sử, phiếu lương, hồ sơ */}
+      <Route element={<RequireAuth roles={['cashier', 'kitchen']} kind="self" />}>
+        <Route path="/nhan-vien" element={<PortalHomePage />} />
+        <Route path="/nhan-vien/thong-bao" element={<PortalNotificationsPage />} />
+        <Route path="/nhan-vien/*" element={<Navigate to="/nhan-vien" replace />} />
       </Route>
       <Route element={<RequireAuth roles={['waiter']} />}>
         {/* Nhân viên phục vụ — giao diện điện thoại, thanh tab dưới đáy (features/waiter/WaiterShell) */}
@@ -119,10 +138,11 @@ export function AppRoutes() {
         <Route path="/phuc-vu/thuc-don" element={<WaiterMenuPage />} />
         <Route path="/phuc-vu/goi-mon/:tableId" element={<WaiterMenuPage />} />
         <Route path="/phuc-vu/thong-bao" element={<WaiterNotificationsPage />} />
+        <Route path="/phuc-vu/toi" element={<WaiterSelfPage />} />
         <Route path="/phuc-vu/*" element={<Navigate to="/phuc-vu" replace />} />
       </Route>
-      <Route element={<RequireAuth roles={['kitchen']} />}>
-        {/* Màn hình bếp (KDS) — toàn màn hình, không dùng khung trang quản lý */}
+      <Route element={<RequireAuth roles={['kitchen']} kind="screen" />}>
+        {/* Màn hình bếp (KDS) — toàn màn hình; chỉ tài khoản MÀN HÌNH CHUNG (vd. khu.bep) */}
         <Route path="/bep" element={<KitchenDisplayPage />} />
         <Route path="/bep/nguyen-lieu" element={<StockCheckPage />} />
         <Route path="/bep/cong-thuc" element={<RecipesPage />} />
@@ -231,6 +251,9 @@ export function AppRoutes() {
         <Route path="/thuc-don" element={<Suspense fallback={null}><SiteFlipMenuPage /></Suspense>} />
         <Route path="/thuc-don/danh-sach" element={<Suspense fallback={null}><SiteMenuPage /></Suspense>} />
         <Route path="/dat-ban" element={<Suspense fallback={null}><SiteReservationPage /></Suspense>} />
+        {/* Tin tức & Ưu đãi: bài đã xuất bản ở Quản lý bài viết */}
+        <Route path="/tin-tuc" element={<Suspense fallback={null}><SiteNewsPage /></Suspense>} />
+        <Route path="/tin-tuc/:slug" element={<Suspense fallback={null}><SiteNewsDetailPage /></Suspense>} />
         <Route path="/album" element={<Navigate to="/#khong-gian" replace />} />
         <Route path="/lien-he" element={<Navigate to="/#lien-he" replace />} />
         <Route path="*" element={<Suspense fallback={null}><SiteNotFoundPage /></Suspense>} />

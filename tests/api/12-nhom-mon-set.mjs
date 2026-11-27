@@ -14,9 +14,9 @@ async function login(user) {
   const call = (method) => (path, body) => fetch(BASE + path, { method, headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: body === undefined ? undefined : JSON.stringify(body) }).then(j);
   return { get: call('GET'), post: call('POST'), put: call('PUT'), patch: call('PATCH'), del: call('DELETE') };
 }
-const tn = await login('linh.tran');
+const tn = await login('khu.thu.ngan');
 const ql = await login('tuan.nguyen');
-const bep = await login('hung.pham');
+const bep = await login('khu.bep');
 const table = (code) => ({ id: sql(`SELECT id FROM dining_tables WHERE code='${code}'`), token: sql(`SELECT qr_token FROM dining_tables WHERE code='${code}'`) });
 const dishId = (code) => sql(`SELECT id FROM dishes WHERE code='${code}'`);
 // Chuẩn bị: các bộ trước có thể đánh dấu "tạm hết" vài món (vd. bánh flan) → set chứa món đó bị ẩn. Bỏ đánh dấu trước khi thử.

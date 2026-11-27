@@ -69,11 +69,15 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").authenticated()
                 .requestMatchers("/uploads/cham-cong/**", "/uploads/khuon-mat/**").denyAll()
                 .requestMatchers("/api/notifications/**").hasAnyRole("MANAGER", "CASHIER", "KITCHEN", "WAREHOUSE", "WAITER")
-                .requestMatchers("/api/toi/**").hasAnyRole("WAITER", "CASHIER", "KITCHEN")
+                // Thu ngân / bếp (V30): tài khoản riêng chỉ Cổng nhân viên (+ việc văn phòng của thu ngân);
+                // màn hình chung (khu.thu.ngan, khu.bep) chỉ màn làm việc. Xem StaffAreas.authorities.
+                .requestMatchers("/api/toi/**").hasAnyAuthority("ROLE_WAITER", "CASHIER_SELF", "KITCHEN_SELF")
                 .requestMatchers("/api/phuc-vu/**").hasRole("WAITER")
                 .requestMatchers("/api/kho/**").hasRole("WAREHOUSE")
-                .requestMatchers("/api/bep/**").hasRole("KITCHEN")
-                .requestMatchers("/api/thu-ngan/**").hasRole("CASHIER")
+                .requestMatchers("/api/bep/**").hasAuthority("KITCHEN_SCREEN")
+                .requestMatchers("/api/thu-ngan/attendance/**", "/api/thu-ngan/payroll/**", "/api/thu-ngan/employees")
+                    .hasAuthority("CASHIER_SELF")
+                .requestMatchers("/api/thu-ngan/**").hasAuthority("CASHIER_SCREEN")
                 .requestMatchers("/api/**").hasRole("MANAGER")
                 .anyRequest().permitAll())
             .exceptionHandling(e -> e

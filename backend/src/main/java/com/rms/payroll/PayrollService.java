@@ -167,7 +167,7 @@ public class PayrollService {
                                  WHERE a.user_id = u.id AND a.check_out IS NOT NULL AND a.work_date BETWEEN ? AND ?), 0) AS minutes,
                        EXISTS (SELECT 1 FROM attendances a WHERE a.user_id = u.id AND a.work_date BETWEEN ? AND ?) AS has_att
                 FROM users u JOIN roles r ON r.id = u.role_id
-                WHERE u.deleted_at IS NULL
+                WHERE u.deleted_at IS NULL AND u.shared_screen = 0
                 """).params(from, to, from, to)
             .query((rs, n) -> {
                 boolean has = rs.getBoolean("has_att");
